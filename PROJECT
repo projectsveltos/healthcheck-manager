@@ -1,0 +1,12 @@
+domain: projectsveltos.io
+layout:
+- go.kubebuilder.io/v3
+projectName: healthcheck-manager
+repo: github.com/projectsveltos/healthcheck-manager
+resources:
+- controller: true
+  domain: projectsveltos.io
+  group: lib.projectsveltos.io
+  kind: ClusterHealthCheck
+  version: v1alpha1
+version: "3"

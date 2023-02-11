@@ -1,0 +1,185 @@
+/*
+Copyright 2023. projectsveltos.io. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controllers
+
+import (
+	"reflect"
+
+	"github.com/go-logr/logr"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+)
+
+// ClusterPredicates predicates for v1Cluster. ClusterHealthCheckReconciler watches v1Cluster events
+// and react to those by reconciling itself based on following predicates
+func ClusterPredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newCluster := e.ObjectNew.(*clusterv1.Cluster)
+			oldCluster := e.ObjectOld.(*clusterv1.Cluster)
+			log := logger.WithValues("predicate", "updateEvent",
+				"namespace", newCluster.Namespace,
+				"cluster", newCluster.Name,
+			)
+
+			if oldCluster == nil {
+				log.V(logs.LogVerbose).Info("Old Cluster is nil. Reconcile ClusterHealthCheck")
+				return true
+			}
+
+			// return true if Cluster.Spec.Paused has changed from true to false
+			if oldCluster.Spec.Paused && !newCluster.Spec.Paused {
+				log.V(logs.LogVerbose).Info(
+					"Cluster was unpaused. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			if !reflect.DeepEqual(oldCluster.Labels, newCluster.Labels) {
+				log.V(logs.LogVerbose).Info(
+					"Cluster labels changed. Will attempt to reconcile associated ClusterHealthChecks.",
+				)
+				return true
+			}
+
+			// otherwise, return false
+			log.V(logs.LogVerbose).Info(
+				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			cluster := e.Object.(*clusterv1.Cluster)
+			log := logger.WithValues("predicate", "createEvent",
+				"namespace", cluster.Namespace,
+				"cluster", cluster.Name,
+			)
+
+			// Only need to trigger a reconcile if the Cluster.Spec.Paused is false
+			if !cluster.Spec.Paused {
+				log.V(logs.LogVerbose).Info(
+					"Cluster is not paused.  Will attempt to reconcile associated ClusterHealthChecks.",
+				)
+				return true
+			}
+			log.V(logs.LogVerbose).Info(
+				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log := logger.WithValues("predicate", "deleteEvent",
+				"namespace", e.Object.GetNamespace(),
+				"cluster", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"Cluster deleted.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			log := logger.WithValues("predicate", "genericEvent",
+				"namespace", e.Object.GetNamespace(),
+				"cluster", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}
+
+// SveltosClusterPredicates predicates for sveltos Cluster. ClusterHealthCheckReconciler watches sveltos Cluster events
+// and react to those by reconciling itself based on following predicates
+func SveltosClusterPredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newCluster := e.ObjectNew.(*libsveltosv1alpha1.SveltosCluster)
+			oldCluster := e.ObjectOld.(*libsveltosv1alpha1.SveltosCluster)
+			log := logger.WithValues("predicate", "updateEvent",
+				"namespace", newCluster.Namespace,
+				"cluster", newCluster.Name,
+			)
+
+			if oldCluster == nil {
+				log.V(logs.LogVerbose).Info("Old Cluster is nil. Reconcile ClusterHealthCheck")
+				return true
+			}
+
+			// return true if Cluster.Spec.Paused has changed from true to false
+			if oldCluster.Spec.Paused && !newCluster.Spec.Paused {
+				log.V(logs.LogVerbose).Info(
+					"Cluster was unpaused. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			if !oldCluster.Status.Ready && newCluster.Status.Ready {
+				log.V(logs.LogVerbose).Info(
+					"Cluster was not ready. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			if !reflect.DeepEqual(oldCluster.Labels, newCluster.Labels) {
+				log.V(logs.LogVerbose).Info(
+					"Cluster labels changed. Will attempt to reconcile associated ClusterHealthChecks.",
+				)
+				return true
+			}
+
+			// otherwise, return false
+			log.V(logs.LogVerbose).Info(
+				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			cluster := e.Object.(*libsveltosv1alpha1.SveltosCluster)
+			log := logger.WithValues("predicate", "createEvent",
+				"namespace", cluster.Namespace,
+				"cluster", cluster.Name,
+			)
+
+			// Only need to trigger a reconcile if the Cluster.Spec.Paused is false
+			if !cluster.Spec.Paused {
+				log.V(logs.LogVerbose).Info(
+					"Cluster is not paused.  Will attempt to reconcile associated ClusterHealthChecks.",
+				)
+				return true
+			}
+			log.V(logs.LogVerbose).Info(
+				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log := logger.WithValues("predicate", "deleteEvent",
+				"namespace", e.Object.GetNamespace(),
+				"cluster", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"Cluster deleted.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			log := logger.WithValues("predicate", "genericEvent",
+				"namespace", e.Object.GetNamespace(),
+				"cluster", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}
