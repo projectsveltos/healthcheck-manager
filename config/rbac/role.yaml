@@ -6,6 +6,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
@@ -46,6 +56,48 @@ rules:
   - list
   - watch
 - apiGroups:
+  - config.projectsveltos.io
+  resources:
+  - clustersummaries
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.projectsveltos.io
+  resources:
+  - clustersummaries/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - clusterhealthchecks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - clusterhealthchecks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - clusterhealthchecks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - lib.projectsveltos.io
   resources:
   - debuggingconfigurations
@@ -69,29 +121,3 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - lib.projectsveltos.io.projectsveltos.io
-  resources:
-  - clusterhealthchecks
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - lib.projectsveltos.io.projectsveltos.io
-  resources:
-  - clusterhealthchecks/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - lib.projectsveltos.io.projectsveltos.io
-  resources:
-  - clusterhealthchecks/status
-  verbs:
-  - get
-  - patch
-  - update

@@ -28,6 +28,7 @@ import (
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
 
 var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func() {
@@ -191,6 +192,104 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 	})
 })
 
+var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func() {
+	var logger logr.Logger
+	var clusterSummary *configv1alpha1.ClusterSummary
+
+	const upstreamClusterNamePrefix = "clustersummary-predicates-"
+
+	BeforeEach(func() {
+		logger = klogr.New()
+		clusterSummary = &configv1alpha1.ClusterSummary{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      upstreamClusterNamePrefix + randomString(),
+				Namespace: "predicates" + randomString(),
+			},
+		}
+	})
+
+	It("Create won't reprocesses", func() {
+		clusterSummaryPredicate := controllers.ClusterSummaryPredicates(logger)
+
+		e := event.CreateEvent{
+			Object: clusterSummary,
+		}
+
+		result := clusterSummaryPredicate.Create(e)
+		Expect(result).To(BeFalse())
+	})
+	It("Delete does reprocess ", func() {
+		clusterSummaryPredicate := controllers.ClusterSummaryPredicates(logger)
+
+		e := event.DeleteEvent{
+			Object: clusterSummary,
+		}
+
+		result := clusterSummaryPredicate.Delete(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Update reprocesses when ClusterSummary status FeatureSummaries changes", func() {
+		clusterSummaryPredicate := controllers.ClusterSummaryPredicates(logger)
+
+		clusterSummary.Status.FeatureSummaries = []configv1alpha1.FeatureSummary{
+			{
+				Status:    configv1alpha1.FeatureStatusProvisioned,
+				FeatureID: configv1alpha1.FeatureHelm,
+			},
+		}
+
+		oldClusterSummary := &configv1alpha1.ClusterSummary{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterSummary.Name,
+				Namespace: clusterSummary.Namespace,
+			},
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: clusterSummary,
+			ObjectOld: oldClusterSummary,
+		}
+
+		result := clusterSummaryPredicate.Update(e)
+		Expect(result).To(BeTrue())
+	})
+
+	It("Update does not reprocesses when ClusterSummary status FeatureSummary has not changed", func() {
+		clusterSummaryPredicate := controllers.ClusterSummaryPredicates(logger)
+
+		clusterSummary.Status.FeatureSummaries = []configv1alpha1.FeatureSummary{
+			{
+				Status:    configv1alpha1.FeatureStatusProvisioned,
+				FeatureID: configv1alpha1.FeatureHelm,
+			},
+		}
+		clusterSummary.Status.HelmReleaseSummaries = []configv1alpha1.HelmChartSummary{
+			{
+				ReleaseName:      randomString(),
+				ReleaseNamespace: randomString(),
+				Status:           configv1alpha1.HelChartStatusManaging,
+			},
+		}
+
+		oldClusterSummary := &configv1alpha1.ClusterSummary{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterSummary.Name,
+				Namespace: clusterSummary.Namespace,
+			},
+		}
+
+		oldClusterSummary.Status.FeatureSummaries = clusterSummary.Status.FeatureSummaries
+
+		e := event.UpdateEvent{
+			ObjectNew: clusterSummary,
+			ObjectOld: oldClusterSummary,
+		}
+
+		result := clusterSummaryPredicate.Update(e)
+		Expect(result).To(BeFalse())
+	})
+})
+
 var _ = Describe("ClusterHealthCheck Predicates: ClusterPredicates", func() {
 	var logger logr.Logger
 	var cluster *clusterv1.Cluster
@@ -325,5 +424,115 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterPredicates", func() {
 
 		result := clusterPredicate.Update(e)
 		Expect(result).To(BeTrue())
+	})
+})
+
+var _ = Describe("ClusterHealthCheck Predicates: MachinePredicates", func() {
+	var logger logr.Logger
+	var machine *clusterv1.Machine
+
+	const upstreamMachineNamePrefix = "machine-predicates-"
+
+	BeforeEach(func() {
+		logger = klogr.New()
+		machine = &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      upstreamMachineNamePrefix + randomString(),
+				Namespace: "predicates" + randomString(),
+			},
+		}
+	})
+
+	It("Create reprocesses when v1Machine is Running", func() {
+		machinePredicate := controllers.MachinePredicates(logger)
+
+		machine.Status.Phase = string(clusterv1.MachinePhaseRunning)
+
+		e := event.CreateEvent{
+			Object: machine,
+		}
+
+		result := machinePredicate.Create(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Create does not reprocess when v1Machine is not Running", func() {
+		machinePredicate := controllers.MachinePredicates(logger)
+
+		e := event.CreateEvent{
+			Object: machine,
+		}
+
+		result := machinePredicate.Create(e)
+		Expect(result).To(BeFalse())
+	})
+	It("Delete does not reprocess ", func() {
+		machinePredicate := controllers.MachinePredicates(logger)
+
+		e := event.DeleteEvent{
+			Object: machine,
+		}
+
+		result := machinePredicate.Delete(e)
+		Expect(result).To(BeFalse())
+	})
+	It("Update reprocesses when v1Machine Phase changed from not running to running", func() {
+		machinePredicate := controllers.MachinePredicates(logger)
+
+		machine.Status.Phase = string(clusterv1.MachinePhaseRunning)
+
+		oldMachine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      machine.Name,
+				Namespace: machine.Namespace,
+			},
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: machine,
+			ObjectOld: oldMachine,
+		}
+
+		result := machinePredicate.Update(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Update does not reprocess when v1Machine Phase changes from not Phase not set to Phase set but not running", func() {
+		machinePredicate := controllers.MachinePredicates(logger)
+
+		machine.Status.Phase = "Provisioning"
+
+		oldMachine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      machine.Name,
+				Namespace: machine.Namespace,
+			},
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: machine,
+			ObjectOld: oldMachine,
+		}
+
+		result := machinePredicate.Update(e)
+		Expect(result).To(BeFalse())
+	})
+	It("Update does not reprocess when v1Machine Phases does not change", func() {
+		machinePredicate := controllers.MachinePredicates(logger)
+		machine.Status.Phase = string(clusterv1.MachinePhaseRunning)
+
+		oldMachine := &clusterv1.Machine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      machine.Name,
+				Namespace: machine.Namespace,
+			},
+		}
+		oldMachine.Status.Phase = machine.Status.Phase
+
+		e := event.UpdateEvent{
+			ObjectNew: machine,
+			ObjectOld: oldMachine,
+		}
+
+		result := machinePredicate.Update(e)
+		Expect(result).To(BeFalse())
 	})
 })
