@@ -26,6 +26,7 @@ import (
 
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
 
 // ClusterPredicates predicates for v1Cluster. ClusterHealthCheckReconciler watches v1Cluster events
@@ -98,6 +99,76 @@ func ClusterPredicates(logger logr.Logger) predicate.Funcs {
 			)
 			log.V(logs.LogVerbose).Info(
 				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}
+
+// MachinePredicates predicates for v1Machine. ClusterHealthCheckReconciler watches v1Machine events
+// and react to those by reconciling itself based on following predicates
+func MachinePredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newMachine := e.ObjectNew.(*clusterv1.Machine)
+			oldMachine := e.ObjectOld.(*clusterv1.Machine)
+			log := logger.WithValues("predicate", "updateEvent",
+				"namespace", newMachine.Namespace,
+				"machine", newMachine.Name,
+			)
+
+			if newMachine.Status.GetTypedPhase() != clusterv1.MachinePhaseRunning {
+				return false
+			}
+
+			if oldMachine == nil {
+				log.V(logs.LogVerbose).Info("Old Machine is nil. Reconcile ClusterHealthCheck")
+				return true
+			}
+
+			// return true if Machine.Status.Phase has changed from not running to running
+			if oldMachine.Status.GetTypedPhase() != newMachine.Status.GetTypedPhase() {
+				log.V(logs.LogVerbose).Info(
+					"Machine was not in Running Phase. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			// otherwise, return false
+			log.V(logs.LogVerbose).Info(
+				"Machine did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			machine := e.Object.(*clusterv1.Machine)
+			log := logger.WithValues("predicate", "createEvent",
+				"namespace", machine.Namespace,
+				"machine", machine.Name,
+			)
+
+			// Only need to trigger a reconcile if the Machine.Status.Phase is Running
+			if machine.Status.GetTypedPhase() == clusterv1.MachinePhaseRunning {
+				return true
+			}
+
+			log.V(logs.LogVerbose).Info(
+				"Machine did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log := logger.WithValues("predicate", "deleteEvent",
+				"namespace", e.Object.GetNamespace(),
+				"machine", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"Machine did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			log := logger.WithValues("predicate", "genericEvent",
+				"namespace", e.Object.GetNamespace(),
+				"machine", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"Machine did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
 			return false
 		},
 	}
@@ -179,6 +250,66 @@ func SveltosClusterPredicates(logger logr.Logger) predicate.Funcs {
 			)
 			log.V(logs.LogVerbose).Info(
 				"Cluster did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}
+
+// ClusterSummaryPredicates predicates for clustersummary. ClusterHealthCheckReconciler watches sveltos ClusterSummary
+// events and react to those by reconciling itself based on following predicates
+func ClusterSummaryPredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newClusterSummary := e.ObjectNew.(*configv1alpha1.ClusterSummary)
+			oldClusterSummary := e.ObjectOld.(*configv1alpha1.ClusterSummary)
+			log := logger.WithValues("predicate", "updateEvent",
+				"namespace", newClusterSummary.Namespace,
+				"clustersummary", newClusterSummary.Name,
+			)
+
+			if oldClusterSummary == nil {
+				log.V(logs.LogVerbose).Info("Old ClusterSummary is nil. Reconcile ClusterHealthCheck")
+				return true
+			}
+
+			// return true if ClusterSummary Status has changed
+			if !reflect.DeepEqual(oldClusterSummary.Status.FeatureSummaries, newClusterSummary.Status.FeatureSummaries) {
+				log.V(logs.LogVerbose).Info(
+					"ClusterSummary Status.FeatureSummaries changed. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			// otherwise, return false
+			log.V(logs.LogVerbose).Info(
+				"ClusterSummary did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			log := logger.WithValues("predicate", "createEvent",
+				"namespace", e.Object.GetNamespace(),
+				"clustersummary", e.Object.GetName(),
+			)
+
+			log.V(logs.LogVerbose).Info(
+				"ClusterSummary did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log := logger.WithValues("predicate", "deleteEvent",
+				"namespace", e.Object.GetNamespace(),
+				"clustersummary", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"ClusterSummary deleted.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			log := logger.WithValues("predicate", "genericEvent",
+				"namespace", e.Object.GetNamespace(),
+				"clustersummary", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"ClusterSummary did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
 			return false
 		},
 	}

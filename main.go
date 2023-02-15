@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,7 +47,9 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 	"github.com/projectsveltos/libsveltos/lib/crd"
+	"github.com/projectsveltos/libsveltos/lib/deployer"
 	"github.com/projectsveltos/libsveltos/lib/logsettings"
+	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -98,11 +102,22 @@ func main() {
 		libsveltosv1alpha1.ComponentHealthCheckManager, ctrl.Log.WithName("log-setter"),
 		ctrl.GetConfigOrDie())
 
+	d := deployer.GetClient(ctx, ctrl.Log.WithName("deployer"), mgr.GetClient(), workers)
+	controllers.RegisterFeatures(d, setupLog)
+
+	controllers.SetManagementRecorder(mgr.GetEventRecorderFor("notification-recorder"))
+
 	var clusterHealthCheckController controller.Controller
 	clusterHealthCheckReconciler := &controllers.ClusterHealthCheckReconciler{
-		Client:               mgr.GetClient(),
-		Scheme:               mgr.GetScheme(),
-		ConcurrentReconciles: concurrentReconciles,
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		ConcurrentReconciles:  concurrentReconciles,
+		Mux:                   sync.Mutex{},
+		Deployer:              d,
+		ClusterMap:            make(map[corev1.ObjectReference]*libsveltosset.Set),
+		ClusterHealthCheckMap: make(map[corev1.ObjectReference]*libsveltosset.Set),
+		ClusterHealthChecks:   make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+		ClusterLabels:         make(map[corev1.ObjectReference]map[string]string),
 	}
 
 	clusterHealthCheckController, err = clusterHealthCheckReconciler.SetupWithManager(mgr)

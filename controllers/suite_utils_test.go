@@ -18,9 +18,12 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,7 +33,9 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
 
@@ -87,4 +92,36 @@ func waitForObject(ctx context.Context, c client.Client, obj client.Object) erro
 		return errors.Wrapf(err, "object %s, %s is not being added to the testenv client cache", obj.GetObjectKind().GroupVersionKind().String(), key)
 	}
 	return nil
+}
+
+func addTypeInformationToObject(scheme *runtime.Scheme, obj client.Object) error {
+	gvks, _, err := scheme.ObjectKinds(obj)
+	if err != nil {
+		return fmt.Errorf("missing apiVersion or kind and cannot assign it; %w", err)
+	}
+
+	for _, gvk := range gvks {
+		if gvk.Kind == "" {
+			continue
+		}
+		if gvk.Version == "" || gvk.Version == runtime.APIVersionInternal {
+			continue
+		}
+		obj.GetObjectKind().SetGroupVersionKind(gvk)
+		break
+	}
+
+	return nil
+}
+
+func getClusterHealthCheckReconciler(c client.Client) *controllers.ClusterHealthCheckReconciler {
+	return &controllers.ClusterHealthCheckReconciler{
+		Client:                c,
+		Scheme:                scheme,
+		ClusterMap:            make(map[corev1.ObjectReference]*libsveltosset.Set),
+		ClusterHealthCheckMap: make(map[corev1.ObjectReference]*libsveltosset.Set),
+		ClusterHealthChecks:   make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+		ClusterLabels:         make(map[corev1.ObjectReference]map[string]string),
+		Mux:                   sync.Mutex{},
+	}
 }

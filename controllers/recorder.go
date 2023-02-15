@@ -17,14 +17,17 @@ limitations under the License.
 package controllers
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"k8s.io/client-go/tools/record"
 )
 
-func (r *ClusterHealthCheckReconciler) requeueClusterProfileForCluster(
-	o client.Object,
-) []reconcile.Request {
+var (
+	managementRecorder record.EventRecorder
+)
 
-	// TODO
-	return nil
+func SetManagementRecorder(r record.EventRecorder) {
+	managementRecorder = r
+}
+
+func getManagementRecorder() record.EventRecorder {
+	return managementRecorder
 }
