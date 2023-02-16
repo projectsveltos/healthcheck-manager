@@ -110,7 +110,7 @@ type ClusterHealthCheckReconciler struct {
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=clusterhealthchecks/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.projectsveltos.io,resources=clustersummaries,verbs=get;list;watch
 //+kubebuilder:rbac:groups=config.projectsveltos.io,resources=clustersummaries/status,verbs=get;list;watch
-//+kubebuilder:rbac:groups="",resources=events,verbs=get;watch;list;create;update
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;watch;list;create;update;patch
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;watch;list
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters/status,verbs=get;watch;list
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines,verbs=get;watch;list
