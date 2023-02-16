@@ -21,12 +21,19 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/slack-go/slack"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
+
+type slackInfo struct {
+	token     string
+	channelID string
+}
 
 // sendNotification delivers notification
 func sendNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
@@ -40,6 +47,8 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	switch n.Type {
 	case libsveltosv1alpha1.NotificationTypeKubernetesEvent:
 		err = sendKubernetesNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+	case libsveltosv1alpha1.NotificationTypeSlack:
+		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -57,6 +66,50 @@ func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNam
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
 	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
 
+	message := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	r := getManagementRecorder()
+	r.Eventf(chc, corev1.EventTypeNormal,
+		"ClusterHealthCheck", message)
+
+	r.Event(chc, corev1.EventTypeNormal,
+		"ClusterHealthCheck", message)
+
+	return nil
+}
+
+func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
+	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+
+	// authToken := "xoxb-4818333365076-4815777537075-hKJkd9qcACEwbYsODeLhI9PV"
+	// channelID := "C04QPGL6TCY"
+	info, err := getSlackInfo(ctx, c, n)
+	if err != nil {
+		return err
+	}
+
+	message := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	api := slack.New(info.token)
+	if api == nil {
+		logger.V(logs.LogInfo).Info("failed to get slack client")
+	}
+
+	logger.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to channel %s", info.channelID))
+
+	_, _, err = api.PostMessage(info.channelID, slack.MsgOptionText(message, false))
+	if err != nil {
+		logger.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
+		return err
+	}
+
+	return nil
+}
+
+func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
+	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) string {
+
 	passing := true
 	message := fmt.Sprintf("cluster %s:%s/%s\n", clusterType, clusterNamespace, clusterName)
 	for i := range conditions {
@@ -68,20 +121,13 @@ func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNam
 	}
 
 	if passing {
-		message += "all add-ons are deployed"
-		logger.V(logs.LogDebug).Info("add-ons deployed")
+		message += "all liveness checks are passing"
+		logger.V(logs.LogDebug).Info("all liveness checks are passing")
 	} else {
-		logger.V(logs.LogDebug).Info("all or some add-ons are not deployed")
+		logger.V(logs.LogDebug).Info("some of the liveness checks are not passing")
 	}
 
-	r := getManagementRecorder()
-	r.Eventf(chc, corev1.EventTypeNormal,
-		"ClusterHealthCheck", message)
-
-	r.Event(chc, corev1.EventTypeNormal,
-		"ClusterHealthCheck", message)
-
-	return nil
+	return message
 }
 
 // buildNotificationStatusMap creates a map reporting notification status by walking over ClusterHealthCheck status
@@ -120,4 +166,47 @@ func doSendNotification(n *libsveltosv1alpha1.Notification, notificationStatus m
 	}
 
 	return status != libsveltosv1alpha1.NotificationStatusDelivered
+}
+
+func getSlackInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*slackInfo, error) {
+	if n.NotificationRef == nil {
+		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
+	}
+
+	if n.NotificationRef.Kind != "Secret" {
+		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
+	}
+
+	if n.NotificationRef.APIVersion != "v1" {
+		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
+	}
+
+	secret := &corev1.Secret{}
+	err := c.Get(ctx, types.NamespacedName{
+		Namespace: n.NotificationRef.Namespace,
+		Name:      n.NotificationRef.Name,
+	}, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	if secret.Type != libsveltosv1alpha1.ClusterProfileSecretType {
+		return nil, fmt.Errorf("referenced secret must be of type %q", libsveltosv1alpha1.ClusterProfileSecretType)
+	}
+
+	if secret.Data == nil {
+		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
+	}
+
+	authToken, ok := secret.Data[libsveltosv1alpha1.SlackToken]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain slack token")
+	}
+
+	channelID, ok := secret.Data[libsveltosv1alpha1.SlackChannelID]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain slack channelID")
+	}
+
+	return &slackInfo{token: string(authToken), channelID: string(channelID)}, nil
 }

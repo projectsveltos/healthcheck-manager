@@ -9,9 +9,10 @@ require (
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/libsveltos v0.4.1-0.20230215183926-f3b22a1015a8
-	github.com/projectsveltos/sveltos-manager v0.4.1-0.20230214030908-5e0e74b55eb6
+	github.com/projectsveltos/libsveltos v0.4.1-0.20230216185628-1cc3d5750677
+	github.com/projectsveltos/sveltos-manager v0.4.1-0.20230216004043-aa1ec075ba2f
 	github.com/prometheus/client_golang v1.13.0
+	github.com/slack-go/slack v0.12.1
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/text v0.5.0
 	k8s.io/api v0.25.3
@@ -82,6 +83,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/huandu/xstrings v1.3.3 // indirect
