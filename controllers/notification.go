@@ -82,8 +82,6 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
 	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
 
-	// authToken := "xoxb-4818333365076-4815777537075-hKJkd9qcACEwbYsODeLhI9PV"
-	// channelID := "C04QPGL6TCY"
 	info, err := getSlackInfo(ctx, c, n)
 	if err != nil {
 		return err

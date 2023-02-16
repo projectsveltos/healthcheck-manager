@@ -503,6 +503,12 @@ func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, c
 						Status: libsveltosv1alpha1.NotificationStatusDelivered,
 					})
 			}
+		} else {
+			notificationSummaries = append(notificationSummaries,
+				libsveltosv1alpha1.NotificationSummary{
+					Name:   n.Name,
+					Status: libsveltosv1alpha1.NotificationStatusDelivered,
+				})
 		}
 	}
 
