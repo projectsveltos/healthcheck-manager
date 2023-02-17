@@ -278,6 +278,11 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 			},
 		},
 		Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
+			MatchingClusterRefs: []corev1.ObjectReference{
+				{
+					Kind: "Cluster", APIVersion: clusterv1.GroupVersion.String(), Namespace: clusterNamespace, Name: clusterName,
+				},
+			},
 			ClusterConditions: []libsveltosv1alpha1.ClusterCondition{},
 		},
 	}

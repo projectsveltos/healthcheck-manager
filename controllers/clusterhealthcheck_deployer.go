@@ -65,6 +65,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 
 	for i := range chc.Status.ClusterConditions {
 		c := chc.Status.ClusterConditions[i]
+
 		clusterInfo, err := r.processClusterHealthCheck(ctx, chcScope, &c.ClusterInfo.Cluster, f, logger)
 		if err != nil {
 			errorSeen = err
@@ -98,60 +99,27 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 	logger = logger.WithValues("clusterhealthcheck", chc.Name)
 	logger.V(logs.LogDebug).Info("request to undeploy")
 
+	var err error
 	for i := range chc.Status.ClusterConditions {
 		c := &chc.Status.ClusterConditions[i].ClusterInfo.Cluster
 
-		// Remove any queued entry to deploy/evaluate
-		r.Deployer.CleanupEntries(c.Namespace, c.Name, chc.Name, string(f.id), getClusterType(c), false)
-
-		// If deploying feature is in progress, wait for it to complete.
-		// Otherwise, if we cleanup feature while same feature is still being provisioned, if two workers process those request in
-		// parallel some resources might be left over.
-		if r.Deployer.IsInProgress(c.Namespace, c.Name, chc.Name, string(f.id), getClusterType(c), false) {
-			logger.V(logs.LogDebug).Info("provisioning is in progress")
-			return fmt.Errorf("deploying %s still in progress. Wait before cleanup", string(f.id))
+		_, tmpErr := r.removeClusterHealthCheck(ctx, chcScope, c, f, logger)
+		if tmpErr != nil {
+			err = tmpErr
 		}
-
-		if r.isClusterEntryRemoved(chc, c) {
-			logger.V(logs.LogDebug).Info("feature is removed")
-			// feature is removed. Nothing to do.
-			continue
-		}
-
-		result := r.Deployer.GetResult(ctx, c.Namespace, c.Name, chc.Name, string(f.id), getClusterType(c), true)
-		status := r.convertResultStatus(result)
-
-		if status != nil {
-			if *status == libsveltosv1alpha1.SveltosStatusRemoving {
-				return fmt.Errorf("feature is still being removed")
-			}
-
-			if *status == libsveltosv1alpha1.SveltosStatusRemoved {
-				if err := removeConditionEntry(ctx, r.Client, c.Namespace, c.Name, getClusterType(c), chc, logger); err != nil {
-					return err
-				}
-				continue
-			}
-		} else {
-			logger.V(logs.LogDebug).Info("no result is available. mark status as removing")
-		}
-
-		logger.V(logs.LogDebug).Info("queueing request to un-deploy")
-		if err := r.Deployer.Deploy(ctx, c.Namespace, c.Name, chc.Name, f.id, getClusterType(c), true,
-			undeployClassifierFromCluster, programDuration, deployer.Options{}); err != nil {
-			return err
-		}
-
-		return fmt.Errorf("cleanup request is queued")
 	}
 
-	return nil
+	return err
 }
 
 // processClusterHealthCheck detect whether it is needed to deploy ClusterHealthCheck in current passed cluster.
 func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Context, chcScope *scope.ClusterHealthCheckScope,
 	cluster *corev1.ObjectReference, f feature, logger logr.Logger,
 ) (*libsveltosv1alpha1.ClusterInfo, error) {
+
+	if !isClusterStillMatching(chcScope, cluster) {
+		return r.removeClusterHealthCheck(ctx, chcScope, cluster, f, logger)
+	}
 
 	chc := chcScope.ClusterHealthCheck
 
@@ -238,6 +206,64 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 	}
 
 	return clusterInfo, nil
+}
+
+func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Context, chcScope *scope.ClusterHealthCheckScope,
+	cluster *corev1.ObjectReference, f feature, logger logr.Logger) (*libsveltosv1alpha1.ClusterInfo, error) {
+
+	chc := chcScope.ClusterHealthCheck
+
+	logger = logger.WithValues("clusterhealthcheck", chc.Name)
+	logger.V(logs.LogDebug).Info("request to undeploy")
+
+	// Remove any queued entry to deploy/evaluate
+	r.Deployer.CleanupEntries(cluster.Namespace, cluster.Name, chc.Name, string(f.id), getClusterType(cluster), false)
+
+	// If deploying feature is in progress, wait for it to complete.
+	// Otherwise, if we cleanup feature while same feature is still being provisioned, if two workers process those request in
+	// parallel some resources might be left over.
+	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, string(f.id), getClusterType(cluster), false) {
+		logger.V(logs.LogDebug).Info("provisioning is in progress")
+		return nil, fmt.Errorf("deploying %s still in progress. Wait before cleanup", string(f.id))
+	}
+
+	if r.isClusterEntryRemoved(chc, cluster) {
+		logger.V(logs.LogDebug).Info("feature is removed")
+		// feature is removed. Nothing to do.
+		return nil, nil
+	}
+
+	result := r.Deployer.GetResult(ctx, cluster.Namespace, cluster.Name, chc.Name, string(f.id), getClusterType(cluster), true)
+	status := r.convertResultStatus(result)
+
+	clusterInfo := &libsveltosv1alpha1.ClusterInfo{
+		Cluster: *cluster,
+		Status:  libsveltosv1alpha1.SveltosStatusRemoving,
+		Hash:    nil,
+	}
+
+	if status != nil {
+		if *status == libsveltosv1alpha1.SveltosStatusRemoving {
+			return clusterInfo, fmt.Errorf("feature is still being removed")
+		}
+
+		if *status == libsveltosv1alpha1.SveltosStatusRemoved {
+			if err := removeConditionEntry(ctx, r.Client, cluster.Namespace, cluster.Name, getClusterType(cluster), chc, logger); err != nil {
+				return nil, err
+			}
+			return clusterInfo, nil
+		}
+	} else {
+		logger.V(logs.LogDebug).Info("no result is available. mark status as removing")
+	}
+
+	logger.V(logs.LogDebug).Info("queueing request to un-deploy")
+	if err := r.Deployer.Deploy(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id, getClusterType(cluster), true,
+		undeployClassifierFromCluster, programDuration, deployer.Options{}); err != nil {
+		return nil, err
+	}
+
+	return clusterInfo, fmt.Errorf("cleanup request is queued")
 }
 
 func (r *ClusterHealthCheckReconciler) convertResultStatus(result deployer.Result) *libsveltosv1alpha1.SveltosFeatureStatus {
@@ -616,4 +642,16 @@ func removeConditionEntry(ctx context.Context, c client.Client,
 func remove(s []libsveltosv1alpha1.ClusterCondition, i int) []libsveltosv1alpha1.ClusterCondition {
 	s[i] = s[len(s)-1]
 	return s[:len(s)-1]
+}
+
+// isClusterStillMatching returns true if cluster is still matching by looking at ClusterHealthCheck
+// Status MatchingClusterRefs
+func isClusterStillMatching(chcScope *scope.ClusterHealthCheckScope, cluster *corev1.ObjectReference) bool {
+	for i := range chcScope.ClusterHealthCheck.Status.MatchingClusterRefs {
+		matchingCluster := &chcScope.ClusterHealthCheck.Status.MatchingClusterRefs[i]
+		if reflect.DeepEqual(*matchingCluster, *cluster) {
+			return true
+		}
+	}
+	return false
 }
