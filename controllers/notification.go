@@ -66,14 +66,17 @@ func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNam
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
 	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
 
-	message := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	eventType := corev1.EventTypeNormal
+	if !passing {
+		eventType = corev1.EventTypeWarning
+	}
 
 	r := getManagementRecorder()
-	r.Eventf(chc, corev1.EventTypeNormal,
-		"ClusterHealthCheck", message)
+	r.Eventf(chc, eventType, "ClusterHealthCheck", message)
 
-	r.Event(chc, corev1.EventTypeNormal,
-		"ClusterHealthCheck", message)
+	r.Event(chc, eventType, "ClusterHealthCheck", message)
 
 	return nil
 }
@@ -87,7 +90,7 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 		return err
 	}
 
-	message := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
 
 	api := slack.New(info.token)
 	if api == nil {
@@ -106,7 +109,7 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 }
 
 func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) string {
+	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) (string, bool) {
 
 	passing := true
 	message := fmt.Sprintf("cluster %s:%s/%s\n", clusterType, clusterNamespace, clusterName)
@@ -125,7 +128,7 @@ func getNotificationMessage(clusterNamespace, clusterName string, clusterType li
 		logger.V(logs.LogDebug).Info("some of the liveness checks are not passing")
 	}
 
-	return message
+	return message, passing
 }
 
 // buildNotificationStatusMap creates a map reporting notification status by walking over ClusterHealthCheck status
