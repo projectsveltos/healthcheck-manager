@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	webexteams "github.com/jbogarin/go-cisco-webex-teams/sdk"
 	"github.com/slack-go/slack"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,6 +34,11 @@ import (
 type slackInfo struct {
 	token     string
 	channelID string
+}
+
+type webexInfo struct {
+	token string
+	room  string
 }
 
 // sendNotification delivers notification
@@ -49,6 +55,8 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 		err = sendKubernetesNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeSlack:
 		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+	case libsveltosv1alpha1.NotificationTypeWebex:
+		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -103,6 +111,44 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
 		return err
+	}
+
+	return nil
+}
+
+func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
+	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+
+	info, err := getWebexInfo(ctx, c, n)
+	if err != nil {
+		return err
+	}
+
+	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	webexClient := webexteams.NewClient()
+	if webexClient == nil {
+		logger.V(logs.LogInfo).Info("failed to get webexClient client")
+		return fmt.Errorf("failed to get webexClient client")
+	}
+	webexClient.SetAuthToken(info.token)
+
+	logger.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to room %s", info.room))
+
+	webexMessage := &webexteams.MessageCreateRequest{
+		RoomID:   info.room,
+		Markdown: message,
+	}
+
+	_, resp, err := webexClient.Messages.CreateMessage(webexMessage)
+	if err != nil {
+		logger.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
+		return err
+	}
+
+	if resp != nil {
+		logger.V(logs.LogDebug).Info(fmt.Sprintf("response: %s", string(resp.Body())))
 	}
 
 	return nil
@@ -170,6 +216,44 @@ func doSendNotification(n *libsveltosv1alpha1.Notification, notificationStatus m
 }
 
 func getSlackInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*slackInfo, error) {
+	secret, err := getSecret(ctx, c, n)
+	if err != nil {
+		return nil, err
+	}
+
+	authToken, ok := secret.Data[libsveltosv1alpha1.SlackToken]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain slack token")
+	}
+
+	channelID, ok := secret.Data[libsveltosv1alpha1.SlackChannelID]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain slack channelID")
+	}
+
+	return &slackInfo{token: string(authToken), channelID: string(channelID)}, nil
+}
+
+func getWebexInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*webexInfo, error) {
+	secret, err := getSecret(ctx, c, n)
+	if err != nil {
+		return nil, err
+	}
+
+	authToken, ok := secret.Data[libsveltosv1alpha1.WebexToken]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain webex token")
+	}
+
+	room, ok := secret.Data[libsveltosv1alpha1.WebexRoomID]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain webex room")
+	}
+
+	return &webexInfo{token: string(authToken), room: string(room)}, nil
+}
+
+func getSecret(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*corev1.Secret, error) {
 	if n.NotificationRef == nil {
 		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
 	}
@@ -199,15 +283,5 @@ func getSlackInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.No
 		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
 	}
 
-	authToken, ok := secret.Data[libsveltosv1alpha1.SlackToken]
-	if !ok {
-		return nil, fmt.Errorf("secret does not contain slack token")
-	}
-
-	channelID, ok := secret.Data[libsveltosv1alpha1.SlackChannelID]
-	if !ok {
-		return nil, fmt.Errorf("secret does not contain slack channelID")
-	}
-
-	return &slackInfo{token: string(authToken), channelID: string(channelID)}, nil
+	return secret, nil
 }
