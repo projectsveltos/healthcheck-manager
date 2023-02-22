@@ -321,7 +321,7 @@ spec:
         - --v=5
         command:
         - /manager
-        image: gianlucam76/healthcheck-manager-amd64:main
+        image: projectsveltos/healthcheck-manager-amd64:v0.6.0
         livenessProbe:
           httpGet:
             path: /healthz

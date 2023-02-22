@@ -782,10 +782,10 @@ github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndr
 github.com/posener/complete v1.2.3/go.mod h1:WZIdtGGp+qx0sLrYKtIRAruyNpv6hFCicSgv7Sy7s/s=
 github.com/poy/onpar v0.0.0-20190519213022-ee068f8ea4d1 h1:oL4IBbcqwhhNWh31bjOX8C/OCy0zs9906d/VUru+bqg=
 github.com/poy/onpar v0.0.0-20190519213022-ee068f8ea4d1/go.mod h1:nSbFQvMj97ZyhFRSJYtut+msi4sOY6zJDGCdSc+/rZU=
-github.com/projectsveltos/libsveltos v0.5.1-0.20230222182315-2e26374d9efc h1:Esz/xKle1PUuwALNdN+7zS0sjj6LUU8wJChgNYnZ5HQ=
-github.com/projectsveltos/libsveltos v0.5.1-0.20230222182315-2e26374d9efc/go.mod h1:smYCt3DQSZpQqsaoM2mJAIP6RAMXcxw5Af0mzkncCs4=
-github.com/projectsveltos/sveltos-manager v0.5.1-0.20230217200715-1e06efc7352a h1:lwpso14Cgq4gOnCYnf0pTrv6/v0LOi2gHAZF9ZVIUGI=
-github.com/projectsveltos/sveltos-manager v0.5.1-0.20230217200715-1e06efc7352a/go.mod h1:U8Fwf1kLRD5sW9gG0oxWmC7h2DE3O7Q7sY7+6KoMeXE=
+github.com/projectsveltos/libsveltos v0.6.0 h1:9UisBy/CCAvzxwp112eKxUgZHAAVbCODkeQOn+sGFIg=
+github.com/projectsveltos/libsveltos v0.6.0/go.mod h1:7QZOMDZjXklss3RA0IDNJB3ZOAyJBnBiiM+142BFeNc=
+github.com/projectsveltos/sveltos-manager v0.6.0 h1:SK7TM7svQdAP9kvieIrtuo7Qee+eYCuJ2Vva+TuI87k=
+github.com/projectsveltos/sveltos-manager v0.6.0/go.mod h1:Ox8m4KRFECxXEPqdmrtBOtAILfH6gqQMB4EK6Y8v2/0=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v1.0.0/go.mod h1:db9x61etRT2tGnBNRi70OPL5FsnadC4Ky3P0J6CfImo=
 github.com/prometheus/client_golang v1.1.0/go.mod h1:I1FGZT9+L76gKKOs5djB6ezCbFQP1xR9D75/vuwEF3g=
