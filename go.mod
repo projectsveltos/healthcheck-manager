@@ -6,11 +6,12 @@ require (
 	github.com/TwinProduction/go-color v1.0.0
 	github.com/gdexlab/go-render v1.0.1
 	github.com/go-logr/logr v1.2.3
+	github.com/jbogarin/go-cisco-webex-teams v0.4.3
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/libsveltos v0.5.1-0.20230217184152-736d1e4355e5
-	github.com/projectsveltos/sveltos-manager v0.5.1-0.20230217204840-26da6b8a05a5
+	github.com/projectsveltos/libsveltos v0.5.1-0.20230222182315-2e26374d9efc
+	github.com/projectsveltos/sveltos-manager v0.5.1-0.20230217200715-1e06efc7352a
 	github.com/prometheus/client_golang v1.13.0
 	github.com/slack-go/slack v0.12.1
 	github.com/spf13/pflag v1.0.5
@@ -69,6 +70,7 @@ require (
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-resty/resty/v2 v2.7.0 // indirect
 	github.com/gobuffalo/flect v0.3.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
@@ -79,6 +81,7 @@ require (
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -116,6 +119,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+	github.com/peterhellberg/link v1.1.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
