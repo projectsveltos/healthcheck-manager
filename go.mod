@@ -10,8 +10,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.6.0
 	github.com/onsi/gomega v1.24.1
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/libsveltos v0.5.1-0.20230222182315-2e26374d9efc
-	github.com/projectsveltos/sveltos-manager v0.5.1-0.20230217200715-1e06efc7352a
+	github.com/projectsveltos/libsveltos v0.6.0
+	github.com/projectsveltos/sveltos-manager v0.6.0
 	github.com/prometheus/client_golang v1.13.0
 	github.com/slack-go/slack v0.12.1
 	github.com/spf13/pflag v1.0.5
