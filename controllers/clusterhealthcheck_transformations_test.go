@@ -83,13 +83,15 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 
 		reconciler := &controllers.ClusterHealthCheckReconciler{
-			Client:                c,
-			Scheme:                scheme,
-			ClusterMap:            make(map[corev1.ObjectReference]*libsveltosset.Set),
-			ClusterHealthCheckMap: make(map[corev1.ObjectReference]*libsveltosset.Set),
-			ClusterHealthChecks:   make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
-			ClusterLabels:         make(map[corev1.ObjectReference]map[string]string),
-			Mux:                   sync.Mutex{},
+			Client:              c,
+			Scheme:              scheme,
+			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
+			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
+			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
+			ClusterLabels:       make(map[corev1.ObjectReference]map[string]string),
+			Mux:                 sync.Mutex{},
 		}
 
 		By("Setting ClusterHealthCheckReconciler internal structures")
@@ -104,13 +106,13 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		clusterInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion, Kind: cluster.Kind, Namespace: cluster.Namespace, Name: cluster.Name}
 		reconciler.ClusterMap[clusterInfo] = clusterHealthCheckSet
 
-		// ClusterHealthCheckMap contains, per ClusterHealthCheck, list of matched Clusters.
+		// CHCToClusterMap contains, per ClusterHealthCheck, list of matched Clusters.
 		clusterSet1 := &libsveltosset.Set{}
-		reconciler.ClusterHealthCheckMap[nonMatchingInfo] = clusterSet1
+		reconciler.CHCToClusterMap[types.NamespacedName{Name: nonMatchingInfo.Name}] = clusterSet1
 
 		clusterSet2 := &libsveltosset.Set{}
 		clusterSet2.Insert(&clusterInfo)
-		reconciler.ClusterHealthCheckMap[matchingInfo] = clusterSet2
+		reconciler.CHCToClusterMap[types.NamespacedName{Name: matchingInfo.Name}] = clusterSet2
 
 		By("Expect only matchingClusterHealthCheck to be requeued")
 		requests := controllers.RequeueClusterHealthCheckForCluster(reconciler, cluster)
@@ -124,7 +126,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		reconciler.ClusterHealthChecks[nonMatchingInfo] = nonMatchingClusterHealthCheck.Spec.ClusterSelector
 
 		clusterSet1.Insert(&clusterInfo)
-		reconciler.ClusterHealthCheckMap[nonMatchingInfo] = clusterSet1
+		reconciler.CHCToClusterMap[types.NamespacedName{Name: nonMatchingInfo.Name}] = clusterSet1
 
 		clusterHealthCheckSet.Insert(&nonMatchingInfo)
 		reconciler.ClusterMap[clusterInfo] = clusterHealthCheckSet
@@ -142,8 +144,8 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		Expect(c.Update(context.TODO(), nonMatchingClusterHealthCheck)).To(Succeed())
 
 		emptySet := &libsveltosset.Set{}
-		reconciler.ClusterHealthCheckMap[matchingInfo] = emptySet
-		reconciler.ClusterHealthCheckMap[nonMatchingInfo] = emptySet
+		reconciler.CHCToClusterMap[types.NamespacedName{Name: matchingInfo.Name}] = emptySet
+		reconciler.CHCToClusterMap[types.NamespacedName{Name: nonMatchingInfo.Name}] = emptySet
 		reconciler.ClusterMap[clusterInfo] = emptySet
 
 		reconciler.ClusterHealthChecks[matchingInfo] = matchingClusterHealthCheck.Spec.ClusterSelector

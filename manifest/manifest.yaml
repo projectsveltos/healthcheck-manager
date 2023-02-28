@@ -167,10 +167,30 @@ rules:
 - apiGroups:
   - lib.projectsveltos.io
   resources:
+  - healthcheckreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - healthchecks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
   - sveltosclusters
   verbs:
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - lib.projectsveltos.io
@@ -321,7 +341,7 @@ spec:
         - --v=5
         command:
         - /manager
-        image: projectsveltos/healthcheck-manager-amd64:main
+        image: projectsveltos/healthcheck-manager-amd64:dev
         livenessProbe:
           httpGet:
             path: /healthz

@@ -44,7 +44,7 @@ func creatFeatureHandlerMaps() {
 	featuresHandlers = make(map[string]feature)
 
 	featuresHandlers[libsveltosv1alpha1.FeatureClusterHealthCheck] = feature{id: libsveltosv1alpha1.FeatureClusterHealthCheck,
-		currentHash: clusterHealthCheckHash, deploy: processClusterHealthCheckForCluster, undeploy: undeployClassifierFromCluster}
+		currentHash: clusterHealthCheckHash, deploy: processClusterHealthCheckForCluster, undeploy: undeployClusterHealthCheckResourcesFromCluster}
 }
 
 func getHandlersForFeature(featureID string) feature {

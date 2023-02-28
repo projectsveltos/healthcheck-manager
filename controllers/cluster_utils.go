@@ -22,11 +22,13 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 )
 
 // getSveltosCluster returns SveltosCluster
@@ -196,4 +198,101 @@ func getMatchingClusters(ctx context.Context, c client.Client, selector labels.S
 	matching = append(matching, tmpMatching...)
 
 	return matching, nil
+}
+
+func getKubernetesClient(ctx context.Context, c client.Client, s *runtime.Scheme,
+	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType, logger logr.Logger) (client.Client, error) {
+
+	if clusterType == libsveltosv1alpha1.ClusterTypeSveltos {
+		return clusterproxy.GetSveltosKubernetesClient(ctx, logger, c, s, clusterNamespace, clusterName)
+	}
+	return clusterproxy.GetCAPIKubernetesClient(ctx, logger, c, s, clusterNamespace, clusterName)
+}
+
+// getListOfCAPIClusters returns all CAPI Clusters where Classifier needs to be deployed.
+// Currently a Classifier instance needs to be deployed in every existing CAPI cluster.
+func getListOfCAPICluster(ctx context.Context, c client.Client, logger logr.Logger,
+) ([]corev1.ObjectReference, error) {
+
+	clusterList := &clusterv1.ClusterList{}
+	if err := c.List(ctx, clusterList); err != nil {
+		logger.Error(err, "failed to list all Cluster")
+		return nil, err
+	}
+
+	clusters := make([]corev1.ObjectReference, 0)
+
+	for i := range clusterList.Items {
+		cluster := &clusterList.Items[i]
+
+		if !cluster.DeletionTimestamp.IsZero() {
+			// Only existing cluster can match
+			continue
+		}
+
+		addTypeInformationToObject(c.Scheme(), cluster)
+
+		clusters = append(clusters, corev1.ObjectReference{
+			Namespace:  cluster.Namespace,
+			Name:       cluster.Name,
+			APIVersion: cluster.APIVersion,
+			Kind:       cluster.Kind,
+		})
+	}
+
+	return clusters, nil
+}
+
+// getListOfSveltosClusters returns all Sveltos Clusters where Classifier needs to be deployed.
+// Currently a Classifier instance needs to be deployed in every existing sveltosCluster.
+func getListOfSveltosCluster(ctx context.Context, c client.Client, logger logr.Logger,
+) ([]corev1.ObjectReference, error) {
+
+	clusterList := &libsveltosv1alpha1.SveltosClusterList{}
+	if err := c.List(ctx, clusterList); err != nil {
+		logger.Error(err, "failed to list all Cluster")
+		return nil, err
+	}
+
+	clusters := make([]corev1.ObjectReference, 0)
+
+	for i := range clusterList.Items {
+		cluster := &clusterList.Items[i]
+
+		if !cluster.DeletionTimestamp.IsZero() {
+			// Only existing cluster can match
+			continue
+		}
+
+		addTypeInformationToObject(c.Scheme(), cluster)
+
+		clusters = append(clusters, corev1.ObjectReference{
+			Namespace:  cluster.Namespace,
+			Name:       cluster.Name,
+			APIVersion: cluster.APIVersion,
+			Kind:       cluster.Kind,
+		})
+	}
+
+	return clusters, nil
+}
+
+// getListOfClusters returns all Sveltos/CAPI Clusters where Classifier needs to be deployed.
+// Currently a Classifier instance needs to be deployed in every existing clusters.
+func getListOfClusters(ctx context.Context, c client.Client, logger logr.Logger,
+) ([]corev1.ObjectReference, error) {
+
+	clusters, err := getListOfCAPICluster(ctx, c, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	var tmpClusters []corev1.ObjectReference
+	tmpClusters, err = getListOfSveltosCluster(ctx, c, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	clusters = append(clusters, tmpClusters...)
+	return clusters, nil
 }

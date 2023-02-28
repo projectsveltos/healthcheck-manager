@@ -78,7 +78,7 @@ func newClusterHealthCheckHistogram(clusterNamespace, clusterName string, cluste
 }
 
 func logCollectorError(err error, logger logr.Logger) {
-	logger.V(logs.LogInfo).Info(fmt.Sprint("failed to register collector: %w", err))
+	logger.V(logs.LogVerbose).Info(fmt.Sprintf("failed to register collector: %v", err))
 }
 
 func programDuration(elapsed time.Duration, clusterNamespace, clusterName, featureID string,

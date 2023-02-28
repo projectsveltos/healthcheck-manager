@@ -117,10 +117,30 @@ rules:
 - apiGroups:
   - lib.projectsveltos.io
   resources:
+  - healthcheckreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - healthchecks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
   - sveltosclusters
   verbs:
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - lib.projectsveltos.io

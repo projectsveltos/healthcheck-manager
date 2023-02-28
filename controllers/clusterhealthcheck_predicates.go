@@ -314,3 +314,119 @@ func ClusterSummaryPredicates(logger logr.Logger) predicate.Funcs {
 		},
 	}
 }
+
+// HealthCheckReportPredicates predicates for HealthCheckReport. ClusterHealthCheckReconciler watches sveltos
+// HealthCheckReport events and react to those by reconciling itself based on following predicates
+func HealthCheckReportPredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newHCR := e.ObjectNew.(*libsveltosv1alpha1.HealthCheckReport)
+			oldHCR := e.ObjectOld.(*libsveltosv1alpha1.HealthCheckReport)
+			log := logger.WithValues("predicate", "updateEvent",
+				"namespace", newHCR.Namespace,
+				"healthCheckReport", newHCR.Name,
+			)
+
+			if oldHCR == nil {
+				log.V(logs.LogVerbose).Info("Old HealthCheckReport is nil. Reconcile ClusterHealthCheck")
+				return true
+			}
+
+			// return true if HealthCheckReport Spec has changed
+			if !reflect.DeepEqual(oldHCR.Spec, newHCR.Spec) {
+				log.V(logs.LogVerbose).Info(
+					"HealthCheckReport changed. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			// otherwise, return false
+			log.V(logs.LogVerbose).Info(
+				"HealthCheckReport did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			log := logger.WithValues("predicate", "createEvent",
+				"namespace", e.Object.GetNamespace(),
+				"healthCheckReport", e.Object.GetName(),
+			)
+
+			log.V(logs.LogVerbose).Info(
+				"HealthCheckReport did match expected conditions.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log := logger.WithValues("predicate", "deleteEvent",
+				"namespace", e.Object.GetNamespace(),
+				"healthCheckReport", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"HealthCheckReport deleted.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			log := logger.WithValues("predicate", "genericEvent",
+				"namespace", e.Object.GetNamespace(),
+				"healthCheckReport", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"HealthCheckReport did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}
+
+// HealthCheckPredicates predicates for HealthCheck. ClusterHealthCheckReconciler watches sveltos
+// HealthCheck events and react to those by reconciling itself based on following predicates
+func HealthCheckPredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newHC := e.ObjectNew.(*libsveltosv1alpha1.HealthCheck)
+			oldHC := e.ObjectOld.(*libsveltosv1alpha1.HealthCheck)
+			log := logger.WithValues("predicate", "updateEvent",
+				"healthCheck", newHC.Name,
+			)
+
+			if oldHC == nil {
+				log.V(logs.LogVerbose).Info("Old HealthCheck is nil. Reconcile ClusterHealthCheck")
+				return true
+			}
+
+			// return true if HealthCheck Spec has changed
+			if !reflect.DeepEqual(oldHC.Spec, newHC.Spec) {
+				log.V(logs.LogVerbose).Info(
+					"HealthCheck changed. Will attempt to reconcile associated ClusterHealthChecks.")
+				return true
+			}
+
+			// otherwise, return false
+			log.V(logs.LogVerbose).Info(
+				"HealthCheck did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			log := logger.WithValues("predicate", "createEvent",
+				"healthCheck", e.Object.GetName(),
+			)
+
+			log.V(logs.LogVerbose).Info(
+				"HealthCheck did match expected conditions.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			log := logger.WithValues("predicate", "deleteEvent",
+				"healthCheck", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"HealthCheck deleted.  Will attempt to reconcile associated ClusterHealthChecks.")
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			log := logger.WithValues("predicate", "genericEvent",
+				"healthCheck", e.Object.GetName(),
+			)
+			log.V(logs.LogVerbose).Info(
+				"HealthCheck did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}

@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -533,6 +534,195 @@ var _ = Describe("ClusterHealthCheck Predicates: MachinePredicates", func() {
 		}
 
 		result := machinePredicate.Update(e)
+		Expect(result).To(BeFalse())
+	})
+})
+
+var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", func() {
+	var logger logr.Logger
+	var healthCheckReport *libsveltosv1alpha1.HealthCheckReport
+
+	const upstreamClusterNamePrefix = "healthcheckreport-predicates-"
+
+	BeforeEach(func() {
+		logger = klogr.New()
+		healthCheckReport = &libsveltosv1alpha1.HealthCheckReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      upstreamClusterNamePrefix + randomString(),
+				Namespace: "predicates" + randomString(),
+			},
+		}
+	})
+
+	It("Create will reprocesses", func() {
+		hcrPredicate := controllers.HealthCheckReportPredicates(logger)
+
+		e := event.CreateEvent{
+			Object: healthCheckReport,
+		}
+
+		result := hcrPredicate.Create(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Delete does reprocess ", func() {
+		hcrPredicate := controllers.HealthCheckReportPredicates(logger)
+
+		e := event.DeleteEvent{
+			Object: healthCheckReport,
+		}
+
+		result := hcrPredicate.Delete(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Update reprocesses when HealthCheckReport spec changes", func() {
+		hcrPredicate := controllers.HealthCheckReportPredicates(logger)
+
+		healthCheckReport.Spec = libsveltosv1alpha1.HealthCheckReportSpec{
+			ResourceStatuses: []libsveltosv1alpha1.ResourceStatus{
+				{
+					ObjectRef: corev1.ObjectReference{
+						Kind:       randomString(),
+						APIVersion: randomString(),
+						Name:       randomString(),
+						Namespace:  randomString(),
+					},
+				},
+			},
+		}
+
+		oldHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      healthCheckReport.Name,
+				Namespace: healthCheckReport.Namespace,
+			},
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: healthCheckReport,
+			ObjectOld: oldHealthCheckReport,
+		}
+
+		result := hcrPredicate.Update(e)
+		Expect(result).To(BeTrue())
+	})
+
+	It("Update does not reprocesses HealthCheckReport spec has not changed", func() {
+		hcrPredicate := controllers.HealthCheckReportPredicates(logger)
+
+		healthCheckReport.Spec = libsveltosv1alpha1.HealthCheckReportSpec{
+			ResourceStatuses: []libsveltosv1alpha1.ResourceStatus{
+				{
+					ObjectRef: corev1.ObjectReference{
+						Kind:       randomString(),
+						APIVersion: randomString(),
+						Name:       randomString(),
+						Namespace:  randomString(),
+					},
+				},
+			},
+		}
+
+		oldHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      healthCheckReport.Name,
+				Namespace: healthCheckReport.Namespace,
+			},
+			Spec: healthCheckReport.Spec,
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: healthCheckReport,
+			ObjectOld: oldHealthCheckReport,
+		}
+
+		result := hcrPredicate.Update(e)
+		Expect(result).To(BeFalse())
+	})
+})
+
+var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() {
+	var logger logr.Logger
+	var healthCheck *libsveltosv1alpha1.HealthCheck
+
+	const upstreamClusterNamePrefix = "healthcheck-predicates-"
+
+	BeforeEach(func() {
+		logger = klogr.New()
+		healthCheck = &libsveltosv1alpha1.HealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: upstreamClusterNamePrefix + randomString(),
+			},
+		}
+	})
+
+	It("Create will reprocesses", func() {
+		hcrPredicate := controllers.HealthCheckPredicates(logger)
+
+		e := event.CreateEvent{
+			Object: healthCheck,
+		}
+
+		result := hcrPredicate.Create(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Delete does reprocess ", func() {
+		hcrPredicate := controllers.HealthCheckPredicates(logger)
+
+		e := event.DeleteEvent{
+			Object: healthCheck,
+		}
+
+		result := hcrPredicate.Delete(e)
+		Expect(result).To(BeTrue())
+	})
+	It("Update reprocesses when HealthCheck spec changes", func() {
+		hcrPredicate := controllers.HealthCheckPredicates(logger)
+
+		healthCheck.Spec = libsveltosv1alpha1.HealthCheckSpec{
+			Group:   randomString(),
+			Version: randomString(),
+			Kind:    randomString(),
+			Script:  randomString(),
+		}
+
+		oldHealthCheck := &libsveltosv1alpha1.HealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: healthCheck.Name,
+			},
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: healthCheck,
+			ObjectOld: oldHealthCheck,
+		}
+
+		result := hcrPredicate.Update(e)
+		Expect(result).To(BeTrue())
+	})
+
+	It("Update does not reprocesses HealthCheck spec has not changed", func() {
+		hcrPredicate := controllers.HealthCheckPredicates(logger)
+
+		healthCheck.Spec = libsveltosv1alpha1.HealthCheckSpec{
+			Group:   randomString(),
+			Version: randomString(),
+			Kind:    randomString(),
+			Script:  randomString(),
+		}
+
+		oldHealthCheck := &libsveltosv1alpha1.HealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: healthCheck.Name,
+			},
+			Spec: healthCheck.Spec,
+		}
+
+		e := event.UpdateEvent{
+			ObjectNew: healthCheck,
+			ObjectOld: oldHealthCheck,
+		}
+
+		result := hcrPredicate.Update(e)
 		Expect(result).To(BeFalse())
 	})
 })

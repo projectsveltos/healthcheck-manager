@@ -22,11 +22,16 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -116,12 +121,118 @@ func addTypeInformationToObject(scheme *runtime.Scheme, obj client.Object) error
 
 func getClusterHealthCheckReconciler(c client.Client) *controllers.ClusterHealthCheckReconciler {
 	return &controllers.ClusterHealthCheckReconciler{
-		Client:                c,
-		Scheme:                scheme,
-		ClusterMap:            make(map[corev1.ObjectReference]*libsveltosset.Set),
-		ClusterHealthCheckMap: make(map[corev1.ObjectReference]*libsveltosset.Set),
-		ClusterHealthChecks:   make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
-		ClusterLabels:         make(map[corev1.ObjectReference]map[string]string),
-		Mux:                   sync.Mutex{},
+		Client:              c,
+		Scheme:              scheme,
+		ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
+		CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
+		ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+		HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
+		CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
+		ClusterLabels:       make(map[corev1.ObjectReference]map[string]string),
+		Mux:                 sync.Mutex{},
+	}
+}
+
+func getHealthCheckInstance(name string) *libsveltosv1alpha1.HealthCheck {
+	return &libsveltosv1alpha1.HealthCheck{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: libsveltosv1alpha1.HealthCheckSpec{
+			Group:   randomString(),
+			Version: randomString(),
+			Kind:    randomString(),
+			Script:  randomString(),
+		},
+	}
+}
+
+func getHealthCheckReport(healthCheckName, clusterNamespace, clusterName string) *libsveltosv1alpha1.HealthCheckReport {
+	return &libsveltosv1alpha1.HealthCheckReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: randomString(),
+			Labels: map[string]string{
+				libsveltosv1alpha1.HealthCheckLabelName: healthCheckName,
+			},
+		},
+		Spec: libsveltosv1alpha1.HealthCheckReportSpec{
+			ClusterNamespace: clusterNamespace,
+			ClusterName:      clusterName,
+			HealthCheckName:  healthCheckName,
+			ClusterType:      libsveltosv1alpha1.ClusterTypeCapi,
+		},
+	}
+}
+
+func prepareCluster() *clusterv1.Cluster {
+	namespace := randomString()
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	Expect(testEnv.Create(context.TODO(), ns)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+
+	cluster := &clusterv1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      randomString(),
+		},
+	}
+
+	machine := &clusterv1.Machine{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      randomString(),
+			Labels: map[string]string{
+				clusterv1.ClusterLabelName:             cluster.Name,
+				clusterv1.MachineControlPlaneLabelName: "ok",
+			},
+		},
+	}
+
+	Expect(testEnv.Create(context.TODO(), cluster)).To(Succeed())
+	Expect(testEnv.Create(context.TODO(), machine)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+
+	cluster.Status = clusterv1.ClusterStatus{
+		InfrastructureReady: true,
+		ControlPlaneReady:   true,
+	}
+	Expect(testEnv.Status().Update(context.TODO(), cluster)).To(Succeed())
+
+	machine.Status = clusterv1.MachineStatus{
+		Phase: string(clusterv1.MachinePhaseRunning),
+	}
+	Expect(testEnv.Status().Update(context.TODO(), machine)).To(Succeed())
+
+	// Create a secret with cluster kubeconfig
+
+	By("Create the secret with cluster kubeconfig")
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: cluster.Namespace,
+			Name:      cluster.Name + "-kubeconfig",
+		},
+		Data: map[string][]byte{
+			"data": testEnv.Kubeconfig,
+		},
+	}
+	Expect(testEnv.Client.Create(context.TODO(), secret)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv.Client, secret)).To(Succeed())
+
+	Expect(addTypeInformationToObject(scheme, cluster)).To(Succeed())
+
+	return cluster
+}
+
+func getClusterRef(cluster client.Object) *corev1.ObjectReference {
+	apiVersion, kind := cluster.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+	return &corev1.ObjectReference{
+		Namespace:  cluster.GetNamespace(),
+		Name:       cluster.GetName(),
+		APIVersion: apiVersion,
+		Kind:       kind,
 	}
 }

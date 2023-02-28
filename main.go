@@ -44,12 +44,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 	"github.com/projectsveltos/libsveltos/lib/crd"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	"github.com/projectsveltos/libsveltos/lib/logsettings"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
+
+	"github.com/projectsveltos/healthcheck-manager/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -109,20 +110,37 @@ func main() {
 
 	var clusterHealthCheckController controller.Controller
 	clusterHealthCheckReconciler := &controllers.ClusterHealthCheckReconciler{
-		Client:                mgr.GetClient(),
-		Scheme:                mgr.GetScheme(),
-		ConcurrentReconciles:  concurrentReconciles,
-		Mux:                   sync.Mutex{},
-		Deployer:              d,
-		ClusterMap:            make(map[corev1.ObjectReference]*libsveltosset.Set),
-		ClusterHealthCheckMap: make(map[corev1.ObjectReference]*libsveltosset.Set),
-		ClusterHealthChecks:   make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
-		ClusterLabels:         make(map[corev1.ObjectReference]map[string]string),
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		ConcurrentReconciles: concurrentReconciles,
+		Mux:                  sync.Mutex{},
+		Deployer:             d,
+		ClusterMap:           make(map[corev1.ObjectReference]*libsveltosset.Set),
+		CHCToClusterMap:      make(map[types.NamespacedName]*libsveltosset.Set),
+		ClusterHealthChecks:  make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+		ClusterLabels:        make(map[corev1.ObjectReference]map[string]string),
+		HealthCheckMap:       make(map[corev1.ObjectReference]*libsveltosset.Set),
+		CHCToHealthCheckMap:  make(map[types.NamespacedName]*libsveltosset.Set),
 	}
 
 	clusterHealthCheckController, err = clusterHealthCheckReconciler.SetupWithManager(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterHealthCheck")
+		os.Exit(1)
+	}
+	if err = (&controllers.HealthCheckReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "HealthCheck")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.SveltosClusterReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "SveltosCluster")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
@@ -214,6 +232,13 @@ func capiWatchers(ctx context.Context, mgr ctrl.Manager, clusterHealthCheckRecon
 				setupLog.V(logsettings.LogInfo).Info("CAPI present.")
 				err = clusterHealthCheckReconciler.WatchForCAPI(mgr, clusterHealthCheckController)
 				if err != nil {
+					continue
+				}
+				if err = (&controllers.ClusterReconciler{
+					Client: mgr.GetClient(),
+					Scheme: mgr.GetScheme(),
+				}).SetupWithManager(mgr); err != nil {
+					logger.Error(err, "unable to create controller", "controller", "Cluster")
 					continue
 				}
 			}
