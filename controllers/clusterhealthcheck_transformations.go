@@ -32,6 +32,83 @@ import (
 	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
 
+func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckReport(
+	o client.Object,
+) []reconcile.Request {
+
+	healthCheckReport := o.(*libsveltosv1alpha1.HealthCheckReport)
+	logger := klogr.New().WithValues(
+		"objectMapper",
+		"requeueClusterHealthCheckForHealthCheckReport",
+		"namespace",
+		healthCheckReport.GetNamespace(),
+		"healthCheckReport",
+		healthCheckReport.GetName(),
+	)
+
+	logger.V(logs.LogDebug).Info("reacting to healthCheckReport change")
+
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
+	// Use the HealthCheck this HealthCheckReport is about
+	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+		Kind: libsveltosv1alpha1.HealthCheckKind, Name: healthCheckReport.Spec.HealthCheckName}
+
+	// Get all ClusterHealthChecks referencing this HealthCheck
+	requests := make([]ctrl.Request, r.getReferenceMapForEntry(&healthCheckInfo).Len())
+	consumers := r.getReferenceMapForEntry(&healthCheckInfo).Items()
+
+	for i := range consumers {
+		l := logger.WithValues("clusterHealthCheck", consumers[i].Name)
+		l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
+		requests[i] = ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name: consumers[i].Name,
+			},
+		}
+	}
+
+	return requests
+}
+
+func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
+	o client.Object,
+) []reconcile.Request {
+
+	healthCheck := o.(*libsveltosv1alpha1.HealthCheck)
+	logger := klogr.New().WithValues(
+		"objectMapper",
+		"requeueClusterHealthCheckForHealthCheck",
+		"healthCheck",
+		healthCheck.GetName(),
+	)
+
+	logger.V(logs.LogDebug).Info("reacting to healthCheck change")
+
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
+	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+		Kind: libsveltosv1alpha1.HealthCheckKind, Name: healthCheck.Name}
+
+	// Get all ClusterHealthChecks referencing this HealthCheck
+	requests := make([]ctrl.Request, r.getReferenceMapForEntry(&healthCheckInfo).Len())
+	consumers := r.getReferenceMapForEntry(&healthCheckInfo).Items()
+
+	for i := range consumers {
+		l := logger.WithValues("clusterHealthCheck", consumers[i].Name)
+		l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
+		requests[i] = ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Name: consumers[i].Name,
+			},
+		}
+	}
+
+	return requests
+}
+
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
 	o client.Object,
 ) []reconcile.Request {

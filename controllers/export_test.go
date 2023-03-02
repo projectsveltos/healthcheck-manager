@@ -24,6 +24,11 @@ var (
 var (
 	RequeueClusterHealthCheckForCluster = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
 	RequeueClusterHealthCheckForMachine = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForMachine
+
+	CleanMaps               = (*ClusterHealthCheckReconciler).cleanMaps
+	UpdateMaps              = (*ClusterHealthCheckReconciler).updateMaps
+	GetReferenceMapForEntry = (*ClusterHealthCheckReconciler).getReferenceMapForEntry
+	GetClusterMapForEntry   = (*ClusterHealthCheckReconciler).getClusterMapForEntry
 )
 
 var (
@@ -46,7 +51,9 @@ var (
 	UpdateNotificationSummariesForCluster = updateNotificationSummariesForCluster
 	IsClusterConditionForCluster          = isClusterConditionForCluster
 	EvaluateClusterHealthCheckForCluster  = evaluateClusterHealthCheckForCluster
-	ProcessClusterHealthCheckForCluster   = processClusterHealthCheckForCluster
+	DeployHealthChecks                    = deployHealthChecks
+	RemoveStaleHealthChecks               = removeStaleHealthChecks
+	GetReferencedHealthChecks             = getReferencedHealthChecks
 )
 
 var (
@@ -54,3 +61,28 @@ var (
 	IsClusterEntryRemoved     = (*ClusterHealthCheckReconciler).isClusterEntryRemoved
 	UpdateClusterConditions   = (*ClusterHealthCheckReconciler).updateClusterConditions
 )
+
+var (
+	RemoveHealthCheckReports                       = removeHealthCheckReports
+	RemoveHealthCheckReportsFromCluster            = removeHealthCheckReportsFromCluster
+	CollectAndProcessHealthCheckReportsFromCluster = collectAndProcessHealthCheckReportsFromCluster
+)
+
+var (
+	GetSlackInfo = getSlackInfo
+	GetWebexInfo = getWebexInfo
+)
+
+func GetWebexRoom(info *webexInfo) string {
+	return info.room
+}
+func GetWebexToken(info *webexInfo) string {
+	return info.token
+}
+
+func GetSlackChannelID(info *slackInfo) string {
+	return info.channelID
+}
+func GetSlackToken(info *slackInfo) string {
+	return info.token
+}

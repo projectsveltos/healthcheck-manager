@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -387,4 +388,18 @@ func deleteClusterProfile(clusterProfile *configv1alpha1.ClusterProfile) {
 		err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterProfile.Name}, currentClusterProfile)
 		return apierrors.IsNotFound(err)
 	}, timeout, pollingInterval).Should(BeTrue())
+}
+
+// getKindWorkloadClusterKubeconfig returns client to access the kind cluster used as workload cluster
+func getKindWorkloadClusterKubeconfig() (client.Client, error) {
+	kubeconfigPath := "workload_kubeconfig" // this file is created in this directory by Makefile during cluster creation
+	config, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+	restConfig, err := clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{}).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return client.New(restConfig, client.Options{Scheme: scheme})
 }

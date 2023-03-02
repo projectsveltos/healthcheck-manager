@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	webexteams "github.com/jbogarin/go-cisco-webex-teams/sdk"
@@ -136,6 +137,8 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 
 	logger.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to room %s", info.room))
 
+	message = strings.ReplaceAll(message, "\n", "  \n")
+
 	webexMessage := &webexteams.MessageCreateRequest{
 		RoomID:   info.room,
 		Markdown: message,
@@ -158,12 +161,13 @@ func getNotificationMessage(clusterNamespace, clusterName string, clusterType li
 	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) (string, bool) {
 
 	passing := true
-	message := fmt.Sprintf("cluster %s:%s/%s\n", clusterType, clusterNamespace, clusterName)
+	message := fmt.Sprintf("cluster %s:%s/%s  \n", clusterType, clusterNamespace, clusterName)
 	for i := range conditions {
 		c := &conditions[i]
 		if c.Status != corev1.ConditionTrue {
 			passing = false
-			message += fmt.Sprintf("liveness check %s failing %q\n", c.Type, c.Message)
+			message += fmt.Sprintf("liveness check %q failing  \n", c.Type)
+			message += fmt.Sprintf("%s  \n", c.Message)
 		}
 	}
 

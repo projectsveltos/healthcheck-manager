@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +45,21 @@ import (
 	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
 
+type ReportMode int
+
+const (
+	// Default mode. In this mode, healthCheckManager running
+	// in the management cluster periodically collects
+	// HealthCheckReport from Sveltos/CAPI clusters
+	CollectFromManagementCluster ReportMode = iota
+
+	// In this mode, sveltos agent sends HealthCheckReport
+	// to management cluster.
+	// SveltosAgent is provided with Kubeconfig to access
+	// management cluster and can only update HealthCheckReport (and ClassifierReport)
+	AgentSendReportsNoGateway
+)
+
 const (
 	// deleteRequeueAfter is how long to wait before checking again to see if the cluster still has
 	// children during deletion.
@@ -57,17 +73,19 @@ const (
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
 type ClusterHealthCheckReconciler struct {
 	client.Client
-	Scheme               *runtime.Scheme
-	ConcurrentReconciles int
-	Deployer             deployer.DeployerInterface
+	Scheme                *runtime.Scheme
+	ConcurrentReconciles  int
+	Deployer              deployer.DeployerInterface
+	HealthCheckReportMode ReportMode
+
 	// use a Mutex to update Map as MaxConcurrentReconciles is higher than one
 	Mux sync.Mutex
 
 	// key: Sveltos/CAPI Cluster: value: set of all ClusterHealthCheck instances matching the Cluster
 	ClusterMap map[corev1.ObjectReference]*libsveltosset.Set
-
 	// key: ClusterHealthCheck: value: set of Sveltos/CAPI Clusters matched
-	ClusterHealthCheckMap map[corev1.ObjectReference]*libsveltosset.Set
+	CHCToClusterMap map[types.NamespacedName]*libsveltosset.Set
+
 	// key: ClusterHealthCheck; value ClusterHealthCheck Selector
 	ClusterHealthChecks map[corev1.ObjectReference]libsveltosv1alpha1.Selector
 
@@ -93,16 +111,22 @@ type ClusterHealthCheckReconciler struct {
 	//		* use ClusterHealthChecks to find all ClusterHealthCheck matching the Cluster and reconcile those;
 	//      * use ClusterMap to reconcile all ClusterHealthChecks previoulsy matching the Cluster.
 	//
-	// The ClusterHealthCheckMap is used to update ClusterMap. Consider following scenarios to understand the need:
+	// The CHCToClusterMap is used to update ClusterMap. Consider following scenarios to understand the need:
 	// 1. ClusterHealthCheck A references Clusters 1 and 2. When reconciled, ClusterMap will have 1 => A and 2 => A;
-	// and ClusterHealthCheckMap A => 1,2
+	// and CHCToClusterMap A => 1,2
 	// 2. Cluster 2 label changes and now ClusterHealthCheck matches Cluster 1 only. We ned to remove the entry 2 => A in ClusterMap. But
 	// when we reconcile ClusterHealthCheck we have its current version we don't have its previous version. So we know ClusterHealthCheck A
 	// now matches Sveltos/CAPI Cluster 1, but we don't know it used to match Sveltos/CAPI Cluster 2.
-	// So we use ClusterHealthCheckMap (at this point value stored here corresponds to reconciliation #1. We know currently
-	// ClusterHealthCheck matches Sveltos/CAPI Cluster 1 only and looking at ClusterHealthCheckMap we know it used to reference
+	// So we use CHCToClusterMap (at this point value stored here corresponds to reconciliation #1. We know currently
+	// ClusterHealthCheck matches Sveltos/CAPI Cluster 1 only and looking at CHCToClusterMap we know it used to reference
 	// Svetos/CAPI Cluster 1 and 2.
-	// So we can remove 2 => A from ClusterMap. Only after this update, we update ClusterHealthCheckMap (so new value will be A => 1)
+	// So we can remove 2 => A from ClusterMap. Only after this update, we update CHCToClusterMap (so new value will be A => 1)
+
+	// key: HealthCheck: value: set of all ClusterHealthCheck referencing it
+	HealthCheckMap map[corev1.ObjectReference]*libsveltosset.Set
+
+	// Key: ClusterHealthCheck: value: set of HealthChecks referenced
+	CHCToHealthCheckMap map[types.NamespacedName]*libsveltosset.Set
 }
 
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=clusterhealthchecks,verbs=get;list;watch;create;update;patch;delete
@@ -118,6 +142,8 @@ type ClusterHealthCheckReconciler struct {
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines/status,verbs=get;watch;list
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=sveltosclusters,verbs=get;watch;list
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=sveltosclusters/status,verbs=get;watch;list
+//+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=healthchecks,verbs=get;watch;list
+//+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=healthcheckreports,verbs=create;update;delete;get;watch;list
 
 func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
@@ -179,7 +205,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 
 	clusterHealthCheckScope.SetMatchingClusterRefs(nil)
 
-	r.updateMaps(clusterHealthCheckScope)
+	r.cleanMaps(clusterHealthCheckScope)
 
 	f := getHandlersForFeature(libsveltosv1alpha1.FeatureClusterHealthCheck)
 	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
@@ -263,8 +289,35 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForClusterSummary),
 		ClusterSummaryPredicates(mgr.GetLogger().WithValues("predicate", "clustersummarypredicate")),
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating controller")
+	}
 
-	return c, err
+	// When projectsveltos healthCheckReports changes, according to HealthCheckReportPredicates,
+	// one or more ClusterHealthChecks need to be reconciled.
+	err = c.Watch(&source.Kind{Type: &libsveltosv1alpha1.HealthCheckReport{}},
+		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheckReport),
+		HealthCheckReportPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckreportpredicate")),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating controller")
+	}
+
+	// When projectsveltos healthChecks changes, according to HealthCheckPredicates,
+	// one or more ClusterHealthChecks need to be reconciled.
+	err = c.Watch(&source.Kind{Type: &libsveltosv1alpha1.HealthCheck{}},
+		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheck),
+		HealthCheckPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckpredicate")),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating controller")
+	}
+
+	if r.HealthCheckReportMode == CollectFromManagementCluster {
+		go collectHealthCheckReports(mgr.GetClient(), mgr.GetLogger())
+	}
+
+	return c, nil
 }
 
 func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controller.Controller) error {
@@ -277,7 +330,7 @@ func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controll
 		return err
 	}
 
-	// When cluster-api machine changes, according to ClusterPredicates,
+	// When cluster-api machine changes, according to MachinePredicates,
 	// one or more ClusterHealthCheck need to be reconciled.
 	if err := c.Watch(&source.Kind{Type: &clusterv1.Machine{}},
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForMachine),
@@ -303,7 +356,59 @@ func (r *ClusterHealthCheckReconciler) addFinalizer(ctx context.Context, cluster
 	return nil
 }
 
+func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
+	clusterHealthCheckInfo := getKeyFromObject(r.Scheme, clusterHealthCheckScope.ClusterHealthCheck)
+
+	for k, l := range r.CHCToClusterMap {
+		l.Erase(
+			&corev1.ObjectReference{
+				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				Name:       clusterHealthCheckScope.Name(),
+			},
+		)
+		if l.Len() == 0 {
+			delete(r.CHCToClusterMap, k)
+		}
+	}
+
+	delete(r.CHCToHealthCheckMap, types.NamespacedName{Name: clusterHealthCheckScope.Name()})
+
+	delete(r.CHCToClusterMap, types.NamespacedName{Name: clusterHealthCheckScope.Name()})
+
+	for k, l := range r.CHCToHealthCheckMap {
+		l.Erase(
+			&corev1.ObjectReference{
+				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				Name:       clusterHealthCheckScope.Name(),
+			},
+		)
+		if l.Len() == 0 {
+			delete(r.CHCToHealthCheckMap, k)
+		}
+	}
+
+	delete(r.ClusterHealthChecks, *clusterHealthCheckInfo)
+}
+
 func (r *ClusterHealthCheckReconciler) updateMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+	r.updateClusterMaps(clusterHealthCheckScope)
+
+	r.updateHealthCheckMaps(clusterHealthCheckScope)
+
+	clusterHealthCheckInfo := getKeyFromObject(r.Scheme, clusterHealthCheckScope.ClusterHealthCheck)
+
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
+	r.ClusterHealthChecks[*clusterHealthCheckInfo] = clusterHealthCheckScope.ClusterHealthCheck.Spec.ClusterSelector
+}
+
+func (r *ClusterHealthCheckReconciler) updateClusterMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
 	currentClusters := &libsveltosset.Set{}
 	for i := range clusterHealthCheckScope.ClusterHealthCheck.Status.MatchingClusterRefs {
 		cluster := clusterHealthCheckScope.ClusterHealthCheck.Status.MatchingClusterRefs[i]
@@ -321,7 +426,7 @@ func (r *ClusterHealthCheckReconciler) updateMaps(clusterHealthCheckScope *scope
 
 	// Get list of Clusters not matched anymore by ClusterHealthCheck
 	var toBeRemoved []corev1.ObjectReference
-	if v, ok := r.ClusterHealthCheckMap[*clusterHealthCheckInfo]; ok {
+	if v, ok := r.CHCToClusterMap[types.NamespacedName{Name: clusterHealthCheckScope.Name()}]; ok {
 		toBeRemoved = v.Difference(currentClusters)
 	}
 
@@ -339,8 +444,56 @@ func (r *ClusterHealthCheckReconciler) updateMaps(clusterHealthCheckScope *scope
 	}
 
 	// Update list of Clusters currently referenced by ClusterHealthCheck instance
-	r.ClusterHealthCheckMap[*clusterHealthCheckInfo] = currentClusters
+	r.CHCToClusterMap[types.NamespacedName{Name: clusterHealthCheckScope.Name()}] = currentClusters
 	r.ClusterHealthChecks[*clusterHealthCheckInfo] = clusterHealthCheckScope.ClusterHealthCheck.Spec.ClusterSelector
+}
+
+func (r *ClusterHealthCheckReconciler) updateHealthCheckMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+	// Get list of HealthChecks currently referenced
+	currentReferences := getReferencedHealthChecks(clusterHealthCheckScope.ClusterHealthCheck, clusterHealthCheckScope.Logger)
+
+	// Get list of References not referenced anymore by ClusterHealthCheck
+	var toBeRemoved []corev1.ObjectReference
+	chcName := types.NamespacedName{Name: clusterHealthCheckScope.Name()}
+	if v, ok := r.CHCToHealthCheckMap[chcName]; ok {
+		toBeRemoved = v.Difference(currentReferences)
+	}
+
+	// For each currently referenced instance, add ClusterHealthCheck as consumer
+	for _, referencedResource := range currentReferences.Items() {
+		tmpResource := referencedResource
+		r.getReferenceMapForEntry(&tmpResource).Insert(
+			&corev1.ObjectReference{
+				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				Name:       clusterHealthCheckScope.Name(),
+			},
+		)
+	}
+
+	// For each resource not reference anymore, remove ClusterSummary as consumer
+	for i := range toBeRemoved {
+		referencedResource := toBeRemoved[i]
+		r.getReferenceMapForEntry(&referencedResource).Erase(
+			&corev1.ObjectReference{
+				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				Name:       clusterHealthCheckScope.Name(),
+			},
+		)
+	}
+
+	// Update list of HealthCheck instances currently referenced by ClusterHealthCheck
+	r.CHCToHealthCheckMap[chcName] = currentReferences
+}
+
+func (r *ClusterHealthCheckReconciler) getReferenceMapForEntry(entry *corev1.ObjectReference) *libsveltosset.Set {
+	s := r.HealthCheckMap[*entry]
+	if s == nil {
+		s = &libsveltosset.Set{}
+		r.HealthCheckMap[*entry] = s
+	}
+	return s
 }
 
 func (r *ClusterHealthCheckReconciler) getClusterMapForEntry(entry *corev1.ObjectReference) *libsveltosset.Set {
