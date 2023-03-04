@@ -98,7 +98,7 @@ func collectHealthCheckReports(c client.Client, logger logr.Logger) {
 	ctx := context.TODO()
 	for {
 		logger.V(logs.LogDebug).Info("collecting HealthCheckReports")
-		clusterList, err := getListOfClusters(ctx, c, logger)
+		clusterList, err := clusterproxy.GetListOfClusters(ctx, c, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
 		}
@@ -136,13 +136,9 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		return nil
 	}
 
-	scheme, err := InitScheme()
-	if err != nil {
-		return err
-	}
-
 	var remoteClient client.Client
-	remoteClient, err = getKubernetesClient(ctx, c, scheme, cluster.Namespace, cluster.Name, getClusterType(clusterRef), logger)
+	remoteClient, err = clusterproxy.GetKubernetesClient(ctx, c, cluster.Namespace, cluster.Name, "",
+		clusterproxy.GetClusterType(clusterRef), logger)
 	if err != nil {
 		return err
 	}
@@ -200,7 +196,7 @@ func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 		return errors.New(msg)
 	}
 
-	clusterType := getClusterType(cluster)
+	clusterType := clusterproxy.GetClusterType(cluster)
 	healthCheckReportName := libsveltosv1alpha1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
 
 	currentHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{}
@@ -242,7 +238,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 		return nil
 	}
 
-	clusterType := getClusterType(cluster)
+	clusterType := clusterproxy.GetClusterType(cluster)
 	healthCheckReportName := libsveltosv1alpha1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
 
 	currentHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{}

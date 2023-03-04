@@ -147,7 +147,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 	// If undeploying feature is in progress, wait for it to complete.
 	// Otherwise, if we redeploy feature while same feature is still being cleaned up, if two workers process those request in
 	// parallel some resources might end up missing.
-	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, f.id, getClusterType(cluster), true) {
+	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, f.id, clusterproxy.GetClusterType(cluster), true) {
 		logger.V(logs.LogDebug).Info("cleanup is in progress")
 		return nil, fmt.Errorf("cleanup of %s in cluster still in progress. Wait before redeploying", f.id)
 	}
@@ -166,7 +166,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 	if isConfigSame {
 		logger.V(logs.LogInfo).Info("clusterhealthcheck has not changed")
 		result = r.Deployer.GetResult(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id,
-			getClusterType(cluster), false)
+			clusterproxy.GetClusterType(cluster), false)
 		status = r.convertResultStatus(result)
 	}
 
@@ -200,7 +200,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 
 		// Getting here means either ClusterHealthCheck failed to be deployed or ClusterHealthCheck has changed.
 		// ClusterHealthCheck must be (re)deployed.
-		if err := r.Deployer.Deploy(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id, getClusterType(cluster),
+		if err := r.Deployer.Deploy(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id, clusterproxy.GetClusterType(cluster),
 			false, processClusterHealthCheckForCluster, programDuration, deployer.Options{}); err != nil {
 			return nil, err
 		}
@@ -225,12 +225,14 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 	logger.V(logs.LogDebug).Info("request to undeploy")
 
 	// Remove any queued entry to deploy/evaluate
-	r.Deployer.CleanupEntries(cluster.Namespace, cluster.Name, chc.Name, string(f.id), getClusterType(cluster), false)
+	r.Deployer.CleanupEntries(cluster.Namespace, cluster.Name, chc.Name, string(f.id),
+		clusterproxy.GetClusterType(cluster), false)
 
 	// If deploying feature is in progress, wait for it to complete.
 	// Otherwise, if we cleanup feature while same feature is still being provisioned, if two workers process those request in
 	// parallel some resources might be left over.
-	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, string(f.id), getClusterType(cluster), false) {
+	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, string(f.id),
+		clusterproxy.GetClusterType(cluster), false) {
 		logger.V(logs.LogDebug).Info("provisioning is in progress")
 		return nil, fmt.Errorf("deploying %s still in progress. Wait before cleanup", string(f.id))
 	}
@@ -241,7 +243,8 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		return nil, nil
 	}
 
-	result := r.Deployer.GetResult(ctx, cluster.Namespace, cluster.Name, chc.Name, string(f.id), getClusterType(cluster), true)
+	result := r.Deployer.GetResult(ctx, cluster.Namespace, cluster.Name, chc.Name, string(f.id),
+		clusterproxy.GetClusterType(cluster), true)
 	status := r.convertResultStatus(result)
 
 	clusterInfo := &libsveltosv1alpha1.ClusterInfo{
@@ -256,7 +259,8 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		}
 
 		if *status == libsveltosv1alpha1.SveltosStatusRemoved {
-			if err := removeConditionEntry(ctx, r.Client, cluster.Namespace, cluster.Name, getClusterType(cluster), chc, logger); err != nil {
+			if err := removeConditionEntry(ctx, r.Client, cluster.Namespace, cluster.Name,
+				clusterproxy.GetClusterType(cluster), chc, logger); err != nil {
 				return nil, err
 			}
 			return clusterInfo, nil
@@ -266,7 +270,8 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 	}
 
 	logger.V(logs.LogDebug).Info("queueing request to un-deploy")
-	if err := r.Deployer.Deploy(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id, getClusterType(cluster), true,
+	if err := r.Deployer.Deploy(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id,
+		clusterproxy.GetClusterType(cluster), true,
 		undeployClusterHealthCheckResourcesFromCluster, programDuration, deployer.Options{}); err != nil {
 		return nil, err
 	}
@@ -302,7 +307,7 @@ func (r *ClusterHealthCheckReconciler) getCHCInClusterHashAndStatus(chc *libsvel
 
 	for i := range chc.Status.ClusterConditions {
 		cCondition := &chc.Status.ClusterConditions[i]
-		if isClusterConditionForCluster(cCondition, cluster.Namespace, cluster.Name, getClusterType(cluster)) {
+		if isClusterConditionForCluster(cCondition, cluster.Namespace, cluster.Name, clusterproxy.GetClusterType(cluster)) {
 			return cCondition.ClusterInfo.Hash, &cCondition.ClusterInfo.Status
 		}
 	}
@@ -314,7 +319,8 @@ func (r *ClusterHealthCheckReconciler) getCHCInClusterHashAndStatus(chc *libsvel
 func (r *ClusterHealthCheckReconciler) isPaused(ctx context.Context, cluster *corev1.ObjectReference,
 	chc *libsveltosv1alpha1.ClusterHealthCheck) (bool, error) {
 
-	isClusterPaused, err := isClusterPaused(ctx, r.Client, cluster.Namespace, cluster.Name, getClusterType(cluster))
+	isClusterPaused, err := clusterproxy.IsClusterPaused(ctx, r.Client, cluster.Namespace, cluster.Name,
+		clusterproxy.GetClusterType(cluster))
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -365,7 +371,8 @@ func (r *ClusterHealthCheckReconciler) isClusterEntryRemoved(chc *libsveltosv1al
 
 	for i := range chc.Status.ClusterConditions {
 		cc := &chc.Status.ClusterConditions[i]
-		if isClusterConditionForCluster(cc, cluster.Namespace, cluster.Name, getClusterType(cluster)) {
+		if isClusterConditionForCluster(cc, cluster.Namespace, cluster.Name,
+			clusterproxy.GetClusterType(cluster)) {
 			return false
 		}
 	}
@@ -382,7 +389,8 @@ func clusterHealthCheckHash(ctx context.Context, c client.Client,
 	var config string
 	config += render.AsCode(chc.Spec)
 
-	clusterSummaries, err := fetchClusterSummaries(ctx, c, cluster.Namespace, cluster.Name, getClusterType(cluster))
+	clusterSummaries, err := fetchClusterSummaries(ctx, c, cluster.Namespace, cluster.Name,
+		clusterproxy.GetClusterType(cluster))
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +429,8 @@ func fetchReferencedResources(ctx context.Context, c client.Client,
 			}
 			config += render.AsCode(resource.Spec)
 
-			list, err := fetchHealthCheckReports(ctx, c, cluster.Namespace, cluster.Name, resource.Name, getClusterType(cluster))
+			list, err := fetchHealthCheckReports(ctx, c, cluster.Namespace, cluster.Name, resource.Name,
+				clusterproxy.GetClusterType(cluster))
 			if err != nil {
 				return "", err
 			}
@@ -770,7 +779,8 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
 	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
 
-	remoteClient, err := getKubernetesClient(ctx, c, c.Scheme(), clusterNamespace, clusterName, clusterType, logger)
+	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName, "",
+		clusterType, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
 		return err
@@ -837,7 +847,8 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 		return nil
 	}
 
-	remoteClient, err := getKubernetesClient(ctx, c, c.Scheme(), clusterNamespace, clusterName, clusterType, logger)
+	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName, "",
+		clusterType, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
 		return err

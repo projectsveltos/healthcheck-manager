@@ -17,11 +17,6 @@ limitations under the License.
 package controllers
 
 var (
-	IsClusterPaused     = isClusterPaused
-	GetMatchingClusters = getMatchingClusters
-)
-
-var (
 	RequeueClusterHealthCheckForCluster = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
 	RequeueClusterHealthCheckForMachine = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForMachine
 
