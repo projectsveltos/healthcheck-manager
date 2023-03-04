@@ -363,7 +363,7 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 
 	clusterHealthCheckInfo := getKeyFromObject(r.Scheme, clusterHealthCheckScope.ClusterHealthCheck)
 
-	for k, l := range r.CHCToClusterMap {
+	for k, l := range r.ClusterMap {
 		l.Erase(
 			&corev1.ObjectReference{
 				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
@@ -372,7 +372,7 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 			},
 		)
 		if l.Len() == 0 {
-			delete(r.CHCToClusterMap, k)
+			delete(r.ClusterMap, k)
 		}
 	}
 
@@ -380,7 +380,7 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 
 	delete(r.CHCToClusterMap, types.NamespacedName{Name: clusterHealthCheckScope.Name()})
 
-	for k, l := range r.CHCToHealthCheckMap {
+	for k, l := range r.HealthCheckMap {
 		l.Erase(
 			&corev1.ObjectReference{
 				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
@@ -389,7 +389,7 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 			},
 		)
 		if l.Len() == 0 {
-			delete(r.CHCToHealthCheckMap, k)
+			delete(r.HealthCheckMap, k)
 		}
 	}
 
@@ -446,7 +446,6 @@ func (r *ClusterHealthCheckReconciler) updateClusterMaps(clusterHealthCheckScope
 
 	// Update list of Clusters currently referenced by ClusterHealthCheck instance
 	r.CHCToClusterMap[types.NamespacedName{Name: clusterHealthCheckScope.Name()}] = currentClusters
-	r.ClusterHealthChecks[*clusterHealthCheckInfo] = clusterHealthCheckScope.ClusterHealthCheck.Spec.ClusterSelector
 }
 
 func (r *ClusterHealthCheckReconciler) updateHealthCheckMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
@@ -472,7 +471,7 @@ func (r *ClusterHealthCheckReconciler) updateHealthCheckMaps(clusterHealthCheckS
 		)
 	}
 
-	// For each resource not reference anymore, remove ClusterSummary as consumer
+	// For each resource not reference anymore, remove ClusterHealthCheck as consumer
 	for i := range toBeRemoved {
 		referencedResource := toBeRemoved[i]
 		r.getReferenceMapForEntry(&referencedResource).Erase(
