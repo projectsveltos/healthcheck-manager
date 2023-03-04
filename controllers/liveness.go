@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
@@ -190,7 +191,7 @@ func isClusterConditionForCluster(cc *libsveltosv1alpha1.ClusterCondition, clust
 
 	return cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
 		cc.ClusterInfo.Cluster.Name == clusterName &&
-		getClusterType(&cc.ClusterInfo.Cluster) == clusterType
+		clusterproxy.GetClusterType(&cc.ClusterInfo.Cluster) == clusterType
 }
 
 // fetchClusterSummaries returns all ClusterSummaries currently existing for a given cluster

@@ -39,6 +39,7 @@ import (
 
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
@@ -237,7 +238,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	}
 
 	parsedSelector, _ := labels.Parse(clusterHealthCheckScope.GetSelector())
-	matchingCluster, err := getMatchingClusters(ctx, r.Client, parsedSelector, clusterHealthCheckScope.Logger)
+	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, parsedSelector, clusterHealthCheckScope.Logger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -513,7 +514,7 @@ func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Conte
 	chc := clusterHealthCheckScope.ClusterHealthCheck
 
 	getClusterID := func(cluster corev1.ObjectReference) string {
-		return fmt.Sprintf("%s:%s/%s", getClusterType(&cluster), cluster.Namespace, cluster.Name)
+		return fmt.Sprintf("%s:%s/%s", clusterproxy.GetClusterType(&cluster), cluster.Namespace, cluster.Name)
 	}
 
 	// Build Map for all Clusters with an entry in Classifier.Status.ClusterInfo
