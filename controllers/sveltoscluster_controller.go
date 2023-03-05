@@ -19,12 +19,9 @@ package controllers
 import (
 	"context"
 
-	"github.com/pkg/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
@@ -45,34 +42,7 @@ func (r *SveltosClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Fecth the SveltosCluster instance
 	sveltosCluster := &libsveltosv1alpha1.SveltosCluster{}
-	if err := r.Get(ctx, req.NamespacedName, sveltosCluster); err != nil {
-		if apierrors.IsNotFound(err) {
-			err := removeHealthCheckReportsFromCluster(ctx, r.Client, req.Namespace, req.Name,
-				libsveltosv1alpha1.ClusterTypeSveltos, logger)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			return reconcile.Result{}, nil
-		}
-		logger.Error(err, "Failed to fetch SveltosCluster")
-		return reconcile.Result{}, errors.Wrapf(
-			err,
-			"Failed to fetch SveltosCluster %s",
-			req.NamespacedName,
-		)
-	}
-
-	// Handle deleted SveltosCluster
-	if !sveltosCluster.DeletionTimestamp.IsZero() {
-		err := removeHealthCheckReportsFromCluster(ctx, r.Client, req.Namespace, req.Name,
-			libsveltosv1alpha1.ClusterTypeSveltos, logger)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{}, nil
-	}
-
-	return ctrl.Result{}, nil
+	return processCluster(ctx, r.Client, sveltosCluster, req, logger)
 }
 
 // SetupWithManager sets up the controller with the Manager.

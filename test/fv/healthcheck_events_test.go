@@ -124,7 +124,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 				client.MatchingLabels(labels),
 			}
 			healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
-			err := k8sClient.List(context.TODO(), healthCheckReportList, listOptions...)
+			err = k8sClient.List(context.TODO(), healthCheckReportList, listOptions...)
 			return err == nil && len(healthCheckReportList.Items) == 1
 		}, timeout, pollingInterval).Should(BeTrue())
 

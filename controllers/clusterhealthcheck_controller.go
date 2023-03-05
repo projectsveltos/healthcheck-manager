@@ -110,7 +110,7 @@ type ClusterHealthCheckReconciler struct {
 	// - when a ClusterHealthCheck is reconciled, update the ClusterHealthChecks amd the ClusterMap;
 	// - in the MapFunc, given the Sveltos/CAPI Cluster that changed:
 	//		* use ClusterHealthChecks to find all ClusterHealthCheck matching the Cluster and reconcile those;
-	//      * use ClusterMap to reconcile all ClusterHealthChecks previoulsy matching the Cluster.
+	//      * use ClusterMap to reconcile all ClusterHealthChecks previously matching the Cluster.
 	//
 	// The CHCToClusterMap is used to update ClusterMap. Consider following scenarios to understand the need:
 	// 1. ClusterHealthCheck A references Clusters 1 and 2. When reconciled, ClusterMap will have 1 => A and 2 => A;
@@ -189,7 +189,7 @@ func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Handle deleted clusterHealthCheck
 	if !clusterHealthCheck.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, clusterHealthCheckScope)
+		return r.reconcileDelete(ctx, clusterHealthCheckScope), nil
 	}
 
 	// Handle non-deleted clusterHealthCheck
@@ -199,7 +199,7 @@ func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *ClusterHealthCheckReconciler) reconcileDelete(
 	ctx context.Context,
 	clusterHealthCheckScope *scope.ClusterHealthCheckScope,
-) (reconcile.Result, error) {
+) reconcile.Result {
 
 	logger := clusterHealthCheckScope.Logger
 	logger.V(logs.LogInfo).Info("Reconciling ClusterHealthCheck delete")
@@ -212,7 +212,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to undeploy")
-		return reconcile.Result{Requeue: true, RequeueAfter: deleteRequeueAfter}, nil
+		return reconcile.Result{Requeue: true, RequeueAfter: deleteRequeueAfter}
 	}
 
 	if controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1alpha1.ClusterHealthCheckFinalizer) {
@@ -220,7 +220,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 	}
 
 	logger.V(logs.LogInfo).Info("Reconcile delete success")
-	return reconcile.Result{}, nil
+	return reconcile.Result{}
 }
 
 func (r *ClusterHealthCheckReconciler) reconcileNormal(

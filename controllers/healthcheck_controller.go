@@ -47,7 +47,7 @@ func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	healthCheck := &libsveltosv1alpha1.HealthCheck{}
 	if err := r.Get(ctx, req.NamespacedName, healthCheck); err != nil {
 		if apierrors.IsNotFound(err) {
-			err := removeHealthCheckReports(ctx, r.Client, healthCheck, logger)
+			err = removeHealthCheckReports(ctx, r.Client, healthCheck, logger)
 			if err != nil {
 				return reconcile.Result{}, err
 			}

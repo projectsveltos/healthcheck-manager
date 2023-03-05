@@ -50,7 +50,7 @@ var _ = Describe("Notification", func() {
 		Expect(controllers.DoSendNotification(n, nil, false)).To(BeTrue())
 	})
 
-	It("doSendNotification returns false when nothing has changed and notification was alreayd delivered",
+	It("doSendNotification returns false when nothing has changed and notification was already delivered",
 		func() {
 			status := make(map[string]libsveltosv1alpha1.NotificationStatus)
 			status[n.Name] = libsveltosv1alpha1.NotificationStatusDelivered

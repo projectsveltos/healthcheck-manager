@@ -268,7 +268,9 @@ func verifyNotifications(cc *libsveltosv1alpha1.ClusterCondition) bool {
 }
 
 func getClusterHealthCheck(namePrefix string, clusterLabels map[string]string,
-	lc []libsveltosv1alpha1.LivenessCheck, notifications []libsveltosv1alpha1.Notification) *libsveltosv1alpha1.ClusterHealthCheck {
+	lc []libsveltosv1alpha1.LivenessCheck, notifications []libsveltosv1alpha1.Notification,
+) *libsveltosv1alpha1.ClusterHealthCheck {
+
 	selector := ""
 	for k := range clusterLabels {
 		if selector != "" {
@@ -325,7 +327,6 @@ func getClusterProfile(namePrefix string, clusterLabels map[string]string) *conf
 // isClusterConditionForCluster returns true if the ClusterCondition is for the cluster clusterType, clusterNamespace,
 // clusterName
 func isClusterConditionForCluster(cc *libsveltosv1alpha1.ClusterCondition, clusterNamespace, clusterName string) bool {
-
 	return cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
 		cc.ClusterInfo.Cluster.Name == clusterName
 }

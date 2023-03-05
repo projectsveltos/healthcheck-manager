@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,9 +47,22 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Fecth the Cluster instance
 	cluster := &clusterv1.Cluster{}
-	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
+	return processCluster(ctx, r.Client, cluster, req, logger)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&clusterv1.Cluster{}).
+		Complete(r)
+}
+
+func processCluster(ctx context.Context, c client.Client, cluster client.Object, req ctrl.Request,
+	logger logr.Logger) (ctrl.Result, error) {
+
+	if err := c.Get(ctx, req.NamespacedName, cluster); err != nil {
 		if apierrors.IsNotFound(err) {
-			err = removeHealthCheckReportsFromCluster(ctx, r.Client, req.Namespace, req.Name,
+			err = removeHealthCheckReportsFromCluster(ctx, c, req.Namespace, req.Name,
 				libsveltosv1alpha1.ClusterTypeCapi, logger)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -64,8 +78,8 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// Handle deleted cluster
-	if !cluster.DeletionTimestamp.IsZero() {
-		err := removeHealthCheckReportsFromCluster(ctx, r.Client, req.Namespace, req.Name,
+	if !cluster.GetDeletionTimestamp().IsZero() {
+		err := removeHealthCheckReportsFromCluster(ctx, c, req.Namespace, req.Name,
 			libsveltosv1alpha1.ClusterTypeCapi, logger)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -73,12 +87,5 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return reconcile.Result{}, nil
 	}
 
-	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *ClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&clusterv1.Cluster{}).
-		Complete(r)
+	return reconcile.Result{}, nil
 }
