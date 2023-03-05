@@ -34,6 +34,11 @@ import (
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
+const (
+	malformedLabelError = "healthCheckReport is malformed. Labels is empty"
+	missingLabelError   = "healthCheckReport is malformed. Label missing"
+)
+
 // removeHealthCheckReports deletes all HealthCheckReport corresponding to HealthCheck instance
 func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheck *libsveltosv1alpha1.HealthCheck,
 	logger logr.Logger) error {
@@ -184,16 +189,14 @@ func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 	healthCheckReportReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
 
 	if healthCheckReportReport.Labels == nil {
-		msg := "healthCheckReport is malformed. Labels is empty"
-		logger.V(logs.LogInfo).Info(msg)
-		return errors.New(msg)
+		logger.V(logs.LogInfo).Info(malformedLabelError)
+		return errors.New(malformedLabelError)
 	}
 
 	healthCheckName, ok := healthCheckReportReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
 	if !ok {
-		msg := "healthCheckReport is malformed. Label missing"
-		logger.V(logs.LogInfo).Info(msg)
-		return errors.New(msg)
+		logger.V(logs.LogInfo).Info(missingLabelError)
+		return errors.New(missingLabelError)
 	}
 
 	clusterType := clusterproxy.GetClusterType(cluster)
@@ -214,16 +217,14 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 	healthCheckReportReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
 
 	if healthCheckReportReport.Labels == nil {
-		msg := "healthCheckReport is malformed. Labels is empty"
-		logger.V(logs.LogInfo).Info(msg)
-		return errors.New(msg)
+		logger.V(logs.LogInfo).Info(malformedLabelError)
+		return errors.New(malformedLabelError)
 	}
 
 	healthCheckName, ok := healthCheckReportReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
 	if !ok {
-		msg := "healthCheckReport is malformed. Label missing"
-		logger.V(logs.LogInfo).Info(msg)
-		return errors.New(msg)
+		logger.V(logs.LogInfo).Info(missingLabelError)
+		return errors.New(missingLabelError)
 	}
 
 	// Verify HealthCheck still exists

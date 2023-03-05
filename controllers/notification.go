@@ -53,11 +53,11 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	var err error
 	switch n.Type {
 	case libsveltosv1alpha1.NotificationTypeKubernetesEvent:
-		err = sendKubernetesNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+		sendKubernetesNotification(clusterNamespace, clusterName, clusterType, chc, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeSlack:
-		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeWebex:
-		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -71,9 +71,9 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	return nil
 }
 
-func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+func sendKubernetesNotification(clusterNamespace, clusterName string,
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) {
 
 	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
 
@@ -86,13 +86,11 @@ func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNam
 	r.Eventf(chc, eventType, "ClusterHealthCheck", message)
 
 	r.Event(chc, eventType, "ClusterHealthCheck", message)
-
-	return nil
 }
 
 func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	logger logr.Logger) error {
 
 	info, err := getSlackInfo(ctx, c, n)
 	if err != nil {
@@ -118,8 +116,8 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 }
 
 func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	logger logr.Logger) error {
 
 	info, err := getWebexInfo(ctx, c, n)
 	if err != nil {

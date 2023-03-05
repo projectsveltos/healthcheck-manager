@@ -49,7 +49,7 @@ func evaluateLivenessCheck(ctx context.Context, c client.Client, clusterNamespac
 			chc, livenessCheck, logger)
 	case libsveltosv1alpha1.LivenessTypeHealthCheck:
 		passing, message, err = evaluateLivenessCheckHealthCheck(ctx, c, clusterNamespace, clusterName, clusterType,
-			chc, livenessCheck, logger)
+			livenessCheck, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no verification registered for liveness check")
 		panic(1)
@@ -72,14 +72,17 @@ func evaluateLivenessCheck(ctx context.Context, c client.Client, clusterNamespac
 // - human consumable message
 // - an error if any occurs
 func evaluateLivenessCheckHealthCheck(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	livenessCheck *libsveltosv1alpha1.LivenessCheck, logger logr.Logger) (bool, string, error) {
+	clusterType libsveltosv1alpha1.ClusterType, livenessCheck *libsveltosv1alpha1.LivenessCheck,
+	logger logr.Logger) (allHealthy bool, message string, err error) {
 
+	message = ""
+	allHealthy = true
 	if livenessCheck.LivenessSourceRef == nil {
 		return false, "", nil
 	}
 
-	healthCheckReportList, err := fetchHealthCheckReports(ctx, c, clusterNamespace,
+	var healthCheckReportList *libsveltosv1alpha1.HealthCheckReportList
+	healthCheckReportList, err = fetchHealthCheckReports(ctx, c, clusterNamespace,
 		clusterName, livenessCheck.LivenessSourceRef.Name, clusterType)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch healthCheckReports: %v", err))
@@ -91,8 +94,6 @@ func evaluateLivenessCheckHealthCheck(ctx context.Context, c client.Client, clus
 		return false, "", err
 	}
 
-	message := ""
-	allHealthy := true
 	for i := range healthCheckReportList.Items {
 		hcr := &healthCheckReportList.Items[i]
 		if hcr.DeletionTimestamp.IsZero() {

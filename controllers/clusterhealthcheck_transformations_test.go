@@ -95,15 +95,18 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		}
 
 		By("Setting ClusterHealthCheckReconciler internal structures")
-		matchingInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion, Kind: libsveltosv1alpha1.ClusterHealthCheckKind, Name: matchingClusterHealthCheck.Name}
+		matchingInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion,
+			Kind: libsveltosv1alpha1.ClusterHealthCheckKind, Name: matchingClusterHealthCheck.Name}
 		reconciler.ClusterHealthChecks[matchingInfo] = matchingClusterHealthCheck.Spec.ClusterSelector
-		nonMatchingInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion, Kind: libsveltosv1alpha1.ClusterHealthCheckKind, Name: nonMatchingClusterHealthCheck.Name}
+		nonMatchingInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion,
+			Kind: libsveltosv1alpha1.ClusterHealthCheckKind, Name: nonMatchingClusterHealthCheck.Name}
 		reconciler.ClusterHealthChecks[nonMatchingInfo] = nonMatchingClusterHealthCheck.Spec.ClusterSelector
 
 		// ClusterMap contains, per ClusterName, list of ClusterHealthChecks matching it.
 		clusterHealthCheckSet := &libsveltosset.Set{}
 		clusterHealthCheckSet.Insert(&matchingInfo)
-		clusterInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion, Kind: cluster.Kind, Namespace: cluster.Namespace, Name: cluster.Name}
+		clusterInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion, Kind: cluster.Kind,
+			Namespace: cluster.Namespace, Name: cluster.Name}
 		reconciler.ClusterMap[clusterInfo] = clusterHealthCheckSet
 
 		// CHCToClusterMap contains, per ClusterHealthCheck, list of matched Clusters.
