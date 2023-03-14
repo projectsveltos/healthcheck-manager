@@ -9,4 +9,9 @@ resources:
   group: lib.projectsveltos.io
   kind: ClusterHealthCheck
   version: v1alpha1
+- controller: true
+  domain: projectsveltos.io
+  group: lib
+  kind: HealthCheck
+  version: v1alpha1
 version: "3"

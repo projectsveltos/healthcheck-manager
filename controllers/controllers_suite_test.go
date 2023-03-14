@@ -40,6 +40,11 @@ var (
 	scheme  *runtime.Scheme
 )
 
+const (
+	timeout         = 1 * time.Minute
+	pollingInterval = 5 * time.Second
+)
+
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controllers Suite")
@@ -79,6 +84,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), clusterHealthCheckCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, clusterHealthCheckCRD)).To(Succeed())
+
+	var healthCheckCRD *unstructured.Unstructured
+	healthCheckCRD, err = utils.GetUnstructured(libsveltoscrd.GetHealthCheckCRDYAML())
+	Expect(err).To(BeNil())
+	Expect(testEnv.Create(context.TODO(), healthCheckCRD)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv, healthCheckCRD)).To(Succeed())
+
+	var healthCheckReportCRD *unstructured.Unstructured
+	healthCheckReportCRD, err = utils.GetUnstructured(libsveltoscrd.GetHealthCheckReportCRDYAML())
+	Expect(err).To(BeNil())
+	Expect(testEnv.Create(context.TODO(), healthCheckReportCRD)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv, healthCheckReportCRD)).To(Succeed())
 
 	var dcCRD *unstructured.Unstructured
 	dcCRD, err = utils.GetUnstructured(libsveltoscrd.GetDebuggingConfigurationCRDYAML())

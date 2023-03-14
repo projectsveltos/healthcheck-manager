@@ -141,9 +141,9 @@ var _ = Describe("Liveness", func() {
 		}
 
 		Expect(controllers.HasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
-			&livenessCheck, true)).To(BeTrue())
+			&livenessCheck, true, "")).To(BeTrue())
 		Expect(controllers.HasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
-			&livenessCheck, false)).To(BeTrue())
+			&livenessCheck, false, "")).To(BeTrue())
 
 		apiVersion, kind := schema.GroupVersionKind{
 			Group:   libsveltosv1alpha1.GroupVersion.Group,
@@ -164,6 +164,7 @@ var _ = Describe("Liveness", func() {
 					},
 					Conditions: []libsveltosv1alpha1.Condition{
 						{
+							Name:   livenessCheck.Name,
 							Type:   libsveltosv1alpha1.ConditionType(controllers.GetConditionType(&livenessCheck)),
 							Status: corev1.ConditionFalse,
 						},
@@ -173,15 +174,15 @@ var _ = Describe("Liveness", func() {
 		}
 
 		Expect(controllers.HasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
-			&livenessCheck, true)).To(BeTrue())
+			&livenessCheck, true, "")).To(BeTrue())
 		Expect(controllers.HasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
-			&livenessCheck, false)).To(BeFalse())
+			&livenessCheck, false, "")).To(BeFalse())
 
 		chc.Status.ClusterConditions[0].Conditions[0].Status = corev1.ConditionTrue
 		Expect(controllers.HasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
-			&livenessCheck, true)).To(BeFalse())
+			&livenessCheck, true, "")).To(BeFalse())
 		Expect(controllers.HasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
-			&livenessCheck, false)).To(BeTrue())
+			&livenessCheck, false, "")).To(BeTrue())
 	})
 
 	It("evaluateLivenessCheckAddOns returns true when add-ons are deployed", func() {
@@ -222,7 +223,7 @@ var _ = Describe("Liveness", func() {
 		Expect(c.List(context.TODO(), chcs)).To(Succeed())
 		Expect(len(chcs.Items)).To(Equal(1))
 
-		statusChanged, passing, err := controllers.EvaluateLivenessCheck(context.TODO(), c, clusterNamespace, clusterName, clusterType, &chcs.Items[0],
+		statusChanged, passing, _, err := controllers.EvaluateLivenessCheck(context.TODO(), c, clusterNamespace, clusterName, clusterType, &chcs.Items[0],
 			&livenessCheck, klogr.New())
 		Expect(err).To(BeNil())
 		Expect(passing).To(BeTrue())
@@ -295,4 +296,21 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
 	return c
+}
+
+// createSecretWithKubeconfig creates a secret containing kubeconfig to access CAPI cluster.
+// Uses testEnv.
+func createSecretWithKubeconfig(clusterNamespace, clusterName string) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: clusterNamespace,
+			Name:      clusterName + "-kubeconfig",
+		},
+		Data: map[string][]byte{
+			"data": testEnv.Kubeconfig,
+		},
+	}
+
+	Expect(testEnv.Create(context.TODO(), secret)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv.Client, secret)).To(Succeed())
 }

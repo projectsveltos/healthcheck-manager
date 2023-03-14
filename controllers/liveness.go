@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
@@ -33,10 +34,11 @@ import (
 // Return values:
 // - bool indicating whether liveness check is passing
 // - bool indicating if liveness check changed state since last evaluation
+// - message is a human consumable information
 // - an error if any occurs
 func evaluateLivenessCheck(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	livenessCheck *libsveltosv1alpha1.LivenessCheck, logger logr.Logger) (passing, statusChanged bool, err error) {
+	livenessCheck *libsveltosv1alpha1.LivenessCheck, logger logr.Logger) (passing, statusChanged bool, message string, err error) {
 
 	logger = logger.WithValues("livenesscheck", fmt.Sprintf("%s:%s", livenessCheck.Type, livenessCheck.Name))
 	logger.V(logs.LogDebug).Info("evaluate liveness check type")
@@ -45,6 +47,9 @@ func evaluateLivenessCheck(ctx context.Context, c client.Client, clusterNamespac
 	case libsveltosv1alpha1.LivenessTypeAddons:
 		passing, err = evaluateLivenessCheckAddOns(ctx, c, clusterNamespace, clusterName, clusterType,
 			chc, livenessCheck, logger)
+	case libsveltosv1alpha1.LivenessTypeHealthCheck:
+		passing, message, err = evaluateLivenessCheckHealthCheck(ctx, c, clusterNamespace, clusterName, clusterType,
+			livenessCheck, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no verification registered for liveness check")
 		panic(1)
@@ -55,9 +60,52 @@ func evaluateLivenessCheck(ctx context.Context, c client.Client, clusterNamespac
 		return
 	}
 
-	statusChanged = hasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType, livenessCheck, passing)
+	statusChanged = hasLivenessCheckStatusChange(chc, clusterNamespace, clusterName, clusterType,
+		livenessCheck, passing, message)
 
 	return
+}
+
+// evaluateLivenessCheckHealthCheck evaluates status reported in corresponding HealthCheckReport.
+// Return values:
+// - bool indicating if any add-on deployment changed state since last evaluation
+// - human consumable message
+// - an error if any occurs
+func evaluateLivenessCheckHealthCheck(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1alpha1.ClusterType, livenessCheck *libsveltosv1alpha1.LivenessCheck,
+	logger logr.Logger) (allHealthy bool, message string, err error) {
+
+	message = ""
+	allHealthy = true
+	if livenessCheck.LivenessSourceRef == nil {
+		return false, "", nil
+	}
+
+	var healthCheckReportList *libsveltosv1alpha1.HealthCheckReportList
+	healthCheckReportList, err = fetchHealthCheckReports(ctx, c, clusterNamespace,
+		clusterName, livenessCheck.LivenessSourceRef.Name, clusterType)
+	if err != nil {
+		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch healthCheckReports: %v", err))
+		return false, "", err
+	}
+
+	if len(healthCheckReportList.Items) == 0 {
+		logger.V(logs.LogInfo).Info("did not find healthCheckReport")
+		return false, "", err
+	}
+
+	for i := range healthCheckReportList.Items {
+		hcr := &healthCheckReportList.Items[i]
+		if hcr.DeletionTimestamp.IsZero() {
+			msg, isHealthy := isStatusHealthy(hcr)
+			if !isHealthy {
+				allHealthy = false
+			}
+			message += msg
+		}
+	}
+
+	return allHealthy, message, nil
 }
 
 // evaluateLivenessCheckAddOns evaluates whether all add-ons are deployed or not.
@@ -87,7 +135,8 @@ func evaluateLivenessCheckAddOns(ctx context.Context, c client.Client, clusterNa
 
 // hasLivenessCheckStatusChange returns true if the status for this liveness check has changed since last evaluation
 func hasLivenessCheckStatusChange(chc *libsveltosv1alpha1.ClusterHealthCheck, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, livenessCheck *libsveltosv1alpha1.LivenessCheck, passing bool) bool {
+	clusterType libsveltosv1alpha1.ClusterType, livenessCheck *libsveltosv1alpha1.LivenessCheck,
+	passing bool, message string) bool {
 
 	for i := range chc.Status.ClusterConditions {
 		cc := &chc.Status.ClusterConditions[i]
@@ -98,7 +147,7 @@ func hasLivenessCheckStatusChange(chc *libsveltosv1alpha1.ClusterHealthCheck, cl
 				return true
 			}
 
-			return hasStatusChanged(previousStatus, passing)
+			return hasStatusChanged(previousStatus, passing, message)
 		}
 	}
 
@@ -106,27 +155,30 @@ func hasLivenessCheckStatusChange(chc *libsveltosv1alpha1.ClusterHealthCheck, cl
 	return true
 }
 
-func hasStatusChanged(previousStatus *corev1.ConditionStatus, passing bool) bool {
+func hasStatusChanged(previousStatus *libsveltosv1alpha1.Condition, passing bool, message string) bool {
 	// if currently liveness check is passing
 	if passing {
-		// No change only if previous status was conditionTrue
-		return *previousStatus != corev1.ConditionTrue
+		// No change only if previous status was also conditionTrue
+		return previousStatus.Status != corev1.ConditionTrue
 	}
 
 	// No change only if previous status was conditionFalse
-	return *previousStatus != corev1.ConditionFalse
+	return previousStatus.Message != message ||
+		previousStatus.Status != corev1.ConditionFalse
 }
 
 // getLivenessCheckStatus returns the liveness check status if ever set before. Nil otherwise
 func getLivenessCheckStatus(cc *libsveltosv1alpha1.ClusterCondition, livenessCheck *libsveltosv1alpha1.LivenessCheck,
-) *corev1.ConditionStatus {
+) *libsveltosv1alpha1.Condition {
 
 	livenessCheckType := getConditionType(livenessCheck)
 
 	for i := range cc.Conditions {
 		condition := cc.Conditions[i]
-		if condition.Type == libsveltosv1alpha1.ConditionType(livenessCheckType) {
-			return &condition.Status
+		if condition.Type == libsveltosv1alpha1.ConditionType(livenessCheckType) &&
+			condition.Name == livenessCheck.Name {
+
+			return &condition
 		}
 	}
 
@@ -140,12 +192,13 @@ func isClusterConditionForCluster(cc *libsveltosv1alpha1.ClusterCondition, clust
 
 	return cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
 		cc.ClusterInfo.Cluster.Name == clusterName &&
-		getClusterType(&cc.ClusterInfo.Cluster) == clusterType
+		clusterproxy.GetClusterType(&cc.ClusterInfo.Cluster) == clusterType
 }
 
 // fetchClusterSummaries returns all ClusterSummaries currently existing for a given cluster
 func fetchClusterSummaries(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
 	clusterType libsveltosv1alpha1.ClusterType) (*configv1alpha1.ClusterSummaryList, error) {
+
 	// Fecth all ClusterSummary for this Cluster
 	listOptions := []client.ListOption{
 		client.InNamespace(clusterNamespace),
@@ -171,6 +224,43 @@ func areAddonsDeployed(clusterSummary *configv1alpha1.ClusterSummary) bool {
 	}
 
 	return true
+}
+
+// isStatusHealthy returns whether state is Healthy.
+func isStatusHealthy(hcr *libsveltosv1alpha1.HealthCheckReport) (string, bool) {
+	var message string
+	isAllHealthy := true
+
+	for i := range hcr.Spec.ResourceStatuses {
+		rs := hcr.Spec.ResourceStatuses[i]
+		if rs.HealthStatus != libsveltosv1alpha1.HealthStatusHealthy {
+			isAllHealthy = false
+			message += fmt.Sprintf("%s: %s/%s status is %s  \n",
+				rs.ObjectRef.Kind, rs.ObjectRef.Namespace, rs.ObjectRef.Name, rs.HealthStatus)
+			if rs.Message != "" {
+				message += fmt.Sprintf("Message: %s  \n", rs.Message)
+			}
+		}
+	}
+
+	return message, isAllHealthy
+}
+
+// fetchHealthCheckReports returns healthCheckReports for given HealthCheck in a given cluster
+func fetchHealthCheckReports(ctx context.Context, c client.Client, clusterNamespace, clusterName, healthCheckName string,
+	clusterType libsveltosv1alpha1.ClusterType) (*libsveltosv1alpha1.HealthCheckReportList, error) {
+
+	labels := libsveltosv1alpha1.GetHealthCheckReportLabels(healthCheckName, clusterName, &clusterType)
+
+	// Fecth all ClusterSummary for this Cluster
+	listOptions := []client.ListOption{
+		client.InNamespace(clusterNamespace),
+		client.MatchingLabels(labels),
+	}
+
+	healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
+	err := c.List(ctx, healthCheckReportList, listOptions...)
+	return healthCheckReportList, err
 }
 
 func getConditionType(livenessCheck *libsveltosv1alpha1.LivenessCheck) string {

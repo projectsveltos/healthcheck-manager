@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	webexteams "github.com/jbogarin/go-cisco-webex-teams/sdk"
@@ -52,11 +53,11 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	var err error
 	switch n.Type {
 	case libsveltosv1alpha1.NotificationTypeKubernetesEvent:
-		err = sendKubernetesNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+		sendKubernetesNotification(clusterNamespace, clusterName, clusterType, chc, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeSlack:
-		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeWebex:
-		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger)
+		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -70,9 +71,9 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	return nil
 }
 
-func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+func sendKubernetesNotification(clusterNamespace, clusterName string,
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) {
 
 	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
 
@@ -85,13 +86,11 @@ func sendKubernetesNotification(ctx context.Context, c client.Client, clusterNam
 	r.Eventf(chc, eventType, "ClusterHealthCheck", message)
 
 	r.Event(chc, eventType, "ClusterHealthCheck", message)
-
-	return nil
 }
 
 func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	logger logr.Logger) error {
 
 	info, err := getSlackInfo(ctx, c, n)
 	if err != nil {
@@ -117,8 +116,8 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 }
 
 func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	logger logr.Logger) error {
 
 	info, err := getWebexInfo(ctx, c, n)
 	if err != nil {
@@ -135,6 +134,8 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 	webexClient.SetAuthToken(info.token)
 
 	logger.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to room %s", info.room))
+
+	message = strings.ReplaceAll(message, "\n", "  \n")
 
 	webexMessage := &webexteams.MessageCreateRequest{
 		RoomID:   info.room,
@@ -158,12 +159,13 @@ func getNotificationMessage(clusterNamespace, clusterName string, clusterType li
 	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) (string, bool) {
 
 	passing := true
-	message := fmt.Sprintf("cluster %s:%s/%s\n", clusterType, clusterNamespace, clusterName)
+	message := fmt.Sprintf("cluster %s:%s/%s  \n", clusterType, clusterNamespace, clusterName)
 	for i := range conditions {
 		c := &conditions[i]
 		if c.Status != corev1.ConditionTrue {
 			passing = false
-			message += fmt.Sprintf("liveness check %s failing %q\n", c.Type, c.Message)
+			message += fmt.Sprintf("liveness check %q failing  \n", c.Type)
+			message += fmt.Sprintf("%s  \n", c.Message)
 		}
 	}
 

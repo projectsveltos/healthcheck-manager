@@ -64,13 +64,14 @@ func NewTestEnvironmentConfiguration(crdDirectoryPaths []string, s *apimachinery
 	}
 
 	clusterCRD := external.TestClusterCRD.DeepCopy()
+	machineCRD := external.TestMachineCRD.DeepCopy()
 	return &TestEnvironmentConfiguration{
 		env: &envtest.Environment{
 			Scheme:                s,
 			ErrorIfCRDPathMissing: true,
 			CRDDirectoryPaths:     resolvedCrdDirectoryPaths,
 			CRDs: []*apiextensionsv1.CustomResourceDefinition{
-				clusterCRD,
+				clusterCRD, machineCRD,
 			},
 		},
 	}
