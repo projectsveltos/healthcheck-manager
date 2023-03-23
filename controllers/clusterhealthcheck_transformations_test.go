@@ -174,8 +174,8 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 				Namespace: cluster.Namespace,
 				Name:      cluster.Name + randomString(),
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName:             cluster.Name,
-					clusterv1.MachineControlPlaneLabelName: "ok",
+					clusterv1.ClusterNameLabel:         cluster.Name,
+					clusterv1.MachineControlPlaneLabel: "ok",
 				},
 			},
 		}

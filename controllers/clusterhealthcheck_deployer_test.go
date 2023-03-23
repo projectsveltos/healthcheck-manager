@@ -258,8 +258,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 				Namespace: clusterNamespace,
 				Name:      randomString(),
 				Labels: map[string]string{
-					clusterv1.ClusterLabelName:             clusterName,
-					clusterv1.MachineControlPlaneLabelName: "ok",
+					clusterv1.ClusterNameLabel:         clusterName,
+					clusterv1.MachineControlPlaneLabel: "ok",
 				},
 			},
 		}
