@@ -917,12 +917,18 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 	if err == nil {
 		logger.V(logs.LogDebug).Info("updating healthCheck")
 		currentHealthCheck.Spec = healthCheck.Spec
+		// Copy labels. If admin-label is set, sveltos-agent will impersonate
+		// ServiceAccount representing the tenant admin when fetching resources
+		currentHealthCheck.Labels = healthCheck.Labels
 		deployer.AddOwnerReference(currentHealthCheck, chc)
 		return remoteClient.Update(ctx, currentHealthCheck)
 	}
 
 	currentHealthCheck.Name = healthCheck.Name
 	currentHealthCheck.Spec = healthCheck.Spec
+	// Copy labels. If admin-label is set, sveltos-agent will impersonate
+	// ServiceAccount representing the tenant admin when fetching resources
+	currentHealthCheck.Labels = healthCheck.Labels
 	deployer.AddOwnerReference(currentHealthCheck, chc)
 
 	logger.V(logs.LogDebug).Info("creating healthCheck")
