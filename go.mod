@@ -10,8 +10,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/libsveltos v0.7.2-0.20230324154340-10995b3a6694
-	github.com/projectsveltos/sveltos-manager v0.7.1-0.20230322222301-e1cef8b7713a
+	github.com/projectsveltos/libsveltos v0.7.2-0.20230329131204-b73f2911e4ac
+	github.com/projectsveltos/sveltos-manager v0.7.1-0.20230329171803-41917216826b
 	github.com/prometheus/client_golang v1.14.0
 	github.com/slack-go/slack v0.12.1
 	github.com/spf13/pflag v1.0.5
@@ -23,7 +23,7 @@ require (
 	k8s.io/component-base v0.26.1
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
-	sigs.k8s.io/cluster-api v1.4.0-rc.1
+	sigs.k8s.io/cluster-api v1.4.0
 	sigs.k8s.io/controller-runtime v0.14.5
 )
 
