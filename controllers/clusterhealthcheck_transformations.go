@@ -280,16 +280,16 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
 
 	logger.V(logs.LogDebug).Info("reacting to CAPI Machine change")
 
-	clusterLabelName, ok := machine.Labels[clusterv1.ClusterLabelName]
+	ClusterNameLabel, ok := machine.Labels[clusterv1.ClusterNameLabel]
 	if !ok {
-		logger.V(logs.LogVerbose).Info("Machine has not ClusterLabelName")
+		logger.V(logs.LogVerbose).Info("Machine has not ClusterNameLabel")
 		return nil
 	}
 
 	r.Mux.Lock()
 	defer r.Mux.Unlock()
 
-	clusterInfo := corev1.ObjectReference{APIVersion: machine.APIVersion, Kind: "Cluster", Namespace: machine.Namespace, Name: clusterLabelName}
+	clusterInfo := corev1.ObjectReference{APIVersion: machine.APIVersion, Kind: "Cluster", Namespace: machine.Namespace, Name: ClusterNameLabel}
 
 	// Get all ClusterHealthCheck previously matching this cluster and reconcile those
 	requests := make([]ctrl.Request, r.getClusterMapForEntry(&clusterInfo).Len())

@@ -228,7 +228,7 @@ delete-cluster: $(KIND) ## Deletes the kind cluster $(CONTROL_CLUSTER_NAME)
 # Please wait one hour or get a personal API token and assign it to the GITHUB_TOKEN environment variable
 #
 # add this target. It needs to be run only when changing cluster-api version. create-cluster target uses the output of this command which is stored within repo
-# It requires control cluster to exist. So first "make create-control-cluster" then run this target.
+# It requires control cluster to exist. So first "make create-control-cluster" then run this target before any workload cluster is created.
 # Once generated, remove
 #      enforce: "{{ .podSecurityStandard.enforce }}"
 #      enforce-version: "latest"
