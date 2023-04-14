@@ -25,7 +25,7 @@ ARCH ?= amd64
 OS ?= $(shell uname -s | tr A-Z a-z)
 K8S_LATEST_VER ?= $(shell curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
 export CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
-TAG ?= main
+TAG ?= dev
 
 # Get cluster-api version and build ldflags
 clusterapi := $(shell go list -m sigs.k8s.io/cluster-api)
@@ -264,7 +264,7 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	$(KUSTOMIZE) build config/default | $(ENVSUBST) | $(KUBECTL) apply -f-
 
 	@echo "Waiting for projectsveltos controller-manager to be available..."
-	$(KUBECTL) wait --for=condition=Available deployment/fm-controller-manager -n projectsveltos --timeout=$(TIMEOUT)
+	$(KUBECTL) wait --for=condition=Available deployment/addon-manager -n projectsveltos --timeout=$(TIMEOUT)
 
 	@echo "Waiting for projectsveltos hc-manager to be available..."
 	$(KUBECTL) wait --for=condition=Available deployment/hc-manager -n projectsveltos --timeout=$(TIMEOUT)

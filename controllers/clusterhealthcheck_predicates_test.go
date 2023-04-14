@@ -27,9 +27,9 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
+	configv1alpha1 "github.com/projectsveltos/addon-manager/api/v1alpha1"
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
-	configv1alpha1 "github.com/projectsveltos/sveltos-manager/api/v1alpha1"
 )
 
 var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func() {
