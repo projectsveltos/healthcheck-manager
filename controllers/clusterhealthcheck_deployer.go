@@ -778,8 +778,8 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
 	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
 
-	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName, "",
-		clusterType, logger)
+	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
+		"", "", clusterType, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
 		return err
@@ -846,8 +846,8 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 		return nil
 	}
 
-	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName, "",
-		clusterType, logger)
+	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
+		"", "", clusterType, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
 		return err
@@ -920,6 +920,9 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 		// Copy labels. If admin-label is set, sveltos-agent will impersonate
 		// ServiceAccount representing the tenant admin when fetching resources
 		currentHealthCheck.Labels = healthCheck.Labels
+		currentHealthCheck.Annotations = map[string]string{
+			libsveltosv1alpha1.DeployedBySveltosAnnotation: "true",
+		}
 		deployer.AddOwnerReference(currentHealthCheck, chc)
 		return remoteClient.Update(ctx, currentHealthCheck)
 	}
@@ -929,6 +932,9 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 	// Copy labels. If admin-label is set, sveltos-agent will impersonate
 	// ServiceAccount representing the tenant admin when fetching resources
 	currentHealthCheck.Labels = healthCheck.Labels
+	currentHealthCheck.Annotations = map[string]string{
+		libsveltosv1alpha1.DeployedBySveltosAnnotation: "true",
+	}
 	deployer.AddOwnerReference(currentHealthCheck, chc)
 
 	logger.V(logs.LogDebug).Info("creating healthCheck")

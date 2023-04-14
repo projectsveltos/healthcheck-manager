@@ -442,7 +442,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// We are using testEnv as both management cluster (where this test has already created healthCheck)
 		// and managed cluster (where healthCheck is supposed to be created).
 		// Existence of healthCheck does not verify deployHealthChecks. But deployHealthCheck is also supposed
-		// to add ClusterHealthCheck as OwnerReference of HealthCheck. So test verifies that.
+		// to add ClusterHealthCheck as OwnerReference of HealthCheck and annotation. So test verifies that.
 		Expect(controllers.DeployHealthChecks(context.TODO(), testEnv.Client, clusterNamespace, clusterName,
 			clusterType, chc, klogr.New())).To(Succeed())
 
@@ -453,6 +453,12 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 				return false
 			}
 			if !util.IsOwnedByObject(currentHealthCheck, chc) {
+				return false
+			}
+			if currentHealthCheck.Annotations == nil {
+				return false
+			}
+			if _, ok := currentHealthCheck.Annotations[libsveltosv1alpha1.DeployedBySveltosAnnotation]; !ok {
 				return false
 			}
 			return true
