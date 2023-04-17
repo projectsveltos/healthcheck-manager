@@ -113,22 +113,22 @@ var _ = Describe("HealthCheck Deployer", func() {
 		Expect(testEnv.Create(context.TODO(), healthCheck)).To(Succeed())
 		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheck)).To(Succeed())
 
-		healthCheckReport := getHealthCheckReport(healthCheckName, cluster.Namespace, cluster.Name)
+		healthCheckReport := getHealthCheckReport(healthCheckName, "", "")
 		healthCheckReport.Namespace = healthCheckReportNamespace
 		Expect(testEnv.Create(context.TODO(), healthCheckReport)).To(Succeed())
 
 		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
 
-		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(), testEnv.Client, getClusterRef(cluster),
-			klogr.New())).To(Succeed())
+		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
+			testEnv.Client, getClusterRef(cluster), klogr.New())).To(Succeed())
 
 		clusterType := libsveltosv1alpha1.ClusterTypeCapi
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 
 		// Update HealthCheckReports and validate again
-		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(), testEnv.Client, getClusterRef(cluster),
-			klogr.New())).To(Succeed())
+		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
+			testEnv.Client, getClusterRef(cluster), klogr.New())).To(Succeed())
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 	})
