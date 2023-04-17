@@ -264,7 +264,7 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	$(KUSTOMIZE) build config/default | $(ENVSUBST) | $(KUBECTL) apply -f-
 
 	@echo "Waiting for projectsveltos controller-manager to be available..."
-	$(KUBECTL) wait --for=condition=Available deployment/fm-controller-manager -n projectsveltos --timeout=$(TIMEOUT)
+	$(KUBECTL) wait --for=condition=Available deployment/addon-manager -n projectsveltos --timeout=$(TIMEOUT)
 
 	@echo "Waiting for projectsveltos hc-manager to be available..."
 	$(KUBECTL) wait --for=condition=Available deployment/hc-manager -n projectsveltos --timeout=$(TIMEOUT)

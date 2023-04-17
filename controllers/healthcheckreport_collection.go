@@ -142,8 +142,8 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	}
 
 	var remoteClient client.Client
-	remoteClient, err = clusterproxy.GetKubernetesClient(ctx, c, cluster.Namespace, cluster.Name, "",
-		clusterproxy.GetClusterType(clusterRef), logger)
+	remoteClient, err = clusterproxy.GetKubernetesClient(ctx, c, cluster.Namespace, cluster.Name,
+		"", "", clusterproxy.GetClusterType(clusterRef), logger)
 	if err != nil {
 		return err
 	}
@@ -186,14 +186,14 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 }
 
 func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *corev1.ObjectReference,
-	healthCheckReportReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
+	healthCheckReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
 
-	if healthCheckReportReport.Labels == nil {
+	if healthCheckReport.Labels == nil {
 		logger.V(logs.LogInfo).Info(malformedLabelError)
 		return errors.New(malformedLabelError)
 	}
 
-	healthCheckName, ok := healthCheckReportReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
+	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
 	if !ok {
 		logger.V(logs.LogInfo).Info(missingLabelError)
 		return errors.New(missingLabelError)
@@ -214,14 +214,21 @@ func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 }
 
 func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *corev1.ObjectReference,
-	healthCheckReportReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
+	healthCheckReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
 
-	if healthCheckReportReport.Labels == nil {
+	if healthCheckReport.Spec.ClusterName != "" {
+		// if ClusterName is set, this is coming from a
+		// managed cluster. If management cluster is in turn
+		// managed by another cluster, do not pull those.
+		return nil
+	}
+
+	if healthCheckReport.Labels == nil {
 		logger.V(logs.LogInfo).Info(malformedLabelError)
 		return errors.New(malformedLabelError)
 	}
 
-	healthCheckName, ok := healthCheckReportReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
+	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
 	if !ok {
 		logger.V(logs.LogInfo).Info(missingLabelError)
 		return errors.New(missingLabelError)
@@ -253,7 +260,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 			currentHealthCheckReport.Name = healthCheckReportName
 			currentHealthCheckReport.Labels = libsveltosv1alpha1.GetHealthCheckReportLabels(
 				healthCheckName, cluster.Name, &clusterType)
-			currentHealthCheckReport.Spec = healthCheckReportReport.Spec
+			currentHealthCheckReport.Spec = healthCheckReport.Spec
 			currentHealthCheckReport.Spec.ClusterNamespace = cluster.Namespace
 			currentHealthCheckReport.Spec.ClusterName = cluster.Name
 			currentHealthCheckReport.Spec.ClusterType = clusterType
@@ -263,7 +270,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 	}
 
 	logger.V(logs.LogDebug).Info("update HealthCheckReport in management cluster")
-	currentHealthCheckReport.Spec = healthCheckReportReport.Spec
+	currentHealthCheckReport.Spec = healthCheckReport.Spec
 	currentHealthCheckReport.Spec.ClusterNamespace = cluster.Namespace
 	currentHealthCheckReport.Spec.ClusterName = cluster.Name
 	currentHealthCheckReport.Spec.ClusterType = clusterType

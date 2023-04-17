@@ -7,11 +7,11 @@ require (
 	github.com/gdexlab/go-render v1.0.1
 	github.com/go-logr/logr v1.2.3
 	github.com/jbogarin/go-cisco-webex-teams v0.4.3
-	github.com/onsi/ginkgo/v2 v2.9.1
-	github.com/onsi/gomega v1.27.4
+	github.com/onsi/ginkgo/v2 v2.9.2
+	github.com/onsi/gomega v1.27.5
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/libsveltos v0.8.1-0.20230401081813-e8d366a6d41e
-	github.com/projectsveltos/sveltos-manager v0.8.1-0.20230401131540-2854a585cb29
+	github.com/projectsveltos/addon-manager v0.9.1-0.20230417125250-c20c7b963c19
+	github.com/projectsveltos/libsveltos v0.9.1-0.20230417113503-3f9a563f5522
 	github.com/prometheus/client_golang v1.14.0
 	github.com/slack-go/slack v0.12.1
 	github.com/spf13/pflag v1.0.5
@@ -23,7 +23,7 @@ require (
 	k8s.io/component-base v0.26.1
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448
-	sigs.k8s.io/cluster-api v1.4.0
+	sigs.k8s.io/cluster-api v1.4.1
 	sigs.k8s.io/controller-runtime v0.14.5
 )
 
@@ -64,7 +64,7 @@ require (
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
-	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gobuffalo/flect v1.0.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
