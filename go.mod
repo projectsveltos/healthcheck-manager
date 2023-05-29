@@ -1,6 +1,6 @@
 module github.com/projectsveltos/healthcheck-manager
 
-go 1.19
+go 1.20
 
 require (
 	github.com/TwinProduction/go-color v1.0.0
@@ -10,7 +10,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.2
 	github.com/onsi/gomega v1.27.5
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-manager v0.10.1-0.20230522134352-510e3ae033fa
+	github.com/projectsveltos/addon-manager v0.10.1-0.20230529124105-352722250627
 	github.com/projectsveltos/libsveltos v0.10.2-0.20230512214029-a48927eeb92d
 	github.com/prometheus/client_golang v1.14.0
 	github.com/slack-go/slack v0.12.1
