@@ -1,6 +1,6 @@
 module github.com/projectsveltos/healthcheck-manager
 
-go 1.19
+go 1.20
 
 require (
 	github.com/TwinProduction/go-color v1.0.0
