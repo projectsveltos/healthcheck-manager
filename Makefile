@@ -255,9 +255,14 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_clusterhealthchecks.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_healthchecks.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_healthcheckreports.yaml
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_addonconstraints.yaml
+
+	# Install addon-constraint-controller
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-constraint-controller/$(TAG)/manifest/manifest.yaml
 
 	# Install sveltos-manager
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/sveltos-manager/$(TAG)/manifest/manifest.yaml
+
 
 	# Install projectsveltos healthcheck-manager components
 	@echo 'Install projectsveltos controller-manager components'
