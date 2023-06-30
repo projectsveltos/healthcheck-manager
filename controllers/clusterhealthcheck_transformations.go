@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +34,7 @@ import (
 )
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckReport(
-	o client.Object,
+	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
 	healthCheckReport := o.(*libsveltosv1alpha1.HealthCheckReport)
@@ -73,7 +74,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckRe
 }
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
-	o client.Object,
+	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
 	healthCheck := o.(*libsveltosv1alpha1.HealthCheck)
@@ -110,7 +111,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
 }
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
-	o client.Object,
+	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
 	cluster := o
@@ -171,7 +172,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
 }
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummary(
-	o client.Object,
+	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
 	clusterSummary := o
@@ -263,7 +264,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 }
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
-	o client.Object,
+	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
 	machine := o.(*clusterv1.Machine)

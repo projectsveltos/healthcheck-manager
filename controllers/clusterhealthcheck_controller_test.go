@@ -72,7 +72,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			chc,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
 		controllers.RegisterFeatures(dep, klogr.New())
@@ -124,7 +125,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			cluster,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		chcName := client.ObjectKey{
 			Name: chc.Name,
@@ -201,7 +203,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			chc,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
 		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
@@ -258,7 +261,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			chc,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		Expect(addTypeInformationToObject(scheme, chc)).To(Succeed())
 
@@ -332,7 +336,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			chc,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
 		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())

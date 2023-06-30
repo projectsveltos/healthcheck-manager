@@ -50,7 +50,8 @@ var _ = Describe("HealthCheck Deployer", func() {
 			healthCheckReport2,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		Expect(controllers.RemoveHealthCheckReports(context.TODO(), c, healthCheck, klogr.New())).To(Succeed())
 
@@ -81,7 +82,8 @@ var _ = Describe("HealthCheck Deployer", func() {
 			healthCheckReport2,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		Expect(controllers.RemoveHealthCheckReportsFromCluster(context.TODO(), c, clusterNamespace, clusterName,
 			clusterType, klogr.New())).To(Succeed())

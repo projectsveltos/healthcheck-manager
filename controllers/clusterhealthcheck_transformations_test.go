@@ -80,7 +80,8 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 			cluster,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		reconciler := &controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -118,7 +119,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		reconciler.CHCToClusterMap[types.NamespacedName{Name: matchingInfo.Name}] = clusterSet2
 
 		By("Expect only matchingClusterHealthCheck to be requeued")
-		requests := controllers.RequeueClusterHealthCheckForCluster(reconciler, cluster)
+		requests := controllers.RequeueClusterHealthCheckForCluster(reconciler, context.TODO(), cluster)
 		expected := reconcile.Request{NamespacedName: types.NamespacedName{Name: matchingClusterHealthCheck.Name}}
 		Expect(requests).To(ContainElement(expected))
 
@@ -134,7 +135,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		clusterHealthCheckSet.Insert(&nonMatchingInfo)
 		reconciler.ClusterMap[clusterInfo] = clusterHealthCheckSet
 
-		requests = controllers.RequeueClusterHealthCheckForCluster(reconciler, cluster)
+		requests = controllers.RequeueClusterHealthCheckForCluster(reconciler, context.TODO(), cluster)
 		expected = reconcile.Request{NamespacedName: types.NamespacedName{Name: matchingClusterHealthCheck.Name}}
 		Expect(requests).To(ContainElement(expected))
 		expected = reconcile.Request{NamespacedName: types.NamespacedName{Name: nonMatchingClusterHealthCheck.Name}}
@@ -154,7 +155,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		reconciler.ClusterHealthChecks[matchingInfo] = matchingClusterHealthCheck.Spec.ClusterSelector
 		reconciler.ClusterHealthChecks[nonMatchingInfo] = nonMatchingClusterHealthCheck.Spec.ClusterSelector
 
-		requests = controllers.RequeueClusterHealthCheckForCluster(reconciler, cluster)
+		requests = controllers.RequeueClusterHealthCheckForCluster(reconciler, context.TODO(), cluster)
 		Expect(requests).To(HaveLen(0))
 	})
 
@@ -215,7 +216,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		clusterHealthCheckReconciler.ClusterHealthChecks[clusterHealthCheckInfo] = clusterHealthCheck.Spec.ClusterSelector
 
 		clusterHealthCheckList := controllers.RequeueClusterHealthCheckForMachine(clusterHealthCheckReconciler,
-			cpMachine)
+			context.TODO(), cpMachine)
 		Expect(len(clusterHealthCheckList)).To(Equal(1))
 	})
 })
