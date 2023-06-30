@@ -276,7 +276,7 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 	}
 	// When projectsveltos cluster changes, according to SveltosClusterPredicates,
 	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(&source.Kind{Type: &libsveltosv1alpha1.SveltosCluster{}},
+	err = c.Watch(source.Kind(mgr.GetCache(), &libsveltosv1alpha1.SveltosCluster{}),
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForCluster),
 		SveltosClusterPredicates(mgr.GetLogger().WithValues("predicate", "sveltosclusterpredicate")),
 	)
@@ -286,7 +286,7 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 
 	// When projectsveltos clusterSummary changes, according to ClusterSummaryPredicates,
 	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(&source.Kind{Type: &configv1alpha1.ClusterSummary{}},
+	err = c.Watch(source.Kind(mgr.GetCache(), &configv1alpha1.ClusterSummary{}),
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForClusterSummary),
 		ClusterSummaryPredicates(mgr.GetLogger().WithValues("predicate", "clustersummarypredicate")),
 	)
@@ -296,7 +296,7 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 
 	// When projectsveltos healthCheckReports changes, according to HealthCheckReportPredicates,
 	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(&source.Kind{Type: &libsveltosv1alpha1.HealthCheckReport{}},
+	err = c.Watch(source.Kind(mgr.GetCache(), &libsveltosv1alpha1.HealthCheckReport{}),
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheckReport),
 		HealthCheckReportPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckreportpredicate")),
 	)
@@ -306,7 +306,7 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 
 	// When projectsveltos healthChecks changes, according to HealthCheckPredicates,
 	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(&source.Kind{Type: &libsveltosv1alpha1.HealthCheck{}},
+	err = c.Watch(source.Kind(mgr.GetCache(), &libsveltosv1alpha1.HealthCheck{}),
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheck),
 		HealthCheckPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckpredicate")),
 	)
@@ -324,7 +324,7 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controller.Controller) error {
 	// When cluster-api cluster changes, according to ClusterPredicates,
 	// one or more ClusterHealthChecks need to be reconciled.
-	if err := c.Watch(&source.Kind{Type: &clusterv1.Cluster{}},
+	if err := c.Watch(source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForCluster),
 		ClusterPredicates(mgr.GetLogger().WithValues("predicate", "clusterpredicate")),
 	); err != nil {
@@ -333,7 +333,7 @@ func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controll
 
 	// When cluster-api machine changes, according to MachinePredicates,
 	// one or more ClusterHealthCheck need to be reconciled.
-	if err := c.Watch(&source.Kind{Type: &clusterv1.Machine{}},
+	if err := c.Watch(source.Kind(mgr.GetCache(), &clusterv1.Machine{}),
 		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForMachine),
 		MachinePredicates(mgr.GetLogger().WithValues("predicate", "machinepredicate")),
 	); err != nil {

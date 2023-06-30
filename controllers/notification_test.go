@@ -127,7 +127,8 @@ var _ = Describe("Notification", func() {
 			secret,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		webexInfo, err := controllers.GetWebexInfo(context.TODO(), c, notification)
 		Expect(err).To(BeNil())
@@ -166,7 +167,8 @@ var _ = Describe("Notification", func() {
 			secret,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		slackInfo, err := controllers.GetSlackInfo(context.TODO(), c, notification)
 		Expect(err).To(BeNil())

@@ -52,7 +52,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: hc-manager-role
 rules:
 - apiGroups:
@@ -341,7 +340,7 @@ spec:
         - --v=5
         command:
         - /manager
-        image: projectsveltos/healthcheck-manager-amd64:main
+        image: projectsveltos/healthcheck-manager-amd64:dev
         livenessProbe:
           httpGet:
             path: /healthz
