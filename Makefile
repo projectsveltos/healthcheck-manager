@@ -59,9 +59,8 @@ help: ## Display this help.
 # Directories.
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
 BIN_DIR := bin
-
+TOOLS_BIN_DIR := $(abspath $(TOOLS_DIR)/$(BIN_DIR))
 GOBUILD=go build
 
 GENERATED_FILES:=./manifest/manifest.yaml
@@ -81,36 +80,40 @@ KUBECTL := $(TOOLS_BIN_DIR)/kubectl
 GOLANGCI_LINT_VERSION := "v1.52.2"
 
 $(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
-	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst hack/tools/,,$@) sigs.k8s.io/controller-tools/cmd/controller-gen
+	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/controller-tools/cmd/controller-gen
 
 $(ENVSUBST): $(TOOLS_DIR)/go.mod # Build envsubst from tools folder.
-	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst hack/tools/,,$@) github.com/a8m/envsubst/cmd/envsubst
-
-$(KUSTOMIZE): $(TOOLS_DIR)/go.mod # Build kustomize from tools folder.
-	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(BIN_DIR)/kustomize sigs.k8s.io/kustomize/kustomize/v4
+	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) github.com/a8m/envsubst/cmd/envsubst
 
 $(GOLANGCI_LINT): # Build golangci-lint from tools folder.
 	cd $(TOOLS_DIR); ./get-golangci-lint.sh $(GOLANGCI_LINT_VERSION)
 
 $(SETUP_ENVTEST): $(TOOLS_DIR)/go.mod # Build setup-envtest from tools folder.
-	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst hack/tools/,,$@) sigs.k8s.io/controller-runtime/tools/setup-envtest
+	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/controller-runtime/tools/setup-envtest
 
 $(GOIMPORTS):
-	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst hack/tools/,,$@) golang.org/x/tools/cmd/goimports
+	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) golang.org/x/tools/cmd/goimports
 
 $(GINKGO): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR) && $(GOBUILD) -tags tools -o $(subst hack/tools/,,$@) github.com/onsi/ginkgo/v2/ginkgo
-
-$(CLUSTERCTL): $(TOOLS_DIR)/go.mod ## Build clusterctl binary
-	cd $(TOOLS_DIR); $(GOBUILD) -ldflags $(CLUSTERAPI_LDFLAGS) -o $(subst hack/tools/,,$@) sigs.k8s.io/cluster-api/cmd/clusterctl
-	mkdir -p $(HOME)/.cluster-api # create cluster api init directory, if not present
+	cd $(TOOLS_DIR) && $(GOBUILD) -tags tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) github.com/onsi/ginkgo/v2/ginkgo
 
 $(KIND): $(TOOLS_DIR)/go.mod
-	cd $(TOOLS_DIR) && $(GOBUILD) -tags tools -o $(subst hack/tools/,,$@) sigs.k8s.io/kind
+	cd $(TOOLS_DIR) && $(GOBUILD) -tags tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/kind
+
+$(CLUSTERCTL): $(TOOLS_DIR)/go.mod ## Build clusterctl binary
+	cd $(TOOLS_DIR); $(GOBUILD) -trimpath  -ldflags $(CLUSTERAPI_LDFLAGS) -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/cluster-api/cmd/clusterctl
+	mkdir -p $(HOME)/.cluster-api # create cluster api init directory, if not present	
 
 $(KUBECTL):
 	curl -L https://storage.googleapis.com/kubernetes-release/release/$(K8S_LATEST_VER)/bin/$(OS)/$(ARCH)/kubectl -o $@
 	chmod +x $@
+
+KUSTOMIZE_VER := v4.5.2
+KUSTOMIZE_BIN := kustomize
+KUSTOMIZE := $(abspath $(TOOLS_BIN_DIR)/$(KUSTOMIZE_BIN)-$(KUSTOMIZE_VER))
+KUSTOMIZE_PKG := sigs.k8s.io/kustomize/kustomize/v4
+$(KUSTOMIZE): # Build kustomize from tools folder.
+	CGO_ENABLED=0 GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) $(KUSTOMIZE_PKG) $(KUSTOMIZE_BIN) $(KUSTOMIZE_VER)
 
 .PHONY: tools
 tools: $(CONTROLLER_GEN) $(ENVSUBST) $(KUSTOMIZE) $(GOLANGCI_LINT) $(SETUP_ENVTEST) $(GOIMPORTS) $(GINKGO) $(CLUSTERCTL) $(KIND) $(KUBECTL) ## build all tools
@@ -181,7 +184,7 @@ kind-test: test create-cluster fv ## Build docker image; start kind cluster; loa
 
 .PHONY: fv
 fv: $(GINKGO) ## Run Sveltos Controller tests using existing cluster
-	cd test/fv; ../../$(GINKGO) -nodes $(NUM_NODES) --label-filter='FV' --v --trace --randomize-all
+	cd test/fv; $(GINKGO) -nodes $(NUM_NODES) --label-filter='FV' --v --trace --randomize-all
 
 .PHONY: create-cluster
 create-cluster: $(KIND) $(CLUSTERCTL) $(KUBECTL) $(ENVSUBST) ## Create a new kind cluster designed for development
@@ -255,10 +258,10 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_clusterhealthchecks.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_healthchecks.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_healthcheckreports.yaml
-	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_addonconstraints.yaml
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_addoncompliances.yaml
 
-	# Install addon-constraint-controller
-	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-constraint-controller/$(TAG)/manifest/manifest.yaml
+	# Install addon-compliance-controller
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-compliance-controller/$(TAG)/manifest/manifest.yaml
 
 	# Install sveltos-manager
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/sveltos-manager/$(TAG)/manifest/manifest.yaml
@@ -266,11 +269,11 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 
 	# Install projectsveltos healthcheck-manager components
 	@echo 'Install projectsveltos controller-manager components'
-	cd config/manager && ../../$(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(ENVSUBST) | $(KUBECTL) apply -f-
 
 	@echo "Waiting for projectsveltos controller-manager to be available..."
-	$(KUBECTL) wait --for=condition=Available deployment/addon-manager -n projectsveltos --timeout=$(TIMEOUT)
+	$(KUBECTL) wait --for=condition=Available deployment/addon-controller -n projectsveltos --timeout=$(TIMEOUT)
 
 	@echo "Waiting for projectsveltos hc-manager to be available..."
 	$(KUBECTL) wait --for=condition=Available deployment/hc-manager -n projectsveltos --timeout=$(TIMEOUT)

@@ -94,7 +94,8 @@ var _ = Describe("Liveness", func() {
 			&clusterSummary,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		clusterSummaries, err := controllers.FetchClusterSummaries(context.TODO(), c, clusterNamespace, clusterName, clusterType)
 		Expect(err).To(BeNil())
@@ -294,7 +295,8 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 		cluster,
 	}
 
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+	c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+		WithObjects(initObjects...).Build()
 	return c
 }
 

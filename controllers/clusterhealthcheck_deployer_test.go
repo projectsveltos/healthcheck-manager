@@ -71,7 +71,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			chc,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		length := len(chc.Status.ClusterConditions)
 
@@ -114,7 +115,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			chc, cluster,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		notificationSummary := libsveltosv1alpha1.NotificationSummary{
 			Name:   randomString(),
@@ -177,7 +179,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			chc, cluster,
 		}
 
-		c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
 
 		livenessCheck := libsveltosv1alpha1.LivenessCheck{
 			Name: randomString(),
