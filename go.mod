@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.27.8
 	github.com/pkg/errors v0.9.1
 	github.com/projectsveltos/addon-controller v0.12.1-0.20230704204117-79a8900a6399
-	github.com/projectsveltos/libsveltos v0.12.1-0.20230704163255-7f5099a7ffd0
+	github.com/projectsveltos/libsveltos v0.12.1-0.20230706135125-94028dd2ba7b
 	github.com/prometheus/client_golang v1.16.0
 	github.com/slack-go/slack v0.12.2
 	github.com/spf13/pflag v1.0.5
@@ -23,7 +23,7 @@ require (
 	k8s.io/component-base v0.27.2
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
-	sigs.k8s.io/cluster-api v1.5.0-beta.0
+	sigs.k8s.io/cluster-api v1.5.0-beta.1
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 
