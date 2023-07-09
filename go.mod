@@ -10,15 +10,15 @@ require (
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v0.12.1-0.20230704204117-79a8900a6399
-	github.com/projectsveltos/libsveltos v0.12.1-0.20230706135125-94028dd2ba7b
+	github.com/projectsveltos/addon-controller v0.13.0
+	github.com/projectsveltos/libsveltos v0.13.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/slack-go/slack v0.12.2
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/text v0.10.0
 	k8s.io/api v0.27.2
 	k8s.io/apiextensions-apiserver v0.27.2
-	k8s.io/apimachinery v0.27.2
+	k8s.io/apimachinery v0.27.3
 	k8s.io/client-go v0.27.2
 	k8s.io/component-base v0.27.2
 	k8s.io/klog/v2 v2.90.1
@@ -64,10 +64,10 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fluxcd/pkg/apis/acl v0.1.0 // indirect
-	github.com/fluxcd/pkg/apis/meta v1.0.0 // indirect
+	github.com/fluxcd/pkg/apis/meta v1.1.1 // indirect
 	github.com/fluxcd/pkg/http/fetch v0.5.2 // indirect
 	github.com/fluxcd/pkg/tar v0.2.0 // indirect
-	github.com/fluxcd/source-controller/api v1.0.0-rc.1 // indirect
+	github.com/fluxcd/source-controller/api v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/getkin/kin-openapi v0.118.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
