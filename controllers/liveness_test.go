@@ -242,6 +242,12 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 			Namespace: clusterNamespace,
 			Name:      clusterName,
 		},
+		Status: clusterv1.ClusterStatus{
+			ControlPlaneReady: true,
+			Conditions: []clusterv1.Condition{
+				{Type: clusterv1.ControlPlaneInitializedCondition, Status: corev1.ConditionTrue},
+			},
+		},
 	}
 
 	clusterSummary := &configv1alpha1.ClusterSummary{
