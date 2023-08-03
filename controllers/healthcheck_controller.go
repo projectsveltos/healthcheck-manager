@@ -33,7 +33,8 @@ import (
 // HealthCheckReconciler reconciles a HealthCheck object
 type HealthCheckReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme                *runtime.Scheme
+	HealthCheckReportMode ReportMode
 }
 
 // +kubebuilder:rbac:groups=lib.projectsveltos.io,resources=healthchecks,verbs=get;list;watch;create;update;patch;delete
@@ -75,6 +76,10 @@ func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.HealthCheckReportMode == CollectFromManagementCluster {
+		go collectHealthCheckReports(mgr.GetClient(), mgr.GetLogger())
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&libsveltosv1alpha1.HealthCheck{}).
 		Complete(r)

@@ -164,6 +164,22 @@ func getHealthCheckReport(healthCheckName, clusterNamespace, clusterName string)
 	}
 }
 
+func getReloaderReport(clusterNamespace, clusterName string,
+	clusterType *libsveltosv1alpha1.ClusterType) *libsveltosv1alpha1.ReloaderReport {
+
+	return &libsveltosv1alpha1.ReloaderReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   randomString(),
+			Labels: libsveltosv1alpha1.GetReloaderReportLabels(clusterName, clusterType),
+		},
+		Spec: libsveltosv1alpha1.ReloaderReportSpec{
+			ClusterNamespace: clusterNamespace,
+			ClusterName:      clusterName,
+			ClusterType:      *clusterType,
+		},
+	}
+}
+
 func prepareCluster() *clusterv1.Cluster {
 	namespace := randomString()
 	ns := &corev1.Namespace{

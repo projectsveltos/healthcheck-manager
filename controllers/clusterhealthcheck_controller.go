@@ -74,10 +74,9 @@ const (
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
 type ClusterHealthCheckReconciler struct {
 	client.Client
-	Scheme                *runtime.Scheme
-	ConcurrentReconciles  int
-	Deployer              deployer.DeployerInterface
-	HealthCheckReportMode ReportMode
+	Scheme               *runtime.Scheme
+	ConcurrentReconciles int
+	Deployer             deployer.DeployerInterface
 
 	// use a Mutex to update Map as MaxConcurrentReconciles is higher than one
 	Mux sync.Mutex
@@ -312,10 +311,6 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating controller")
-	}
-
-	if r.HealthCheckReportMode == CollectFromManagementCluster {
-		go collectHealthCheckReports(mgr.GetClient(), mgr.GetLogger())
 	}
 
 	return c, nil

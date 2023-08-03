@@ -96,7 +96,7 @@ func removeHealthCheckReportsFromCluster(ctx context.Context, c client.Client, c
 	return nil
 }
 
-// Periodically collects HealthCheckReports from each CAPI cluster.
+// Periodically collects HealthCheckReports from each managed cluster.
 func collectHealthCheckReports(c client.Client, logger logr.Logger) {
 	const interval = 20 * time.Second
 
@@ -112,8 +112,8 @@ func collectHealthCheckReports(c client.Client, logger logr.Logger) {
 			cluster := &clusterList[i]
 			err = collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, logger)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect HealthCheckReports from cluster: %s/%s %v",
-					cluster.Namespace, cluster.Name, err))
+				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect HealthCheckReports from cluster: %s %s/%s %v",
+					cluster.Kind, cluster.Namespace, cluster.Name, err))
 			}
 		}
 

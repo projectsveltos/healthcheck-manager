@@ -93,7 +93,7 @@ var _ = Describe("HealthCheck Deployer", func() {
 		Expect(len(healthCheckReportList.Items)).To(BeZero())
 	})
 
-	It("collectHealthCheckReports collects HealthCheckReports from clusters", func() {
+	It("CollectAndProcessHealthCheckReportsFromCluster collects HealthCheckReports from clusters", func() {
 		cluster := prepareCluster()
 
 		// In managed cluster this is the namespace where HealthCheckReports
