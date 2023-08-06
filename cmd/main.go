@@ -55,17 +55,22 @@ import (
 )
 
 var (
-	setupLog             = ctrl.Log.WithName("setup")
-	metricsAddr          string
-	enableLeaderElection bool
-	probeAddr            string
-	workers              int
-	concurrentReconciles int
+	setupLog                     = ctrl.Log.WithName("setup")
+	metricsAddr                  string
+	enableLeaderElection         bool
+	probeAddr                    string
+	workers                      int
+	concurrentReconciles         int
+	reportMode                   controllers.ReportMode
+	tmpReportMode                int
+	reloaderReportCollectionTime int
 )
 
 const (
-	defaultReconcilers = 10
-	defaultWorkers     = 20
+	defaultReconcilers        = 10
+	defaultWorkers            = 20
+	defaultReloaderReportTime = 10 // time is in second
+	defaulReportMode          = int(controllers.CollectFromManagementCluster)
 )
 
 func main() {
@@ -80,6 +85,8 @@ func main() {
 	pflag.CommandLine.SetNormalizeFunc(cliflag.WordSepNormalizeFunc)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
+
+	reportMode = controllers.ReportMode(tmpReportMode)
 
 	ctrl.SetLogger(klog.Background())
 
@@ -129,8 +136,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.HealthCheckReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		HealthCheckReportMode: reportMode,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthCheck")
 		os.Exit(1)
@@ -141,6 +149,14 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SveltosCluster")
+		os.Exit(1)
+	}
+	if err = (&controllers.ReloaderReportReconciler{
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		ReloaderReportMode: reportMode,
+	}).SetupWithManager(mgr, reloaderReportCollectionTime); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ReloaderReport")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
@@ -159,6 +175,12 @@ func main() {
 }
 
 func initFlags(fs *pflag.FlagSet) {
+	fs.IntVar(&tmpReportMode, "report-mode", defaulReportMode,
+		"Indicates how ClassifierReport needs to be collected")
+
+	fs.IntVar(&reloaderReportCollectionTime, "reloaderreport-time", defaultReloaderReportTime,
+		"Interval, in seconds, at which ReloaderReports are collected from managed cluster.")
+
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080",
 		"The address the metric endpoint binds to.")
 
