@@ -164,6 +164,15 @@ var _ = Describe("ReloaderReport Controller", func() {
 
 		currentDepl := currentObj.(*appsv1.Deployment)
 		verifyEnvs(currentDepl.Spec.Template.Spec.Containers, value)
+
+		// Update value
+		value = randomString()
+		currentObj, err = controllers.FetchAndPrepareDeployment(&reconciler, context.TODO(), c,
+			&deplName, value, klogr.New())
+		Expect(err).To(BeNil())
+
+		currentDepl = currentObj.(*appsv1.Deployment)
+		verifyEnvs(currentDepl.Spec.Template.Spec.Containers, value)
 	})
 
 	It("fetchAndPrepareStatefulSet fetches statefulSet and updates its containers' envs", func() {
@@ -267,6 +276,23 @@ var _ = Describe("ReloaderReport Controller", func() {
 			value, klogr.New())).To(BeNil())
 
 		currentDepl := &appsv1.Deployment{}
+		Expect(c.Get(context.TODO(),
+			types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()},
+			currentDepl)).To(Succeed())
+		Expect(currentDepl.Spec.Template.Spec.Containers).ToNot(BeNil())
+		for i := range currentDepl.Spec.Template.Spec.Containers {
+			container := &currentDepl.Spec.Template.Spec.Containers[i]
+			Expect(container.Env).To(ContainElements(corev1.EnvVar{
+				Name:  controllers.SveltosEnv,
+				Value: value,
+			}))
+		}
+
+		// Update value to trigger second rolling upgrade
+		value = randomString()
+		Expect(controllers.TriggerRollingUpgrade(&reconciler, context.TODO(), c, resourceToReload,
+			value, klogr.New())).To(BeNil())
+
 		Expect(c.Get(context.TODO(),
 			types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()},
 			currentDepl)).To(Succeed())

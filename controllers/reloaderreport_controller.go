@@ -130,7 +130,10 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 		rr := &reloaderReport.Spec.ResourcesToReload[i]
 		err = r.triggerRollingUpgrade(ctx, remoteClient, rr, value, logger)
 		if err != nil {
+			logger.V(logs.LogInfo).Info(fmt.Sprintf("triggering rolling upgrade failed: %v", err))
 			failed = append(failed, *rr)
+		} else {
+			logger.V(logs.LogInfo).Info("rolling upgrade triggered")
 		}
 	}
 
@@ -149,6 +152,8 @@ func (r *ReloaderReportReconciler) triggerRollingUpgrade(ctx context.Context, re
 
 	logger = logger.WithValues("kind", reloaderInfo.Kind)
 	logger = logger.WithValues("resource", fmt.Sprintf("%s/%s", reloaderInfo.Namespace, reloaderInfo.Name))
+
+	logger.V(logs.LogInfo).Info(fmt.Sprintf("trigger rolling updgrade (value %s)", value))
 
 	resourceName := types.NamespacedName{Namespace: reloaderInfo.Namespace, Name: reloaderInfo.Name}
 	var obj client.Object
@@ -183,10 +188,8 @@ func (r *ReloaderReportReconciler) fetchAndPrepareDeployment(ctx context.Context
 	}
 
 	for i := range depl.Spec.Template.Spec.Containers {
-		if depl.Spec.Template.Spec.Containers[i].Env == nil {
-			depl.Spec.Template.Spec.Containers[i].Env =
-				r.updateEnvs(depl.Spec.Template.Spec.Containers[i].Env, value)
-		}
+		depl.Spec.Template.Spec.Containers[i].Env =
+			r.updateEnvs(depl.Spec.Template.Spec.Containers[i].Env, value)
 	}
 
 	return depl, nil
