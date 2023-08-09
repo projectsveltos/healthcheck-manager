@@ -101,6 +101,12 @@ var _ = BeforeSuite(func() {
 	Expect(testEnv.Create(context.TODO(), healthCheckReportCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, healthCheckReportCRD)).To(Succeed())
 
+	var reloaderReportCRD *unstructured.Unstructured
+	reloaderReportCRD, err = utils.GetUnstructured(libsveltoscrd.GetReloaderReportCRDYAML())
+	Expect(err).To(BeNil())
+	Expect(testEnv.Create(context.TODO(), reloaderReportCRD)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv, reloaderReportCRD)).To(Succeed())
+
 	var dcCRD *unstructured.Unstructured
 	dcCRD, err = utils.GetUnstructured(libsveltoscrd.GetDebuggingConfigurationCRDYAML())
 	Expect(err).To(BeNil())

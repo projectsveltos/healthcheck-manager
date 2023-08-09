@@ -24,6 +24,23 @@ var (
 	UpdateMaps              = (*ClusterHealthCheckReconciler).updateMaps
 	GetReferenceMapForEntry = (*ClusterHealthCheckReconciler).getReferenceMapForEntry
 	GetClusterMapForEntry   = (*ClusterHealthCheckReconciler).getClusterMapForEntry
+
+	ProcessClusterHealthCheck = (*ClusterHealthCheckReconciler).processClusterHealthCheck
+	IsClusterEntryRemoved     = (*ClusterHealthCheckReconciler).isClusterEntryRemoved
+	UpdateClusterConditions   = (*ClusterHealthCheckReconciler).updateClusterConditions
+)
+
+var (
+	UpdateEnvs                 = (*ReloaderReportReconciler).updateEnvs
+	FetchAndPrepareDeployment  = (*ReloaderReportReconciler).fetchAndPrepareDeployment
+	FetchAndPrepareStatefulSet = (*ReloaderReportReconciler).fetchAndPrepareStatefulSet
+	FetchAndPrepareDaemonSet   = (*ReloaderReportReconciler).fetchAndPrepareDaemonSet
+	TriggerRollingUpgrade      = (*ReloaderReportReconciler).triggerRollingUpgrade
+	ProcessReloaderReport      = (*ReloaderReportReconciler).processReloaderReport
+)
+
+const (
+	SveltosEnv = sveltosEnv
 )
 
 var (
@@ -52,15 +69,13 @@ var (
 )
 
 var (
-	ProcessClusterHealthCheck = (*ClusterHealthCheckReconciler).processClusterHealthCheck
-	IsClusterEntryRemoved     = (*ClusterHealthCheckReconciler).isClusterEntryRemoved
-	UpdateClusterConditions   = (*ClusterHealthCheckReconciler).updateClusterConditions
-)
-
-var (
 	RemoveHealthCheckReports                       = removeHealthCheckReports
 	RemoveHealthCheckReportsFromCluster            = removeHealthCheckReportsFromCluster
 	CollectAndProcessHealthCheckReportsFromCluster = collectAndProcessHealthCheckReportsFromCluster
+)
+
+var (
+	CollectAndProcessReloaderReportsFromCluster = collectAndProcessReloaderReportsFromCluster
 )
 
 var (

@@ -185,6 +185,18 @@ rules:
 - apiGroups:
   - lib.projectsveltos.io
   resources:
+  - reloaderreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
   - sveltosclusters
   verbs:
   - get

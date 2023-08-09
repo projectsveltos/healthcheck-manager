@@ -74,10 +74,9 @@ const (
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
 type ClusterHealthCheckReconciler struct {
 	client.Client
-	Scheme                *runtime.Scheme
-	ConcurrentReconciles  int
-	Deployer              deployer.DeployerInterface
-	HealthCheckReportMode ReportMode
+	Scheme               *runtime.Scheme
+	ConcurrentReconciles int
+	Deployer             deployer.DeployerInterface
 
 	// use a Mutex to update Map as MaxConcurrentReconciles is higher than one
 	Mux sync.Mutex
@@ -314,10 +313,6 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 		return nil, errors.Wrap(err, "error creating controller")
 	}
 
-	if r.HealthCheckReportMode == CollectFromManagementCluster {
-		go collectHealthCheckReports(mgr.GetClient(), mgr.GetLogger())
-	}
-
 	return c, nil
 }
 
@@ -398,18 +393,19 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 
 func (r *ClusterHealthCheckReconciler) updateMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
 	r.updateClusterMaps(clusterHealthCheckScope)
-
 	r.updateHealthCheckMaps(clusterHealthCheckScope)
 
 	clusterHealthCheckInfo := getKeyFromObject(r.Scheme, clusterHealthCheckScope.ClusterHealthCheck)
 
 	r.Mux.Lock()
 	defer r.Mux.Unlock()
-
 	r.ClusterHealthChecks[*clusterHealthCheckInfo] = clusterHealthCheckScope.ClusterHealthCheck.Spec.ClusterSelector
 }
 
 func (r *ClusterHealthCheckReconciler) updateClusterMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
 	currentClusters := &libsveltosset.Set{}
 	for i := range clusterHealthCheckScope.ClusterHealthCheck.Status.MatchingClusterRefs {
 		cluster := clusterHealthCheckScope.ClusterHealthCheck.Status.MatchingClusterRefs[i]
@@ -419,9 +415,6 @@ func (r *ClusterHealthCheckReconciler) updateClusterMaps(clusterHealthCheckScope
 		}
 		currentClusters.Insert(clusterInfo)
 	}
-
-	r.Mux.Lock()
-	defer r.Mux.Unlock()
 
 	clusterHealthCheckInfo := getKeyFromObject(r.Scheme, clusterHealthCheckScope.ClusterHealthCheck)
 
@@ -449,6 +442,9 @@ func (r *ClusterHealthCheckReconciler) updateClusterMaps(clusterHealthCheckScope
 }
 
 func (r *ClusterHealthCheckReconciler) updateHealthCheckMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
 	// Get list of HealthChecks currently referenced
 	currentReferences := getReferencedHealthChecks(clusterHealthCheckScope.ClusterHealthCheck, clusterHealthCheckScope.Logger)
 
