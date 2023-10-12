@@ -350,7 +350,7 @@ spec:
         - --v=5
         command:
         - /manager
-        image: projectsveltos/healthcheck-manager-amd64:v0.18.0
+        image: projectsveltos/healthcheck-manager-amd64:v0.18.1
         livenessProbe:
           httpGet:
             path: /healthz
