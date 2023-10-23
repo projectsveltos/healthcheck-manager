@@ -77,7 +77,7 @@ type ClusterHealthCheckReconciler struct {
 	Scheme               *runtime.Scheme
 	ConcurrentReconciles int
 	Deployer             deployer.DeployerInterface
-
+	ShardKey             string // when set, only clusters matching the ShardKey will be reconciled
 	// use a Mutex to update Map as MaxConcurrentReconciles is higher than one
 	Mux sync.Mutex
 
