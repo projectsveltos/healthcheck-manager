@@ -97,13 +97,18 @@ func removeHealthCheckReportsFromCluster(ctx context.Context, c client.Client, c
 }
 
 // Periodically collects HealthCheckReports from each managed cluster.
-func collectHealthCheckReports(c client.Client, logger logr.Logger) {
-	const interval = 20 * time.Second
+func collectHealthCheckReports(c client.Client, shardKey string, logger logr.Logger) {
+	interval := 20 * time.Second
+	if shardKey != "" {
+		// This controller will only fetch ClassifierReport instances
+		// so it can be more aggressive
+		interval = 10 * time.Second
+	}
 
 	ctx := context.TODO()
 	for {
 		logger.V(logs.LogDebug).Info("collecting HealthCheckReports")
-		clusterList, err := clusterproxy.GetListOfClusters(ctx, c, logger)
+		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, shardKey, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
 		}

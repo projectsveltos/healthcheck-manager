@@ -35,6 +35,7 @@ type HealthCheckReconciler struct {
 	client.Client
 	Scheme                *runtime.Scheme
 	HealthCheckReportMode ReportMode
+	ShardKey              string // when set, only clusters matching the ShardKey will be reconciled
 }
 
 // +kubebuilder:rbac:groups=lib.projectsveltos.io,resources=healthchecks,verbs=get;list;watch;create;update;patch;delete
@@ -77,7 +78,7 @@ func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // SetupWithManager sets up the controller with the Manager.
 func (r *HealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.HealthCheckReportMode == CollectFromManagementCluster {
-		go collectHealthCheckReports(mgr.GetClient(), mgr.GetLogger())
+		go collectHealthCheckReports(mgr.GetClient(), r.ShardKey, mgr.GetLogger())
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

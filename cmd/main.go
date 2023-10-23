@@ -57,7 +57,7 @@ import (
 var (
 	setupLog                     = ctrl.Log.WithName("setup")
 	metricsAddr                  string
-	enableLeaderElection         bool
+	shardKey                     string
 	probeAddr                    string
 	workers                      int
 	concurrentReconciles         int
@@ -95,8 +95,6 @@ func main() {
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "7964f530.projectsveltos.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -122,6 +120,7 @@ func main() {
 		ConcurrentReconciles: concurrentReconciles,
 		Mux:                  sync.Mutex{},
 		Deployer:             d,
+		ShardKey:             shardKey,
 		ClusterMap:           make(map[corev1.ObjectReference]*libsveltosset.Set),
 		CHCToClusterMap:      make(map[types.NamespacedName]*libsveltosset.Set),
 		ClusterHealthChecks:  make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
@@ -139,6 +138,7 @@ func main() {
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
 		HealthCheckReportMode: reportMode,
+		ShardKey:              shardKey,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthCheck")
 		os.Exit(1)
@@ -187,9 +187,8 @@ func initFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081",
 		"The address the probe endpoint binds to.")
 
-	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
+	fs.StringVar(&shardKey, "shard-key", "",
+		"If set, and report-mode is set to collect, this deployment will fetch only from clusters matching this shard")
 
 	fs.IntVar(&workers, "worker-number", defaultWorkers,
 		"Number of worker. Workers are used to verify health checks in managed clusters")

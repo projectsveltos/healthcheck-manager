@@ -40,6 +40,7 @@ import (
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
+	"github.com/projectsveltos/libsveltos/lib/sharding"
 )
 
 const (
@@ -55,6 +56,22 @@ type feature struct {
 	currentHash getCurrentHash
 	deploy      deployer.RequestHandler
 	undeploy    deployer.RequestHandler
+}
+
+func (r *ClusterHealthCheckReconciler) isClusterAShardMatch(ctx context.Context,
+	clusterInfo *libsveltosv1alpha1.ClusterInfo) (bool, error) {
+
+	clusterType := clusterproxy.GetClusterType(&clusterInfo.Cluster)
+	cluster, err := clusterproxy.GetCluster(ctx, r.Client, clusterInfo.Cluster.Namespace,
+		clusterInfo.Cluster.Name, clusterType)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}
+
+	return sharding.IsShardAMatch(r.ShardKey, cluster), nil
 }
 
 // deployClusterHealthCheck process (if needed) clusterHealthCheck livenesscheck in each matching cluster.
@@ -73,14 +90,31 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	for i := range chc.Status.ClusterConditions {
 		c := chc.Status.ClusterConditions[i]
 
-		clusterInfo, err := r.processClusterHealthCheck(ctx, chcScope, &c.ClusterInfo.Cluster, f, logger)
+		shardMatch, err := r.isClusterAShardMatch(ctx, &c.ClusterInfo)
 		if err != nil {
-			errorSeen = err
+			return err
 		}
-		if clusterInfo != nil {
-			chc.Status.ClusterConditions[i].ClusterInfo = *clusterInfo
-			if clusterInfo.Status != libsveltosv1alpha1.SveltosStatusProvisioned {
+
+		var clusterInfo *libsveltosv1alpha1.ClusterInfo
+		if !shardMatch {
+			l := logger.WithValues("cluster", fmt.Sprintf("%s:%s/%s",
+				c.ClusterInfo.Cluster.Kind, c.ClusterInfo.Cluster.Namespace, c.ClusterInfo.Cluster.Name))
+			l.V(logs.LogDebug).Info("cluster is not a shard match")
+			// Since cluster is not a shard match, another deployment will deploy and update
+			// this specific clusterInfo status. Here we simply return current status.
+			if c.ClusterInfo.Status != libsveltosv1alpha1.SveltosStatusProvisioned {
 				allProcessed = false
+			}
+		} else {
+			clusterInfo, err = r.processClusterHealthCheck(ctx, chcScope, &c.ClusterInfo.Cluster, f, logger)
+			if err != nil {
+				errorSeen = err
+			}
+			if clusterInfo != nil {
+				chc.Status.ClusterConditions[i].ClusterInfo = *clusterInfo
+				if clusterInfo.Status != libsveltosv1alpha1.SveltosStatusProvisioned {
+					allProcessed = false
+				}
 			}
 		}
 	}
@@ -109,6 +143,18 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 
 	var err error
 	for i := range chc.Status.ClusterConditions {
+		var shardMatch bool
+		shardMatch, err = r.isClusterAShardMatch(ctx, &chc.Status.ClusterConditions[i].ClusterInfo)
+		if err != nil {
+			return err
+		}
+
+		if !shardMatch && chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1alpha1.SveltosStatusRemoved {
+			// If shard is not a match, wait for other controller to remove
+			err = fmt.Errorf("remove pending")
+			continue
+		}
+
 		c := &chc.Status.ClusterConditions[i].ClusterInfo.Cluster
 
 		_, tmpErr := r.removeClusterHealthCheck(ctx, chcScope, c, f, logger)
