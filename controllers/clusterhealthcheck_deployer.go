@@ -146,6 +146,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 		shardMatch, tmpErr := r.isClusterAShardMatch(ctx, &chc.Status.ClusterConditions[i].ClusterInfo)
 		if tmpErr != nil {
 			err = tmpErr
+			continue
 		}
 
 		if !shardMatch && chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1alpha1.SveltosStatusRemoved {
@@ -159,6 +160,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 		_, tmpErr = r.removeClusterHealthCheck(ctx, chcScope, c, f, logger)
 		if tmpErr != nil {
 			err = tmpErr
+			continue
 		}
 	}
 
