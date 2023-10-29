@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"time"
@@ -88,7 +89,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	allProcessed := true
 
 	for i := range chc.Status.ClusterConditions {
-		c := chc.Status.ClusterConditions[i]
+		c := &chc.Status.ClusterConditions[i]
 
 		shardMatch, err := r.isClusterAShardMatch(ctx, &c.ClusterInfo)
 		if err != nil {
@@ -104,6 +105,12 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 			// this specific clusterInfo status. Here we simply return current status.
 			if c.ClusterInfo.Status != libsveltosv1alpha1.SveltosStatusProvisioned {
 				allProcessed = false
+			}
+			// This is a required parameter. It is set by the deployment matching the
+			// cluster shard. if not set yet, set it to empty
+			if c.ClusterInfo.Hash == nil {
+				str := base64.StdEncoding.EncodeToString([]byte("empty"))
+				c.ClusterInfo.Hash = []byte(str)
 			}
 		} else {
 			clusterInfo, err = r.processClusterHealthCheck(ctx, chcScope, &c.ClusterInfo.Cluster, f, logger)
