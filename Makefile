@@ -27,15 +27,6 @@ K8S_LATEST_VER ?= $(shell curl -s https://storage.googleapis.com/kubernetes-rele
 export CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
 TAG ?= main
 
-# Get cluster-api version and build ldflags
-clusterapi := $(shell go list -m sigs.k8s.io/cluster-api)
-clusterapi_version := $(lastword  ., ,$(clusterapi))
-clusterapi_version_tuple := $(subst ., ,$(clusterapi_version:v%=%))
-clusterapi_major := $(word 1,$(clusterapi_version_tuple))
-clusterapi_minor := $(word 2,$(clusterapi_version_tuple))
-clusterapi_patch := $(word 3,$(clusterapi_version_tuple))
-CLUSTERAPI_LDFLAGS := "-X 'sigs.k8s.io/cluster-api/version.gitMajor=$(clusterapi_major)' -X 'sigs.k8s.io/cluster-api/version.gitMinor=$(clusterapi_minor)' -X 'sigs.k8s.io/cluster-api/version.gitVersion=$(clusterapi_version)'"
-
 .PHONY: all
 all: build
 
@@ -78,6 +69,7 @@ KIND := $(TOOLS_BIN_DIR)/kind
 KUBECTL := $(TOOLS_BIN_DIR)/kubectl
 
 GOLANGCI_LINT_VERSION := "v1.52.2"
+CLUSTERCTL_VERSION := "v1.5.3"
 
 $(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
 	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/controller-tools/cmd/controller-gen
@@ -101,7 +93,8 @@ $(KIND): $(TOOLS_DIR)/go.mod
 	cd $(TOOLS_DIR) && $(GOBUILD) -tags tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/kind
 
 $(CLUSTERCTL): $(TOOLS_DIR)/go.mod ## Build clusterctl binary
-	cd $(TOOLS_DIR); $(GOBUILD) -trimpath  -ldflags $(CLUSTERAPI_LDFLAGS) -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/cluster-api/cmd/clusterctl
+	curl -L https://github.com/kubernetes-sigs/cluster-api/releases/download/$(CLUSTERCTL_VERSION)/clusterctl-$(OS)-$(ARCH) -o $@
+	chmod +x $@
 	mkdir -p $(HOME)/.cluster-api # create cluster api init directory, if not present	
 
 $(KUBECTL):
@@ -131,6 +124,7 @@ manifests: $(CONTROLLER_GEN) $(KUSTOMIZE) $(ENVSUBST) fmt generate ## Generate W
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	MANIFEST_IMG=$(CONTROLLER_IMG)-$(ARCH) MANIFEST_TAG=$(TAG) $(MAKE) set-manifest-image
 	$(KUSTOMIZE) build config/default | $(ENVSUBST) > manifest/manifest.yaml
+	./scripts/extract_deployment.sh manifest/manifest.yaml manifest/deployment-shard.yaml
 
 .PHONY: generate
 generate: $(CONTROLLER_GEN) ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -184,6 +178,14 @@ kind-test: test create-cluster fv ## Build docker image; start kind cluster; loa
 
 .PHONY: fv
 fv: $(GINKGO) ## Run Sveltos Controller tests using existing cluster
+	cd test/fv; $(GINKGO) -nodes $(NUM_NODES) --label-filter='FV' --v --trace --randomize-all
+
+.PHONY: fv-sharding
+fv-sharding: $(KUBECTL) $(GINKGO) ## Run Sveltos Controller tests using existing cluster
+	$(KUBECTL) patch cluster clusterapi-workload  -n default --type json -p '[{ "op": "add", "path": "/metadata/annotations/sharding.projectsveltos.io~1key", "value": "shard1" }]'
+	sed -e "s/{{.SHARD}}/shard1/g"  manifest/deployment-shard.yaml > test/hc-deployment-shard.yaml
+	$(KUBECTL) apply -f test/hc-deployment-shard.yaml
+	rm -f test/hc-deployment-shard.yaml
 	cd test/fv; $(GINKGO) -nodes $(NUM_NODES) --label-filter='FV' --v --trace --randomize-all
 
 .PHONY: create-cluster
@@ -272,9 +274,13 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	# Install addon-compliance-controller
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-compliance-controller/$(TAG)/manifest/manifest.yaml
 
-	# Install sveltos-manager
-	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/sveltos-manager/$(TAG)/manifest/manifest.yaml
-
+	# Install projectsveltos addon-controller
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-controller/$(TAG)/manifest/manifest.yaml
+	curl https://raw.githubusercontent.com/projectsveltos/addon-controller/$(TAG)/manifest/deployment-shard.yaml -o ac-deployment-shard.yaml
+	sed -e "s/{{.SHARD}}/shard1/g"  ac-deployment-shard.yaml > tmp-ac-deployment-shard.yaml
+	$(KUBECTL) apply -f tmp-ac-deployment-shard.yaml
+	rm ac-deployment-shard.yaml
+	rm tmp-ac-deployment-shard.yaml
 
 	# Install projectsveltos healthcheck-manager components
 	@echo 'Install projectsveltos controller-manager components'

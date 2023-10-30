@@ -77,7 +77,7 @@ type ClusterHealthCheckReconciler struct {
 	Scheme               *runtime.Scheme
 	ConcurrentReconciles int
 	Deployer             deployer.DeployerInterface
-
+	ShardKey             string // when set, only clusters matching the ShardKey will be reconciled
 	// use a Mutex to update Map as MaxConcurrentReconciles is higher than one
 	Mux sync.Mutex
 
@@ -182,6 +182,7 @@ func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// changes.
 	defer func() {
 		if err := clusterHealthCheckScope.Close(ctx); err != nil {
+			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to update: %v", err))
 			reterr = err
 		}
 	}()
