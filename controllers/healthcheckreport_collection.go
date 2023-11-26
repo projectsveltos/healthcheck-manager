@@ -45,7 +45,7 @@ func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheck 
 
 	listOptions := []client.ListOption{
 		client.MatchingLabels{
-			libsveltosv1alpha1.HealthCheckLabelName: healthCheck.Name,
+			libsveltosv1alpha1.HealthCheckNameLabel: healthCheck.Name,
 		},
 	}
 
@@ -198,7 +198,7 @@ func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 		return errors.New(malformedLabelError)
 	}
 
-	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
+	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckNameLabel]
 	if !ok {
 		logger.V(logs.LogInfo).Info(missingLabelError)
 		return errors.New(missingLabelError)
@@ -233,7 +233,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 		return errors.New(malformedLabelError)
 	}
 
-	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckLabelName]
+	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckNameLabel]
 	if !ok {
 		logger.V(logs.LogInfo).Info(missingLabelError)
 		return errors.New(missingLabelError)
