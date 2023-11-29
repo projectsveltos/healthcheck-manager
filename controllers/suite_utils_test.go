@@ -152,7 +152,7 @@ func getHealthCheckReport(healthCheckName, clusterNamespace, clusterName string)
 		ObjectMeta: metav1.ObjectMeta{
 			Name: randomString(),
 			Labels: map[string]string{
-				libsveltosv1alpha1.HealthCheckLabelName: healthCheckName,
+				libsveltosv1alpha1.HealthCheckNameLabel: healthCheckName,
 			},
 		},
 		Spec: libsveltosv1alpha1.HealthCheckReportSpec{
