@@ -30,7 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
@@ -63,8 +63,8 @@ var _ = Describe("ReloaderReport Collection", func() {
 
 		Expect(waitForObject(context.TODO(), testEnv.Client, reloaderReport)).To(Succeed())
 
-		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(),
-			testEnv.Client, getClusterRef(cluster), klogr.New())).To(Succeed())
+		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(), testEnv.Client,
+			getClusterRef(cluster), textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
 
 		By("Verify ReloaderReport is created in the management cluster")
 		// ReloaderReport is fetched from managed cluster (testEnv, projectsveltos namespace)
@@ -93,8 +93,8 @@ var _ = Describe("ReloaderReport Collection", func() {
 		reloaderReport.Namespace = reloaderReportNamespace
 		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
 
-		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(),
-			testEnv.Client, getClusterRef(cluster), klogr.New())).To(Succeed())
+		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(), testEnv.Client,
+			getClusterRef(cluster), textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
 
 		validateReloaderReports(cluster, reloaderReport.Spec.ResourcesToReload)
 

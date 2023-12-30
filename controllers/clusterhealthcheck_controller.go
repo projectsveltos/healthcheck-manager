@@ -238,7 +238,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	}
 
 	parsedSelector, _ := labels.Parse(clusterHealthCheckScope.GetSelector())
-	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, parsedSelector, clusterHealthCheckScope.Logger)
+	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, parsedSelector, "", clusterHealthCheckScope.Logger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

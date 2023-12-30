@@ -20,13 +20,14 @@ import (
 	"context"
 	"sync"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,8 +62,10 @@ func getClusterHealthCheckInstance(name, addonLivenessName string) *libsveltosv1
 var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 	var chc *libsveltosv1alpha1.ClusterHealthCheck
 	var addonLivenessCheckName string
+	var logger logr.Logger
 
 	BeforeEach(func() {
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		addonLivenessCheckName = randomString()
 		chc = getClusterHealthCheckInstance(randomString(), addonLivenessCheckName)
 	})
@@ -75,8 +78,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
-		controllers.RegisterFeatures(dep, klogr.New())
+		dep := fakedeployer.GetClient(context.TODO(), logger, c)
+		controllers.RegisterFeatures(dep, logger)
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -155,7 +158,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		Expect(c.Status().Update(context.TODO(), currentChc)).To(Succeed())
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
+		dep := fakedeployer.GetClient(context.TODO(), logger, c)
 		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
@@ -206,7 +209,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
+		dep := fakedeployer.GetClient(context.TODO(), logger, c)
 		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
 
 		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
@@ -242,7 +245,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		chcScope, err := scope.NewClusterHealthCheckScope(scope.ClusterHealthCheckScopeParams{
 			Client:             c,
-			Logger:             klogr.New(),
+			Logger:             logger,
 			ClusterHealthCheck: currentChc,
 			ControllerName:     "classifier",
 		})
@@ -266,7 +269,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		Expect(addTypeInformationToObject(scheme, chc)).To(Succeed())
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
+		dep := fakedeployer.GetClient(context.TODO(), logger, c)
 		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
@@ -282,7 +285,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		}
 		chcScope, err := scope.NewClusterHealthCheckScope(scope.ClusterHealthCheckScopeParams{
 			Client:             c,
-			Logger:             klogr.New(),
+			Logger:             logger,
 			ClusterHealthCheck: chc,
 			ControllerName:     "classifier",
 		})
@@ -339,7 +342,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), c)
+		dep := fakedeployer.GetClient(context.TODO(), logger, c)
 		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
@@ -355,7 +358,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		}
 		chcScope, err := scope.NewClusterHealthCheckScope(scope.ClusterHealthCheckScopeParams{
 			Client:             c,
-			Logger:             klogr.New(),
+			Logger:             logger,
 			ClusterHealthCheck: chc,
 			ControllerName:     "classifier",
 		})
