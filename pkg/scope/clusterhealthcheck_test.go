@@ -20,13 +20,14 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -39,8 +40,11 @@ const clusterHealthCheckNamePrefix = "scope-"
 var _ = Describe("ClusterHealthCheckScope", func() {
 	var clusterHealthCheck *libsveltosv1alpha1.ClusterHealthCheck
 	var c client.Client
+	var logger logr.Logger
 
 	BeforeEach(func() {
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
+
 		clusterHealthCheck = &libsveltosv1alpha1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterHealthCheckNamePrefix + randomString(),
@@ -55,7 +59,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 	It("Return nil,error if ClusterHealthCheck is not specified", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			Client: c,
-			Logger: klogr.New(),
+			Logger: logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)
@@ -66,7 +70,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 	It("Return nil,error if client is not specified", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			ClusterHealthCheck: clusterHealthCheck,
-			Logger:             klogr.New(),
+			Logger:             logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)
@@ -78,7 +82,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			Client:             c,
 			ClusterHealthCheck: clusterHealthCheck,
-			Logger:             klogr.New(),
+			Logger:             logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)
@@ -93,7 +97,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			Client:             c,
 			ClusterHealthCheck: clusterHealthCheck,
-			Logger:             klogr.New(),
+			Logger:             logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)
@@ -107,7 +111,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			Client:             c,
 			ClusterHealthCheck: clusterHealthCheck,
-			Logger:             klogr.New(),
+			Logger:             logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)
@@ -130,7 +134,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			Client:             c,
 			ClusterHealthCheck: clusterHealthCheck,
-			Logger:             klogr.New(),
+			Logger:             logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)
@@ -151,7 +155,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		params := scope.ClusterHealthCheckScopeParams{
 			Client:             c,
 			ClusterHealthCheck: clusterHealthCheck,
-			Logger:             klogr.New(),
+			Logger:             logger,
 		}
 
 		scope, err := scope.NewClusterHealthCheckScope(params)

@@ -19,6 +19,7 @@ package controllers_test
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -26,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -114,6 +115,12 @@ spec:
 )
 
 var _ = Describe("ReloaderReport Controller", func() {
+	var logger logr.Logger
+
+	BeforeEach(func() {
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
+	})
+
 	It("updateEnvs updates envs", func() {
 		reconciler := controllers.ReloaderReportReconciler{}
 
@@ -159,7 +166,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		value := randomString()
 		var currentObj client.Object
 		currentObj, err = controllers.FetchAndPrepareDeployment(&reconciler, context.TODO(), c,
-			&deplName, value, klogr.New())
+			&deplName, value, logger)
 		Expect(err).To(BeNil())
 
 		currentDepl := currentObj.(*appsv1.Deployment)
@@ -168,7 +175,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		// Update value
 		value = randomString()
 		currentObj, err = controllers.FetchAndPrepareDeployment(&reconciler, context.TODO(), c,
-			&deplName, value, klogr.New())
+			&deplName, value, logger)
 		Expect(err).To(BeNil())
 
 		currentDepl = currentObj.(*appsv1.Deployment)
@@ -193,7 +200,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		value := randomString()
 		var currentObj client.Object
 		currentObj, err = controllers.FetchAndPrepareStatefulSet(&reconciler, context.TODO(), c,
-			&statefulSetName, value, klogr.New())
+			&statefulSetName, value, logger)
 		Expect(err).To(BeNil())
 
 		currentStatefulSet := currentObj.(*appsv1.StatefulSet)
@@ -218,7 +225,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		value := randomString()
 		var currentObj client.Object
 		currentObj, err = controllers.FetchAndPrepareDaemonSet(&reconciler, context.TODO(), c,
-			&daemonSetName, value, klogr.New())
+			&daemonSetName, value, logger)
 		Expect(err).To(BeNil())
 
 		currentDaemonSet := currentObj.(*appsv1.DaemonSet)
@@ -239,17 +246,17 @@ var _ = Describe("ReloaderReport Controller", func() {
 			Name:      randomString(),
 		}
 		err := controllers.TriggerRollingUpgrade(&reconciler, context.TODO(), c,
-			resourceToReload, value, klogr.New())
+			resourceToReload, value, logger)
 		Expect(err).To(BeNil())
 
 		resourceToReload.Kind = "StatefulSet"
 		err = controllers.TriggerRollingUpgrade(&reconciler, context.TODO(), c,
-			resourceToReload, value, klogr.New())
+			resourceToReload, value, logger)
 		Expect(err).To(BeNil())
 
 		resourceToReload.Kind = "DaemonSet"
 		err = controllers.TriggerRollingUpgrade(&reconciler, context.TODO(), c,
-			resourceToReload, value, klogr.New())
+			resourceToReload, value, logger)
 		Expect(err).To(BeNil())
 	})
 
@@ -273,7 +280,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 			Name:      obj.GetName(),
 		}
 		Expect(controllers.TriggerRollingUpgrade(&reconciler, context.TODO(), c, resourceToReload,
-			value, klogr.New())).To(BeNil())
+			value, logger)).To(BeNil())
 
 		currentDepl := &appsv1.Deployment{}
 		Expect(c.Get(context.TODO(),
@@ -291,7 +298,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		// Update value to trigger second rolling upgrade
 		value = randomString()
 		Expect(controllers.TriggerRollingUpgrade(&reconciler, context.TODO(), c, resourceToReload,
-			value, klogr.New())).To(BeNil())
+			value, logger)).To(BeNil())
 
 		Expect(c.Get(context.TODO(),
 			types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()},
@@ -320,7 +327,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		}
 
 		Expect(controllers.ProcessReloaderReport(&reconciler, context.TODO(),
-			reloaderReport, klogr.New())).To(Succeed())
+			reloaderReport, logger)).To(Succeed())
 
 		Eventually(func() bool {
 			currentReloaderReport := &libsveltosv1alpha1.ReloaderReport{}

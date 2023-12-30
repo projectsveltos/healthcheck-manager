@@ -39,7 +39,7 @@ func collectReloaderReports(c client.Client, collectionInterval int, logger logr
 	ctx := context.TODO()
 	for {
 		logger.V(logs.LogDebug).Info("collecting ReloaderReports")
-		clusterList, err := clusterproxy.GetListOfClusters(ctx, c, logger)
+		clusterList, err := clusterproxy.GetListOfClusters(ctx, c, "", logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
 		}

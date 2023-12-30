@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -29,7 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,6 +49,12 @@ const (
 )
 
 var _ = Describe("ClusterHealthCheck deployer", func() {
+	var logger logr.Logger
+
+	BeforeEach(func() {
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
+	})
+
 	It("removeConditionEntry removes cluster entry", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
@@ -77,7 +84,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		length := len(chc.Status.ClusterConditions)
 
 		Expect(controllers.RemoveConditionEntry(context.TODO(), c, clusterNamespace, clusterName,
-			clusterType, chc, klogr.New())).To(Succeed())
+			clusterType, chc, logger)).To(Succeed())
 
 		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
@@ -128,7 +135,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		}
 
 		Expect(controllers.UpdateNotificationSummariesForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
-			chc, summaries, klogr.New())).To(Succeed())
+			chc, summaries, logger)).To(Succeed())
 
 		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
@@ -195,7 +202,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		}
 
 		Expect(controllers.UpdateConditionsForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
-			chc, conditions, klogr.New())).To(Succeed())
+			chc, conditions, logger)).To(Succeed())
 
 		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
@@ -238,7 +245,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(len(chcs.Items[0].Spec.LivenessChecks)).To(Equal(1))
 		livenessCheck := chcs.Items[0].Spec.LivenessChecks[0]
 		conditions, passing, err := controllers.EvaluateClusterHealthCheckForCluster(context.TODO(), c, clusterNamespace, clusterName,
-			clusterType, &chcs.Items[0], klogr.New())
+			clusterType, &chcs.Items[0], logger)
 		Expect(err).To(BeNil())
 		Expect(passing).To(BeTrue())
 		Expect(conditions).ToNot(BeNil())
@@ -277,8 +284,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		chc := chcs.Items[0]
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), testEnv.Client)
-		controllers.RegisterFeatures(dep, klogr.New())
+		dep := fakedeployer.GetClient(context.TODO(), logger, testEnv.Client)
+		controllers.RegisterFeatures(dep, logger)
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -294,7 +301,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		chcScope, err := scope.NewClusterHealthCheckScope(scope.ClusterHealthCheckScopeParams{
 			Client:             c,
-			Logger:             klogr.New(),
+			Logger:             logger,
 			ClusterHealthCheck: &chc,
 			ControllerName:     "classifier",
 		})
@@ -306,7 +313,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		f := controllers.GetHandlersForFeature(libsveltosv1alpha1.FeatureClusterHealthCheck)
 		clusterInfo, err := controllers.ProcessClusterHealthCheck(&reconciler, context.TODO(), chcScope,
-			controllers.GetKeyFromObject(c.Scheme(), currentCluster), f, klogr.New())
+			controllers.GetKeyFromObject(c.Scheme(), currentCluster), f, logger)
 		Expect(err).To(BeNil())
 
 		Expect(clusterInfo).ToNot(BeNil())
@@ -325,8 +332,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Following creates a ClusterSummary and an empty ClusterHealthCheck
 		c := prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName, clusterType)
 
-		dep := fakedeployer.GetClient(context.TODO(), klogr.New(), testEnv.Client)
-		controllers.RegisterFeatures(dep, klogr.New())
+		dep := fakedeployer.GetClient(context.TODO(), logger, testEnv.Client)
+		controllers.RegisterFeatures(dep, logger)
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -447,7 +454,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Existence of healthCheck does not verify deployHealthChecks. But deployHealthCheck is also supposed
 		// to add ClusterHealthCheck as OwnerReference of HealthCheck and annotation. So test verifies that.
 		Expect(controllers.DeployHealthChecks(context.TODO(), testEnv.Client, clusterNamespace, clusterName,
-			clusterType, chc, klogr.New())).To(Succeed())
+			clusterType, chc, logger)).To(Succeed())
 
 		Eventually(func() bool {
 			currentHealthCheck := &libsveltosv1alpha1.HealthCheck{}
@@ -554,7 +561,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Test has ClusterHealthCheck instance reference a different HealthCheck.
 		// RemoveStaleHealthChecks will remove the HealthCheck test created.
 		Expect(controllers.RemoveStaleHealthChecks(context.TODO(), testEnv.Client, clusterNamespace, clusterName, clusterType,
-			chc, klogr.New())).To(Succeed())
+			chc, logger)).To(Succeed())
 
 		Eventually(func() bool {
 			currentHealthCheck := &libsveltosv1alpha1.HealthCheck{}
@@ -600,7 +607,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			},
 		}
 
-		referenced := controllers.GetReferencedHealthChecks(chc, klogr.New())
+		referenced := controllers.GetReferencedHealthChecks(chc, logger)
 
 		objRef := &corev1.ObjectReference{
 			APIVersion: libsveltosv1alpha1.GroupVersion.String(),
@@ -615,7 +622,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		now := metav1.NewTime(time.Now())
 		chc.DeletionTimestamp = &now
 		// If ClusterHealthCheck is marked for deletion, treat as if no references
-		referenced = controllers.GetReferencedHealthChecks(chc, klogr.New())
+		referenced = controllers.GetReferencedHealthChecks(chc, logger)
 		Expect(referenced.Len()).To(BeZero())
 	})
 })
