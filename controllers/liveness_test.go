@@ -312,7 +312,7 @@ func createSecretWithKubeconfig(clusterNamespace, clusterName string) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: clusterNamespace,
-			Name:      clusterName + "-kubeconfig",
+			Name:      clusterName + sveltosKubeconfigPostfix,
 		},
 		Data: map[string][]byte{
 			"data": testEnv.Kubeconfig,

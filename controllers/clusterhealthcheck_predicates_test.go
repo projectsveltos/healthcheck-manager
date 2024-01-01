@@ -32,6 +32,10 @@ import (
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 )
 
+const (
+	predicates = "predicates"
+)
+
 var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func() {
 	var logger logr.Logger
 	var cluster *libsveltosv1alpha1.SveltosCluster
@@ -42,7 +46,7 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 		cluster = &libsveltosv1alpha1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -203,7 +207,7 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 		clusterSummary = &configv1alpha1.ClusterSummary{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -301,7 +305,7 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterPredicates", func() {
 		cluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -438,7 +442,7 @@ var _ = Describe("ClusterHealthCheck Predicates: MachinePredicates", func() {
 		machine = &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamMachineNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -548,7 +552,7 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 		healthCheckReport = &libsveltosv1alpha1.HealthCheckReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
