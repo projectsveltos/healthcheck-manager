@@ -23,7 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
@@ -32,18 +32,21 @@ import (
 	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 )
 
+const (
+	predicates = "predicates"
+)
+
 var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func() {
 	var logger logr.Logger
 	var cluster *libsveltosv1alpha1.SveltosCluster
-
 	const upstreamClusterNamePrefix = "sveltoscluster-predicates-"
 
 	BeforeEach(func() {
-		logger = klogr.New()
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		cluster = &libsveltosv1alpha1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -200,11 +203,11 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 	const upstreamClusterNamePrefix = "clustersummary-predicates-"
 
 	BeforeEach(func() {
-		logger = klogr.New()
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		clusterSummary = &configv1alpha1.ClusterSummary{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -298,11 +301,11 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterPredicates", func() {
 	const upstreamClusterNamePrefix = "cluster-predicates-"
 
 	BeforeEach(func() {
-		logger = klogr.New()
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		cluster = &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -435,11 +438,11 @@ var _ = Describe("ClusterHealthCheck Predicates: MachinePredicates", func() {
 	const upstreamMachineNamePrefix = "machine-predicates-"
 
 	BeforeEach(func() {
-		logger = klogr.New()
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		machine = &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamMachineNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -545,11 +548,11 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 	const upstreamClusterNamePrefix = "healthcheckreport-predicates-"
 
 	BeforeEach(func() {
-		logger = klogr.New()
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		healthCheckReport = &libsveltosv1alpha1.HealthCheckReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
-				Namespace: "predicates" + randomString(),
+				Namespace: predicates + randomString(),
 			},
 		}
 	})
@@ -647,7 +650,7 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 	const upstreamClusterNamePrefix = "healthcheck-predicates-"
 
 	BeforeEach(func() {
-		logger = klogr.New()
+		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 		healthCheck = &libsveltosv1alpha1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: upstreamClusterNamePrefix + randomString(),

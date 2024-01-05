@@ -305,7 +305,7 @@ func getClusterProfile(namePrefix string, clusterLabels map[string]string) *conf
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namePrefix + randomString(),
 		},
-		Spec: configv1alpha1.ClusterProfileSpec{
+		Spec: configv1alpha1.Spec{
 			ClusterSelector: libsveltosv1alpha1.Selector(selector),
 			HelmCharts: []configv1alpha1.HelmChart{
 				{

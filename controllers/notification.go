@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/go-logr/logr"
 	webexteams "github.com/jbogarin/go-cisco-webex-teams/sdk"
 	"github.com/slack-go/slack"
@@ -42,6 +43,11 @@ type webexInfo struct {
 	room  string
 }
 
+type discordInfo struct {
+	token     string
+	channelID string
+}
+
 // sendNotification delivers notification
 func sendNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
@@ -58,6 +64,8 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeWebex:
 		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
+	case libsveltosv1alpha1.NotificationTypeDiscord:
+		err = sendDiscordNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -97,18 +105,21 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 		return err
 	}
 
+	l := logger.WithValues("channel", info.channelID)
+	l.V(logs.LogInfo).Info("send slack message")
+
 	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
 
 	api := slack.New(info.token)
 	if api == nil {
-		logger.V(logs.LogInfo).Info("failed to get slack client")
+		l.V(logs.LogInfo).Info("failed to get slack client")
 	}
 
-	logger.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to channel %s", info.channelID))
+	l.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to channel %s", info.channelID))
 
 	_, _, err = api.PostMessage(info.channelID, slack.MsgOptionText(message, false))
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
+		l.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
 		return err
 	}
 
@@ -133,7 +144,8 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 	}
 	webexClient.SetAuthToken(info.token)
 
-	logger.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to room %s", info.room))
+	l := logger.WithValues("channel", info.room)
+	l.V(logs.LogInfo).Info("send webex message")
 
 	message = strings.ReplaceAll(message, "\n", "  \n")
 
@@ -144,15 +156,44 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 
 	_, resp, err := webexClient.Messages.CreateMessage(webexMessage)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
+		l.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
 		return err
 	}
 
 	if resp != nil {
-		logger.V(logs.LogDebug).Info(fmt.Sprintf("response: %s", string(resp.Body())))
+		l.V(logs.LogDebug).Info(fmt.Sprintf("response: %s", string(resp.Body())))
 	}
 
 	return nil
+}
+
+func sendDiscordNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	logger logr.Logger) error {
+
+	info, err := getDiscordInfo(ctx, c, n)
+	if err != nil {
+		return err
+	}
+
+	l := logger.WithValues("channel", info.channelID)
+	l.V(logs.LogInfo).Info("send discord message")
+
+	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	// Create a new Discord session using the provided token
+	dg, err := discordgo.New("Bot " + info.token)
+	if err != nil {
+		l.V(logs.LogInfo).Info("failed to get discord session")
+		return err
+	}
+
+	// Create a new message with both a text content and the file attachment
+	_, err = dg.ChannelMessageSendComplex(info.channelID, &discordgo.MessageSend{
+		Content: message,
+	})
+
+	return err
 }
 
 func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
@@ -253,6 +294,25 @@ func getWebexInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.No
 	}
 
 	return &webexInfo{token: string(authToken), room: string(room)}, nil
+}
+
+func getDiscordInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*discordInfo, error) {
+	secret, err := getSecret(ctx, c, n)
+	if err != nil {
+		return nil, err
+	}
+
+	authToken, ok := secret.Data[libsveltosv1alpha1.DiscordToken]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain discord token")
+	}
+
+	channelID, ok := secret.Data[libsveltosv1alpha1.DiscordChannelID]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain discord channel id")
+	}
+
+	return &discordInfo{token: string(authToken), channelID: string(channelID)}, nil
 }
 
 func getSecret(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*corev1.Secret, error) {

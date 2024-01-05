@@ -108,7 +108,7 @@ func collectHealthCheckReports(c client.Client, shardKey string, logger logr.Log
 	ctx := context.TODO()
 	for {
 		logger.V(logs.LogDebug).Info("collecting HealthCheckReports")
-		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, shardKey, logger)
+		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, "", shardKey, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
 		}

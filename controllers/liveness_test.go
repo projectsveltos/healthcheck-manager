@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -203,7 +203,7 @@ var _ = Describe("Liveness", func() {
 		Expect(len(chcs.Items)).To(Equal(1))
 
 		passing, err := controllers.EvaluateLivenessCheckAddOns(context.TODO(), c, clusterNamespace, clusterName, clusterType, &chcs.Items[0],
-			&livenessCheck, klogr.New())
+			&livenessCheck, textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))
 		Expect(err).To(BeNil())
 		Expect(passing).To(BeTrue())
 	})
@@ -225,7 +225,7 @@ var _ = Describe("Liveness", func() {
 		Expect(len(chcs.Items)).To(Equal(1))
 
 		statusChanged, passing, _, err := controllers.EvaluateLivenessCheck(context.TODO(), c, clusterNamespace, clusterName, clusterType, &chcs.Items[0],
-			&livenessCheck, klogr.New())
+			&livenessCheck, textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))
 		Expect(err).To(BeNil())
 		Expect(passing).To(BeTrue())
 		Expect(statusChanged).To(BeTrue())
@@ -312,7 +312,7 @@ func createSecretWithKubeconfig(clusterNamespace, clusterName string) {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: clusterNamespace,
-			Name:      clusterName + "-kubeconfig",
+			Name:      clusterName + sveltosKubeconfigPostfix,
 		},
 		Data: map[string][]byte{
 			"data": testEnv.Kubeconfig,

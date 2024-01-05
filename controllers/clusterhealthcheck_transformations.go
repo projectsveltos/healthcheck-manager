@@ -22,7 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog/v2/klogr"
+	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,14 +38,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckRe
 ) []reconcile.Request {
 
 	healthCheckReport := o.(*libsveltosv1alpha1.HealthCheckReport)
-	logger := klogr.New().WithValues(
-		"objectMapper",
-		"requeueClusterHealthCheckForHealthCheckReport",
-		"namespace",
-		healthCheckReport.GetNamespace(),
-		"healthCheckReport",
-		healthCheckReport.GetName(),
-	)
+	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+		"healthCheckReport", fmt.Sprintf("%s/%s", healthCheckReport.GetNamespace(), healthCheckReport.GetName()))
 
 	logger.V(logs.LogDebug).Info("reacting to healthCheckReport change")
 
@@ -78,12 +72,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
 ) []reconcile.Request {
 
 	healthCheck := o.(*libsveltosv1alpha1.HealthCheck)
-	logger := klogr.New().WithValues(
-		"objectMapper",
-		"requeueClusterHealthCheckForHealthCheck",
-		"healthCheck",
-		healthCheck.GetName(),
-	)
+	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+		"healthCheck", healthCheck.GetName())
 
 	logger.V(logs.LogDebug).Info("reacting to healthCheck change")
 
@@ -115,14 +105,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
 ) []reconcile.Request {
 
 	cluster := o
-	logger := klogr.New().WithValues(
-		"objectMapper",
-		"requeueClusterHealthCheckForCluster",
-		"namespace",
-		cluster.GetNamespace(),
-		"cluster",
-		cluster.GetName(),
-	)
+	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+		"cluster", fmt.Sprintf("%s/%s", cluster.GetNamespace(), cluster.GetName()))
 
 	logger.V(logs.LogDebug).Info("reacting to Cluster change")
 
@@ -176,14 +160,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 ) []reconcile.Request {
 
 	clusterSummary := o
-	logger := klogr.New().WithValues(
-		"objectMapper",
-		"requeueClusterHealthCheckForClusterSummary",
-		"namespace",
-		clusterSummary.GetNamespace(),
-		"clustersummary",
-		clusterSummary.GetName(),
-	)
+	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+		"clusterSummary", fmt.Sprintf("%s/%s", clusterSummary.GetNamespace(), clusterSummary.GetName()))
 
 	logger.V(logs.LogDebug).Info("reacting to clusterSummary change")
 
@@ -268,14 +246,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
 ) []reconcile.Request {
 
 	machine := o.(*clusterv1.Machine)
-	logger := klogr.New().WithValues(
-		"objectMapper",
-		"requeueClusterHealthCheckForMachine",
-		"namespace",
-		machine.Namespace,
-		"cluster",
-		machine.Name,
-	)
+	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+		"machine", fmt.Sprintf("%s/%s", machine.GetNamespace(), machine.GetName()))
 
 	addTypeInformationToObject(r.Scheme, machine)
 

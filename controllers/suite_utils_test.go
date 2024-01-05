@@ -53,6 +53,10 @@ var (
 	}
 )
 
+const (
+	sveltosKubeconfigPostfix = "-kubeconfig"
+)
+
 func randomString() string {
 	const length = 10
 	return util.RandomString(length)
@@ -229,7 +233,7 @@ func prepareCluster() *clusterv1.Cluster {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cluster.Namespace,
-			Name:      cluster.Name + "-kubeconfig",
+			Name:      cluster.Name + sveltosKubeconfigPostfix,
 		},
 		Data: map[string][]byte{
 			"data": testEnv.Kubeconfig,
