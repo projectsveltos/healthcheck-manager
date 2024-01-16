@@ -47,29 +47,40 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 				Name: randomString(),
 			},
 			Spec: libsveltosv1alpha1.HealthCheckSpec{
-				Group:   "apps",
-				Version: "v1",
-				Kind:    "Deployment",
-				LabelFilters: []libsveltosv1alpha1.LabelFilter{
-					{Key: "control-plane", Operation: libsveltosv1alpha1.OperationEqual, Value: "sveltos-agent"},
+				ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+					{
+						Group:   "apps",
+						Version: "v1",
+						Kind:    "Deployment",
+						LabelFilters: []libsveltosv1alpha1.LabelFilter{
+							{Key: "control-plane", Operation: libsveltosv1alpha1.OperationEqual, Value: "sveltos-agent"},
+						},
+					},
 				},
-				Script: `
+				EvaluateHealth: `
    function evaluate()
-     hs = {}
-     hs.status = "Progressing"
-     hs.message = ""
-     if obj.status ~= nil then
-       if obj.status.availableReplicas ~= nil then
-         if obj.status.availableReplicas == obj.spec.replicas then
-           hs.status = "Healthy"
-         end
-         if obj.status.availableReplicas ~= obj.spec.replicas then
-           hs.status = "Progressing"
-           hs.message = "expected replicas: " .. obj.spec.replicas .. " available: " .. obj.status.availableReplicas
+     statuses = {}
+     status = "Progressing"
+     message = ""
+	 for _, resource in ipairs(resources) do
+       if resource.status ~= nil then
+         if resource.status.availableReplicas ~= nil then
+           if resource.status.availableReplicas == resource.spec.replicas then
+             status = "Healthy"
+           end
+           if resource.status.availableReplicas ~= resource.spec.replicas then
+             status = "Progressing"
+             message = "expected replicas: " .. resource.spec.replicas .. " available: " .. resource.status.availableReplicas
+           end
          end
        end
-     end
-     return hs
+	   table.insert(statuses, {resource=resource, status=status, message=message}) 
+	 end  
+	 local hs = {}
+	 if #statuses > 0 then
+	   hs.resources = statuses 
+	 end
+	 return hs
    end`,
 			},
 		}

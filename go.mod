@@ -12,7 +12,7 @@ require (
 	github.com/onsi/gomega v1.30.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectsveltos/addon-controller v0.21.1-0.20240105082501-ccdfad12f2df
-	github.com/projectsveltos/libsveltos v0.21.1-0.20240104154531-101b29f82445
+	github.com/projectsveltos/libsveltos v0.21.2-0.20240116134907-5062e0e25e24
 	github.com/prometheus/client_golang v1.18.0
 	github.com/slack-go/slack v0.12.3
 	github.com/spf13/pflag v1.0.5
