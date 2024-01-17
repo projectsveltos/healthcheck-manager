@@ -558,18 +558,18 @@ func processClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 	}
 
 	logger.V(logs.LogDebug).Info("Deployed clusterHealthCheck")
-	return evaluateLivenessChecksAndSendNotificationsForCluster(ctx, c, clusterNamespace, clusterName, clusterType,
+	return evaluateHealthChecksAndSendNotificationsForCluster(ctx, c, clusterNamespace, clusterName, clusterType,
 		chc, logger)
 }
 
-// evaluateLivenessChecksAndSendNotificationsForCluster does following:
-// - evaluate liveness checks (updating ClusterHealthCheck Status)
+// evaluateHealthChecksAndSendNotificationsForCluster does following:
+// - evaluate all health checks (updating ClusterHealthCheck Status)
 // - send notifications
-func evaluateLivenessChecksAndSendNotificationsForCluster(ctx context.Context, c client.Client,
+func evaluateHealthChecksAndSendNotificationsForCluster(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
 	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
 
-	logger.V(logs.LogDebug).Info("Evaluate LivenessCheck and send Notifications for clusterHealthCheck")
+	logger.V(logs.LogDebug).Info("Evaluate health checks and send Notifications for clusterHealthCheck")
 
 	conditions, changed, err := evaluateClusterHealthCheckForCluster(ctx, c, clusterNamespace, clusterName, clusterType, chc, logger)
 	if err != nil {
