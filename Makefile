@@ -69,7 +69,7 @@ KIND := $(TOOLS_BIN_DIR)/kind
 KUBECTL := $(TOOLS_BIN_DIR)/kubectl
 
 GOLANGCI_LINT_VERSION := "v1.55.2"
-CLUSTERCTL_VERSION := "v1.6.0"
+CLUSTERCTL_VERSION := "v1.6.1"
 
 $(CONTROLLER_GEN): $(TOOLS_DIR)/go.mod # Build controller-gen from tools folder.
 	cd $(TOOLS_DIR); $(GOBUILD) -tags=tools -o $(subst $(TOOLS_DIR)/hack/tools/,,$@) sigs.k8s.io/controller-tools/cmd/controller-gen
@@ -277,15 +277,8 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_clusterhealthchecks.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_healthchecks.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_healthcheckreports.yaml
-	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_addoncompliances.yaml
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/libsveltos/$(TAG)/config/crd/bases/lib.projectsveltos.io_reloaderreports.yaml
 	
-	# Install addon-compliance-controller
-	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-compliance-controller/$(TAG)/manifest/manifest.yaml
-
-	@echo "Waiting for projectsveltos addon-compliance-controller to be available..."
-	$(KUBECTL) wait --for=condition=Available deployment/addon-compliance-manager -n projectsveltos --timeout=$(TIMEOUT)
-
 	# Install projectsveltos addon-controller
 	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-controller/$(TAG)/manifest/manifest.yaml
 	curl https://raw.githubusercontent.com/projectsveltos/addon-controller/$(TAG)/manifest/deployment-shard.yaml -o ac-deployment-shard.yaml
