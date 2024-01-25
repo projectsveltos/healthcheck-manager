@@ -237,7 +237,12 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 		}
 	}
 
-	parsedSelector, _ := labels.Parse(clusterHealthCheckScope.GetSelector())
+	parsedSelector, err := labels.Parse(clusterHealthCheckScope.GetSelector())
+	if err != nil {
+		logger.V(logs.LogDebug).Info(fmt.Sprintf("failed to parse clusterSelector: %v", err))
+		return reconcile.Result{}, err
+	}
+
 	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, parsedSelector, "", clusterHealthCheckScope.Logger)
 	if err != nil {
 		return reconcile.Result{}, err

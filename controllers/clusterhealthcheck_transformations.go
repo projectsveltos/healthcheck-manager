@@ -140,7 +140,12 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
 	// matching the Cluster
 	for k := range r.ClusterHealthChecks {
 		clusterHealthCheckSelector := r.ClusterHealthChecks[k]
-		parsedSelector, _ := labels.Parse(string(clusterHealthCheckSelector))
+		parsedSelector, err := labels.Parse(string(clusterHealthCheckSelector))
+		if err != nil {
+			// When clusterSelector is fixed, this ClusterHealthCheck instance
+			// will be reconciled
+			continue
+		}
 		if parsedSelector.Matches(labels.Set(cluster.GetLabels())) {
 			l := logger.WithValues("clusterHealthCheck", k.Name)
 			l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
@@ -225,7 +230,12 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 		// matching the Cluster
 		for k := range r.ClusterHealthChecks {
 			clusterHealthCheckSelector := r.ClusterHealthChecks[k]
-			parsedSelector, _ := labels.Parse(string(clusterHealthCheckSelector))
+			parsedSelector, err := labels.Parse(string(clusterHealthCheckSelector))
+			if err != nil {
+				// When clusterSelector is fixed, this ClusterHealthCheck instance
+				// will be reconciled
+				continue
+			}
 			if parsedSelector.Matches(labels.Set(clusterLabels)) {
 				l := logger.WithValues("clusterHealthCheck", k.Name)
 				l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
@@ -282,7 +292,12 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
 		// matching the Cluster
 		for k := range r.ClusterHealthChecks {
 			clusterHealthCheckSelector := r.ClusterHealthChecks[k]
-			parsedSelector, _ := labels.Parse(string(clusterHealthCheckSelector))
+			parsedSelector, err := labels.Parse(string(clusterHealthCheckSelector))
+			if err != nil {
+				// When clusterSelector is fixed, this ClusterHealthCheck instance
+				// will be reconciled
+				continue
+			}
 			if parsedSelector.Matches(labels.Set(clusterLabels)) {
 				l := logger.WithValues("clusterHealthCheck", k.Name)
 				l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")

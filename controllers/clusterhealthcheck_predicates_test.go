@@ -682,10 +682,14 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 		hcrPredicate := controllers.HealthCheckPredicates(logger)
 
 		healthCheck.Spec = libsveltosv1alpha1.HealthCheckSpec{
-			Group:   randomString(),
-			Version: randomString(),
-			Kind:    randomString(),
-			Script:  randomString(),
+			ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+				{
+					Group:    randomString(),
+					Version:  randomString(),
+					Kind:     randomString(),
+					Evaluate: randomString(),
+				},
+			},
 		}
 
 		oldHealthCheck := &libsveltosv1alpha1.HealthCheck{
@@ -707,10 +711,14 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 		hcrPredicate := controllers.HealthCheckPredicates(logger)
 
 		healthCheck.Spec = libsveltosv1alpha1.HealthCheckSpec{
-			Group:   randomString(),
-			Version: randomString(),
-			Kind:    randomString(),
-			Script:  randomString(),
+			ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+				{
+					Group:    randomString(),
+					Version:  randomString(),
+					Kind:     randomString(),
+					Evaluate: randomString(),
+				},
+			},
 		}
 
 		oldHealthCheck := &libsveltosv1alpha1.HealthCheck{

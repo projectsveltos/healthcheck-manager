@@ -378,9 +378,14 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 				Name: randomString(),
 			},
 			Spec: libsveltosv1alpha1.HealthCheckSpec{
-				Kind:    randomString(),
-				Group:   randomString(),
-				Version: randomString(),
+				ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+					{
+						Kind:    randomString(),
+						Group:   randomString(),
+						Version: randomString(),
+					},
+				},
+				EvaluateHealth: randomString(),
 			},
 		}
 
@@ -481,9 +486,14 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 				Name: randomString(),
 			},
 			Spec: libsveltosv1alpha1.HealthCheckSpec{
-				Kind:    randomString(),
-				Group:   randomString(),
-				Version: randomString(),
+				ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+					{
+						Kind:    randomString(),
+						Group:   randomString(),
+						Version: randomString(),
+					},
+				},
+				EvaluateHealth: randomString(),
 			},
 		}
 
