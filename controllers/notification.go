@@ -217,18 +217,24 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 	l.V(logs.LogInfo).Info("send teams message")
 
 	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
-	mstClient := goteamsnotify.NewTeamsClient()
-	mstWebhookUrl := info.webhookUrl
+	teamsClient := goteamsnotify.NewTeamsClient()
 
-	// TODO: add builtin webhook validatiotion
-
-	mstMessage, err := adaptivecard.NewSimpleMessage(message, clusterName, true)
-	if err != nil {
-		l.V(logs.LogInfo).Info("failed to create teams adaptivecard: %v", err)
+	// Validate Teams Webhook expected format
+	if err := teamsClient.ValidateWebhook(info.webhookUrl); err != nil {
+		l.V(logs.LogInfo).Info("failed to validate Teams webhook URL: %v", err)
 		return err
 	}
-	if err := mstClient.Send(mstWebhookUrl, mstMessage); err != nil {
-		l.V(logs.LogInfo).Info("failed to send teams message: %v", err)
+
+	// Create adaptive card with the clusterName as the title of the message
+	teamsMessage, err := adaptivecard.NewSimpleMessage(message, clusterName, true)
+	if err != nil {
+		l.V(logs.LogInfo).Info("failed to create Teams message: %v", err)
+		return err
+	}
+
+	// Send the meesage with the user provided webhook URL
+	if err := teamsClient.Send(info.webhookUrl, teamsMessage); err != nil {
+		l.V(logs.LogInfo).Info("failed to send Teams message: %v", err)
 		return err
 	}
 	return err
