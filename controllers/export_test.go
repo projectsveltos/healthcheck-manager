@@ -86,7 +86,6 @@ var (
 func GetWebexRoom(info *webexInfo) string {
 	return info.room
 }
-
 func GetWebexToken(info *webexInfo) string {
 	return info.token
 }
@@ -94,11 +93,6 @@ func GetWebexToken(info *webexInfo) string {
 func GetSlackChannelID(info *slackInfo) string {
 	return info.channelID
 }
-
 func GetSlackToken(info *slackInfo) string {
 	return info.token
-}
-
-func GetTeamsWebhookUrl(info *teamsInfo) string {
-	return info.webhookUrl
 }
