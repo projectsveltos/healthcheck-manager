@@ -12,7 +12,7 @@ require (
 	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1
 	github.com/projectsveltos/addon-controller v0.24.0
-	github.com/projectsveltos/libsveltos v0.24.0
+	github.com/projectsveltos/libsveltos v0.24.1-0.20240221165142-94ea5e6f7fa7
 	github.com/prometheus/client_golang v1.18.0
 	github.com/slack-go/slack v0.12.3
 	github.com/spf13/pflag v1.0.5
@@ -39,6 +39,7 @@ require (
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
+	github.com/atc0005/go-teams-notify/v2 v2.10.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

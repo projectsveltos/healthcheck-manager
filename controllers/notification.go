@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
+	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
 	"github.com/bwmarrin/discordgo"
 	"github.com/go-logr/logr"
 	webexteams "github.com/jbogarin/go-cisco-webex-teams/sdk"
@@ -48,6 +50,10 @@ type discordInfo struct {
 	channelID string
 }
 
+type teamsInfo struct {
+	webhookUrl string
+}
+
 // sendNotification delivers notification
 func sendNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
 	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
@@ -66,6 +72,8 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1alpha1.NotificationTypeDiscord:
 		err = sendDiscordNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
+	case libsveltosv1alpha1.NotificationTypeTeams:
+		err = sendTeamsNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -193,6 +201,36 @@ func sendDiscordNotification(ctx context.Context, c client.Client, clusterNamesp
 		Content: message,
 	})
 
+	return err
+}
+
+func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	logger logr.Logger) error {
+
+	info, err := getTeamsInfo(ctx, c, n)
+	if err != nil {
+		return err
+	}
+
+	l := logger.WithValues("webhookUrl", info.webhookUrl)
+	l.V(logs.LogInfo).Info("send teams message")
+
+	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	mstClient := goteamsnotify.NewTeamsClient()
+	mstWebhookUrl := info.webhookUrl
+
+	// TODO: add builtin webhook validatiotion
+
+	mstMessage, err := adaptivecard.NewSimpleMessage(message, clusterName, true)
+	if err != nil {
+		l.V(logs.LogInfo).Info("failed to create teams adaptivecard: %v", err)
+		return err
+	}
+	if err := mstClient.Send(mstWebhookUrl, mstMessage); err != nil {
+		l.V(logs.LogInfo).Info("failed to send teams message: %v", err)
+		return err
+	}
 	return err
 }
 
@@ -346,4 +384,18 @@ func getSecret(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notif
 	}
 
 	return secret, nil
+}
+
+func getTeamsInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*teamsInfo, error) {
+	secret, err := getSecret(ctx, c, n)
+	if err != nil {
+		return nil, err
+	}
+
+	webhookUrl, ok := secret.Data[libsveltosv1alpha1.TeamsWebhookURL]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain webhook URL")
+	}
+
+	return &teamsInfo{webhookUrl: string(webhookUrl)}, nil
 }
