@@ -220,7 +220,7 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 	teamsClient := goteamsnotify.NewTeamsClient()
 
 	// Validate Teams Webhook expected format
-	if err := teamsClient.ValidateWebhook(info.webhookUrl); err != nil {
+	if teamsClient.ValidateWebhook(info.webhookUrl) != nil {
 		l.V(logs.LogInfo).Info("failed to validate Teams webhook URL: %v", err)
 		return err
 	}
@@ -233,7 +233,7 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 	}
 
 	// Send the meesage with the user provided webhook URL
-	if err := teamsClient.Send(info.webhookUrl, teamsMessage); err != nil {
+	if teamsClient.Send(info.webhookUrl, teamsMessage) != nil {
 		l.V(logs.LogInfo).Info("failed to send Teams message: %v", err)
 		return err
 	}
