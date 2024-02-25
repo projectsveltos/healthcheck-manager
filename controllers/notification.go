@@ -237,6 +237,7 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 		l.V(logs.LogInfo).Info("failed to send Teams message: %v", err)
 		return err
 	}
+
 	return err
 }
 
