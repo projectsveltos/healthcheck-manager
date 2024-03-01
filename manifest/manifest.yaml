@@ -223,7 +223,7 @@ spec:
         - --v=5
         command:
         - /manager
-        image: projectsveltos/healthcheck-manager-amd64:dev
+        image: projectsveltos/healthcheck-manager-amd64:v0.25.0
         livenessProbe:
           failureThreshold: 3
           httpGet:
