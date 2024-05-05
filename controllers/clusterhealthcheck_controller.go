@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -275,69 +276,65 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.ConcurrentReconciles,
 		}).
+		Watches(&libsveltosv1alpha1.SveltosCluster{},
+			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForSveltosCluster),
+			builder.WithPredicates(
+				SveltosClusterPredicates(mgr.GetLogger().WithValues("predicate", "sveltosclusterpredicate")),
+			),
+		).
+		Watches(&configv1alpha1.ClusterSummary{},
+			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForClusterSummary),
+			builder.WithPredicates(
+				ClusterSummaryPredicates(mgr.GetLogger().WithValues("predicate", "clustersummarypredicate")),
+			),
+		).
+		Watches(&libsveltosv1alpha1.HealthCheckReport{},
+			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheckReport),
+			builder.WithPredicates(
+				HealthCheckReportPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckreportpredicate")),
+			),
+		).
+		Watches(&libsveltosv1alpha1.HealthCheck{},
+			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheck),
+			builder.WithPredicates(
+				HealthCheckPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckpredicate")),
+			),
+		).
 		Build(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating controller")
 	}
-	// When projectsveltos cluster changes, according to SveltosClusterPredicates,
-	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(source.Kind(mgr.GetCache(), &libsveltosv1alpha1.SveltosCluster{}),
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForCluster),
-		SveltosClusterPredicates(mgr.GetLogger().WithValues("predicate", "sveltosclusterpredicate")),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating controller")
-	}
 
-	// When projectsveltos clusterSummary changes, according to ClusterSummaryPredicates,
-	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(source.Kind(mgr.GetCache(), &configv1alpha1.ClusterSummary{}),
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForClusterSummary),
-		ClusterSummaryPredicates(mgr.GetLogger().WithValues("predicate", "clustersummarypredicate")),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating controller")
-	}
-
-	// When projectsveltos healthCheckReports changes, according to HealthCheckReportPredicates,
-	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(source.Kind(mgr.GetCache(), &libsveltosv1alpha1.HealthCheckReport{}),
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheckReport),
-		HealthCheckReportPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckreportpredicate")),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating controller")
-	}
-
-	// When projectsveltos healthChecks changes, according to HealthCheckPredicates,
-	// one or more ClusterHealthChecks need to be reconciled.
-	err = c.Watch(source.Kind(mgr.GetCache(), &libsveltosv1alpha1.HealthCheck{}),
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheck),
-		HealthCheckPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckpredicate")),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating controller")
-	}
+	// At this point we don't know yet whether CAPI is present in the cluster.
+	// Later on, in main, we detect that and if CAPI is present WatchForCAPI will be invoked.
 
 	return c, nil
 }
 
 func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controller.Controller) error {
+	sourceCluster := source.Kind[*clusterv1.Cluster](
+		mgr.GetCache(),
+		&clusterv1.Cluster{},
+		handler.TypedEnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForCluster),
+		ClusterPredicate{Logger: mgr.GetLogger().WithValues("predicate", "clusterpredicate")},
+	)
+
 	// When cluster-api cluster changes, according to ClusterPredicates,
 	// one or more ClusterHealthChecks need to be reconciled.
-	if err := c.Watch(source.Kind(mgr.GetCache(), &clusterv1.Cluster{}),
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForCluster),
-		ClusterPredicates(mgr.GetLogger().WithValues("predicate", "clusterpredicate")),
-	); err != nil {
+	if err := c.Watch(sourceCluster); err != nil {
 		return err
 	}
 
-	// When cluster-api machine changes, according to MachinePredicates,
-	// one or more ClusterHealthCheck need to be reconciled.
-	if err := c.Watch(source.Kind(mgr.GetCache(), &clusterv1.Machine{}),
-		handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForMachine),
-		MachinePredicates(mgr.GetLogger().WithValues("predicate", "machinepredicate")),
-	); err != nil {
+	sourceMachine := source.Kind[*clusterv1.Machine](
+		mgr.GetCache(),
+		&clusterv1.Machine{},
+		handler.TypedEnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForMachine),
+		MachinePredicate{Logger: mgr.GetLogger().WithValues("predicate", "machinepredicate")},
+	)
+
+	// When cluster-api machine changes, according to ClusterPredicates,
+	// one or more ClusterHealthChecks need to be reconciled.
+	if err := c.Watch(sourceMachine); err != nil {
 		return err
 	}
 
