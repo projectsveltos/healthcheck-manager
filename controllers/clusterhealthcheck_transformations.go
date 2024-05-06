@@ -100,11 +100,24 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
 	return requests
 }
 
-func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
+func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForSveltosCluster(
 	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
-	cluster := o
+	return r.requeueClusterHealthCheckForACluster(o)
+}
+
+func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
+	ctx context.Context, cluster *clusterv1.Cluster,
+) []reconcile.Request {
+
+	return r.requeueClusterHealthCheckForACluster(cluster)
+}
+
+func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForACluster(
+	cluster client.Object,
+) []reconcile.Request {
+
 	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
 		"cluster", fmt.Sprintf("%s/%s", cluster.GetNamespace(), cluster.GetName()))
 
@@ -120,7 +133,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForCluster(
 	clusterInfo := corev1.ObjectReference{APIVersion: apiVersion, Kind: kind,
 		Namespace: cluster.GetNamespace(), Name: cluster.GetName()}
 
-	r.ClusterLabels[clusterInfo] = o.GetLabels()
+	r.ClusterLabels[clusterInfo] = cluster.GetLabels()
 
 	// Get all ClusterHealthChecks previously matching this cluster and reconcile those
 	requests := make([]ctrl.Request, r.getClusterMapForEntry(&clusterInfo).Len())
@@ -252,10 +265,9 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 }
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
-	ctx context.Context, o client.Object,
+	ctx context.Context, machine *clusterv1.Machine,
 ) []reconcile.Request {
 
-	machine := o.(*clusterv1.Machine)
 	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
 		"machine", fmt.Sprintf("%s/%s", machine.GetNamespace(), machine.GetName()))
 
