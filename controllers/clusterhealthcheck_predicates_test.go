@@ -271,7 +271,7 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 			{
 				ReleaseName:      randomString(),
 				ReleaseNamespace: randomString(),
-				Status:           configv1alpha1.HelChartStatusManaging,
+				Status:           configv1alpha1.HelmChartStatusManaging,
 			},
 		}
 
