@@ -22,8 +22,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	configv1alpha1 "github.com/projectsveltos/addon-controller/api/v1alpha1"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 // This test verifies that a ClusterHealthCheck with:
@@ -36,18 +36,18 @@ var _ = Describe("Liveness: add-ons Notifications: events", func() {
 	)
 
 	It("Verifies events are delivered", Label("FV"), func() {
-		lc := libsveltosv1alpha1.LivenessCheck{Name: randomString(), Type: libsveltosv1alpha1.LivenessTypeAddons}
+		lc := libsveltosv1beta1.LivenessCheck{Name: randomString(), Type: libsveltosv1beta1.LivenessTypeAddons}
 
-		notification := libsveltosv1alpha1.Notification{Name: randomString(), Type: libsveltosv1alpha1.NotificationTypeKubernetesEvent}
+		notification := libsveltosv1beta1.Notification{Name: randomString(), Type: libsveltosv1beta1.NotificationTypeKubernetesEvent}
 
 		Byf("Create a ClusterHealthCheck matching Cluster %s/%s", kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)
 		clusterHealthCheck := getClusterHealthCheck(namePrefix, map[string]string{key: value},
-			[]libsveltosv1alpha1.LivenessCheck{lc}, []libsveltosv1alpha1.Notification{notification})
+			[]libsveltosv1beta1.LivenessCheck{lc}, []libsveltosv1beta1.Notification{notification})
 		Expect(k8sClient.Create(context.TODO(), clusterHealthCheck)).To(Succeed())
 
 		Byf("Create a ClusterProfile matching Cluster %s/%s", kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)
 		clusterProfile := getClusterProfile(namePrefix, map[string]string{key: value})
-		clusterProfile.Spec.SyncMode = configv1alpha1.SyncModeContinuous
+		clusterProfile.Spec.SyncMode = configv1beta1.SyncModeContinuous
 		Expect(k8sClient.Create(context.TODO(), clusterProfile)).To(Succeed())
 
 		verifyClusterProfileMatches(clusterProfile)
@@ -55,7 +55,7 @@ var _ = Describe("Liveness: add-ons Notifications: events", func() {
 		clusterSummary := verifyClusterSummary(clusterProfile, kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)
 
 		Byf("Verifying ClusterSummary %s status is set to Deployed for Helm feature", clusterSummary.Name)
-		verifyFeatureStatusIsProvisioned(kindWorkloadCluster.Namespace, clusterSummary.Name, configv1alpha1.FeatureHelm)
+		verifyFeatureStatusIsProvisioned(kindWorkloadCluster.Namespace, clusterSummary.Name, configv1beta1.FeatureHelm)
 
 		Byf("Verifying ClusterHealthCheck %s is set to Provisioned", clusterHealthCheck.Name)
 		verifyClusterHealthCheckStatus(clusterHealthCheck.Name, kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)

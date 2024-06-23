@@ -27,9 +27,9 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	configv1alpha1 "github.com/projectsveltos/addon-controller/api/v1alpha1"
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 const (
@@ -38,12 +38,12 @@ const (
 
 var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func() {
 	var logger logr.Logger
-	var cluster *libsveltosv1alpha1.SveltosCluster
+	var cluster *libsveltosv1beta1.SveltosCluster
 	const upstreamClusterNamePrefix = "sveltoscluster-predicates-"
 
 	BeforeEach(func() {
 		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
-		cluster = &libsveltosv1alpha1.SveltosCluster{
+		cluster = &libsveltosv1beta1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
 				Namespace: predicates + randomString(),
@@ -91,7 +91,7 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 
 		cluster.Spec.Paused = false
 
-		oldCluster := &libsveltosv1alpha1.SveltosCluster{
+		oldCluster := &libsveltosv1beta1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cluster.Name,
 				Namespace: cluster.Namespace,
@@ -113,7 +113,7 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 
 		cluster.Spec.Paused = true
 		cluster.Annotations = map[string]string{clusterv1.PausedAnnotation: "true"}
-		oldCluster := &libsveltosv1alpha1.SveltosCluster{
+		oldCluster := &libsveltosv1beta1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cluster.Name,
 				Namespace: cluster.Namespace,
@@ -133,7 +133,7 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 		clusterPredicate := controllers.SveltosClusterPredicates(logger)
 
 		cluster.Spec.Paused = false
-		oldCluster := &libsveltosv1alpha1.SveltosCluster{
+		oldCluster := &libsveltosv1beta1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cluster.Name,
 				Namespace: cluster.Namespace,
@@ -154,7 +154,7 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 
 		cluster.Labels = map[string]string{"department": "eng"}
 
-		oldCluster := &libsveltosv1alpha1.SveltosCluster{
+		oldCluster := &libsveltosv1beta1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cluster.Name,
 				Namespace: cluster.Namespace,
@@ -175,13 +175,13 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 
 		cluster.Status.Ready = true
 
-		oldCluster := &libsveltosv1alpha1.SveltosCluster{
+		oldCluster := &libsveltosv1beta1.SveltosCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cluster.Name,
 				Namespace: cluster.Namespace,
 				Labels:    map[string]string{},
 			},
-			Status: libsveltosv1alpha1.SveltosClusterStatus{
+			Status: libsveltosv1beta1.SveltosClusterStatus{
 				Ready: false,
 			},
 		}
@@ -198,13 +198,13 @@ var _ = Describe("ClusterHealthCheck Predicates: SvelotsClusterPredicates", func
 
 var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func() {
 	var logger logr.Logger
-	var clusterSummary *configv1alpha1.ClusterSummary
+	var clusterSummary *configv1beta1.ClusterSummary
 
 	const upstreamClusterNamePrefix = "clustersummary-predicates-"
 
 	BeforeEach(func() {
 		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
-		clusterSummary = &configv1alpha1.ClusterSummary{
+		clusterSummary = &configv1beta1.ClusterSummary{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
 				Namespace: predicates + randomString(),
@@ -235,14 +235,14 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 	It("Update reprocesses when ClusterSummary status FeatureSummaries changes", func() {
 		clusterSummaryPredicate := controllers.ClusterSummaryPredicates(logger)
 
-		clusterSummary.Status.FeatureSummaries = []configv1alpha1.FeatureSummary{
+		clusterSummary.Status.FeatureSummaries = []configv1beta1.FeatureSummary{
 			{
-				Status:    configv1alpha1.FeatureStatusProvisioned,
-				FeatureID: configv1alpha1.FeatureHelm,
+				Status:    configv1beta1.FeatureStatusProvisioned,
+				FeatureID: configv1beta1.FeatureHelm,
 			},
 		}
 
-		oldClusterSummary := &configv1alpha1.ClusterSummary{
+		oldClusterSummary := &configv1beta1.ClusterSummary{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSummary.Name,
 				Namespace: clusterSummary.Namespace,
@@ -261,21 +261,21 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 	It("Update does not reprocesses when ClusterSummary status FeatureSummary has not changed", func() {
 		clusterSummaryPredicate := controllers.ClusterSummaryPredicates(logger)
 
-		clusterSummary.Status.FeatureSummaries = []configv1alpha1.FeatureSummary{
+		clusterSummary.Status.FeatureSummaries = []configv1beta1.FeatureSummary{
 			{
-				Status:    configv1alpha1.FeatureStatusProvisioned,
-				FeatureID: configv1alpha1.FeatureHelm,
+				Status:    configv1beta1.FeatureStatusProvisioned,
+				FeatureID: configv1beta1.FeatureHelm,
 			},
 		}
-		clusterSummary.Status.HelmReleaseSummaries = []configv1alpha1.HelmChartSummary{
+		clusterSummary.Status.HelmReleaseSummaries = []configv1beta1.HelmChartSummary{
 			{
 				ReleaseName:      randomString(),
 				ReleaseNamespace: randomString(),
-				Status:           configv1alpha1.HelmChartStatusManaging,
+				Status:           configv1beta1.HelmChartStatusManaging,
 			},
 		}
 
-		oldClusterSummary := &configv1alpha1.ClusterSummary{
+		oldClusterSummary := &configv1beta1.ClusterSummary{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      clusterSummary.Name,
 				Namespace: clusterSummary.Namespace,
@@ -491,13 +491,13 @@ var _ = Describe("ClusterHealthCheck Predicates: MachinePredicates", func() {
 
 var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", func() {
 	var logger logr.Logger
-	var healthCheckReport *libsveltosv1alpha1.HealthCheckReport
+	var healthCheckReport *libsveltosv1beta1.HealthCheckReport
 
 	const upstreamClusterNamePrefix = "healthcheckreport-predicates-"
 
 	BeforeEach(func() {
 		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
-		healthCheckReport = &libsveltosv1alpha1.HealthCheckReport{
+		healthCheckReport = &libsveltosv1beta1.HealthCheckReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      upstreamClusterNamePrefix + randomString(),
 				Namespace: predicates + randomString(),
@@ -528,8 +528,8 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 	It("Update reprocesses when HealthCheckReport spec changes", func() {
 		hcrPredicate := controllers.HealthCheckReportPredicates(logger)
 
-		healthCheckReport.Spec = libsveltosv1alpha1.HealthCheckReportSpec{
-			ResourceStatuses: []libsveltosv1alpha1.ResourceStatus{
+		healthCheckReport.Spec = libsveltosv1beta1.HealthCheckReportSpec{
+			ResourceStatuses: []libsveltosv1beta1.ResourceStatus{
 				{
 					ObjectRef: corev1.ObjectReference{
 						Kind:       randomString(),
@@ -541,7 +541,7 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 			},
 		}
 
-		oldHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{
+		oldHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      healthCheckReport.Name,
 				Namespace: healthCheckReport.Namespace,
@@ -560,8 +560,8 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 	It("Update does not reprocesses HealthCheckReport spec has not changed", func() {
 		hcrPredicate := controllers.HealthCheckReportPredicates(logger)
 
-		healthCheckReport.Spec = libsveltosv1alpha1.HealthCheckReportSpec{
-			ResourceStatuses: []libsveltosv1alpha1.ResourceStatus{
+		healthCheckReport.Spec = libsveltosv1beta1.HealthCheckReportSpec{
+			ResourceStatuses: []libsveltosv1beta1.ResourceStatus{
 				{
 					ObjectRef: corev1.ObjectReference{
 						Kind:       randomString(),
@@ -573,7 +573,7 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 			},
 		}
 
-		oldHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{
+		oldHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      healthCheckReport.Name,
 				Namespace: healthCheckReport.Namespace,
@@ -593,13 +593,13 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckReportPredicates", f
 
 var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() {
 	var logger logr.Logger
-	var healthCheck *libsveltosv1alpha1.HealthCheck
+	var healthCheck *libsveltosv1beta1.HealthCheck
 
 	const upstreamClusterNamePrefix = "healthcheck-predicates-"
 
 	BeforeEach(func() {
 		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
-		healthCheck = &libsveltosv1alpha1.HealthCheck{
+		healthCheck = &libsveltosv1beta1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: upstreamClusterNamePrefix + randomString(),
 			},
@@ -629,8 +629,8 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 	It("Update reprocesses when HealthCheck spec changes", func() {
 		hcrPredicate := controllers.HealthCheckPredicates(logger)
 
-		healthCheck.Spec = libsveltosv1alpha1.HealthCheckSpec{
-			ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+		healthCheck.Spec = libsveltosv1beta1.HealthCheckSpec{
+			ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
 				{
 					Group:    randomString(),
 					Version:  randomString(),
@@ -640,7 +640,7 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 			},
 		}
 
-		oldHealthCheck := &libsveltosv1alpha1.HealthCheck{
+		oldHealthCheck := &libsveltosv1beta1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: healthCheck.Name,
 			},
@@ -658,8 +658,8 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 	It("Update does not reprocesses HealthCheck spec has not changed", func() {
 		hcrPredicate := controllers.HealthCheckPredicates(logger)
 
-		healthCheck.Spec = libsveltosv1alpha1.HealthCheckSpec{
-			ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+		healthCheck.Spec = libsveltosv1beta1.HealthCheckSpec{
+			ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
 				{
 					Group:    randomString(),
 					Version:  randomString(),
@@ -669,7 +669,7 @@ var _ = Describe("ClusterHealthCheck Predicates: HealthCheckPredicates", func() 
 			},
 		}
 
-		oldHealthCheck := &libsveltosv1alpha1.HealthCheck{
+		oldHealthCheck := &libsveltosv1beta1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: healthCheck.Name,
 			},

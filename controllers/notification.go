@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
@@ -56,23 +56,23 @@ type teamsInfo struct {
 
 // sendNotification delivers notification
 func sendNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
+	n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition, logger logr.Logger) error {
 
 	logger = logger.WithValues("notification", fmt.Sprintf("%s:%s", n.Type, n.Name))
 	logger.V(logs.LogDebug).Info("deliver notification")
 
 	var err error
 	switch n.Type {
-	case libsveltosv1alpha1.NotificationTypeKubernetesEvent:
+	case libsveltosv1beta1.NotificationTypeKubernetesEvent:
 		sendKubernetesNotification(clusterNamespace, clusterName, clusterType, chc, conditions, logger)
-	case libsveltosv1alpha1.NotificationTypeSlack:
+	case libsveltosv1beta1.NotificationTypeSlack:
 		err = sendSlackNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
-	case libsveltosv1alpha1.NotificationTypeWebex:
+	case libsveltosv1beta1.NotificationTypeWebex:
 		err = sendWebexNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
-	case libsveltosv1alpha1.NotificationTypeDiscord:
+	case libsveltosv1beta1.NotificationTypeDiscord:
 		err = sendDiscordNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
-	case libsveltosv1alpha1.NotificationTypeTeams:
+	case libsveltosv1beta1.NotificationTypeTeams:
 		err = sendTeamsNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
@@ -88,8 +88,8 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 }
 
 func sendKubernetesNotification(clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) {
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
+	conditions []libsveltosv1beta1.Condition, logger logr.Logger) {
 
 	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
 
@@ -105,7 +105,7 @@ func sendKubernetesNotification(clusterNamespace, clusterName string,
 }
 
 func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
 	logger logr.Logger) error {
 
 	info, err := getSlackInfo(ctx, c, n)
@@ -135,7 +135,7 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 }
 
 func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
 	logger logr.Logger) error {
 
 	info, err := getWebexInfo(ctx, c, n)
@@ -176,7 +176,7 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 }
 
 func sendDiscordNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
 	logger logr.Logger) error {
 
 	info, err := getDiscordInfo(ctx, c, n)
@@ -205,7 +205,7 @@ func sendDiscordNotification(ctx context.Context, c client.Client, clusterNamesp
 }
 
 func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, n *libsveltosv1alpha1.Notification, conditions []libsveltosv1alpha1.Condition,
+	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
 	logger logr.Logger) error {
 
 	info, err := getTeamsInfo(ctx, c, n)
@@ -241,8 +241,8 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 	return err
 }
 
-func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) (string, bool) {
+func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	conditions []libsveltosv1beta1.Condition, logger logr.Logger) (string, bool) {
 
 	passing := true
 	message := fmt.Sprintf("cluster %s:%s/%s  \n", clusterType, clusterNamespace, clusterName)
@@ -267,9 +267,9 @@ func getNotificationMessage(clusterNamespace, clusterName string, clusterType li
 
 // buildNotificationStatusMap creates a map reporting notification status by walking over ClusterHealthCheck status
 func buildNotificationStatusMap(clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck) map[string]libsveltosv1alpha1.NotificationStatus {
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck) map[string]libsveltosv1beta1.NotificationStatus {
 
-	notificationStatus := make(map[string]libsveltosv1alpha1.NotificationStatus)
+	notificationStatus := make(map[string]libsveltosv1beta1.NotificationStatus)
 
 	for i := range chc.Status.ClusterConditions {
 		cc := &chc.Status.ClusterConditions[i]
@@ -288,7 +288,7 @@ func buildNotificationStatusMap(clusterNamespace, clusterName string,
 // - resendAll is true
 // - there is no entry in notificationStatus (which means this notification was never delivered)
 // - there is an entry in notificationStatus but the status is not set to delivered
-func doSendNotification(n *libsveltosv1alpha1.Notification, notificationStatus map[string]libsveltosv1alpha1.NotificationStatus,
+func doSendNotification(n *libsveltosv1beta1.Notification, notificationStatus map[string]libsveltosv1beta1.NotificationStatus,
 	resendAll bool) bool {
 
 	if resendAll {
@@ -300,21 +300,21 @@ func doSendNotification(n *libsveltosv1alpha1.Notification, notificationStatus m
 		return true
 	}
 
-	return status != libsveltosv1alpha1.NotificationStatusDelivered
+	return status != libsveltosv1beta1.NotificationStatusDelivered
 }
 
-func getSlackInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*slackInfo, error) {
+func getSlackInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.Notification) (*slackInfo, error) {
 	secret, err := getSecret(ctx, c, n)
 	if err != nil {
 		return nil, err
 	}
 
-	authToken, ok := secret.Data[libsveltosv1alpha1.SlackToken]
+	authToken, ok := secret.Data[libsveltosv1beta1.SlackToken]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain slack token")
 	}
 
-	channelID, ok := secret.Data[libsveltosv1alpha1.SlackChannelID]
+	channelID, ok := secret.Data[libsveltosv1beta1.SlackChannelID]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain slack channelID")
 	}
@@ -322,18 +322,18 @@ func getSlackInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.No
 	return &slackInfo{token: string(authToken), channelID: string(channelID)}, nil
 }
 
-func getWebexInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*webexInfo, error) {
+func getWebexInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.Notification) (*webexInfo, error) {
 	secret, err := getSecret(ctx, c, n)
 	if err != nil {
 		return nil, err
 	}
 
-	authToken, ok := secret.Data[libsveltosv1alpha1.WebexToken]
+	authToken, ok := secret.Data[libsveltosv1beta1.WebexToken]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain webex token")
 	}
 
-	room, ok := secret.Data[libsveltosv1alpha1.WebexRoomID]
+	room, ok := secret.Data[libsveltosv1beta1.WebexRoomID]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain webex room")
 	}
@@ -341,18 +341,18 @@ func getWebexInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.No
 	return &webexInfo{token: string(authToken), room: string(room)}, nil
 }
 
-func getDiscordInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*discordInfo, error) {
+func getDiscordInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.Notification) (*discordInfo, error) {
 	secret, err := getSecret(ctx, c, n)
 	if err != nil {
 		return nil, err
 	}
 
-	authToken, ok := secret.Data[libsveltosv1alpha1.DiscordToken]
+	authToken, ok := secret.Data[libsveltosv1beta1.DiscordToken]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain discord token")
 	}
 
-	channelID, ok := secret.Data[libsveltosv1alpha1.DiscordChannelID]
+	channelID, ok := secret.Data[libsveltosv1beta1.DiscordChannelID]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain discord channel id")
 	}
@@ -360,7 +360,7 @@ func getDiscordInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.
 	return &discordInfo{token: string(authToken), channelID: string(channelID)}, nil
 }
 
-func getSecret(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*corev1.Secret, error) {
+func getSecret(ctx context.Context, c client.Client, n *libsveltosv1beta1.Notification) (*corev1.Secret, error) {
 	if n.NotificationRef == nil {
 		return nil, fmt.Errorf("notification must reference secret containing slack token/channel id")
 	}
@@ -382,8 +382,8 @@ func getSecret(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notif
 		return nil, err
 	}
 
-	if secret.Type != libsveltosv1alpha1.ClusterProfileSecretType {
-		return nil, fmt.Errorf("referenced secret must be of type %q", libsveltosv1alpha1.ClusterProfileSecretType)
+	if secret.Type != libsveltosv1beta1.ClusterProfileSecretType {
+		return nil, fmt.Errorf("referenced secret must be of type %q", libsveltosv1beta1.ClusterProfileSecretType)
 	}
 
 	if secret.Data == nil {
@@ -393,13 +393,13 @@ func getSecret(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notif
 	return secret, nil
 }
 
-func getTeamsInfo(ctx context.Context, c client.Client, n *libsveltosv1alpha1.Notification) (*teamsInfo, error) {
+func getTeamsInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.Notification) (*teamsInfo, error) {
 	secret, err := getSecret(ctx, c, n)
 	if err != nil {
 		return nil, err
 	}
 
-	webhookUrl, ok := secret.Data[libsveltosv1alpha1.TeamsWebhookURL]
+	webhookUrl, ok := secret.Data[libsveltosv1beta1.TeamsWebhookURL]
 	if !ok {
 		return nil, fmt.Errorf("secret does not contain webhook URL")
 	}

@@ -24,8 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	configv1alpha1 "github.com/projectsveltos/addon-controller/api/v1alpha1"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
@@ -181,8 +181,8 @@ func (p MachinePredicate) Generic(obj event.TypedGenericEvent[*clusterv1.Machine
 func SveltosClusterPredicates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			newCluster := e.ObjectNew.(*libsveltosv1alpha1.SveltosCluster)
-			oldCluster := e.ObjectOld.(*libsveltosv1alpha1.SveltosCluster)
+			newCluster := e.ObjectNew.(*libsveltosv1beta1.SveltosCluster)
+			oldCluster := e.ObjectOld.(*libsveltosv1beta1.SveltosCluster)
 			log := logger.WithValues("predicate", "updateEvent",
 				"namespace", newCluster.Namespace,
 				"cluster", newCluster.Name,
@@ -219,7 +219,7 @@ func SveltosClusterPredicates(logger logr.Logger) predicate.Funcs {
 			return false
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			cluster := e.Object.(*libsveltosv1alpha1.SveltosCluster)
+			cluster := e.Object.(*libsveltosv1beta1.SveltosCluster)
 			log := logger.WithValues("predicate", "createEvent",
 				"namespace", cluster.Namespace,
 				"cluster", cluster.Name,
@@ -262,8 +262,8 @@ func SveltosClusterPredicates(logger logr.Logger) predicate.Funcs {
 func ClusterSummaryPredicates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			newClusterSummary := e.ObjectNew.(*configv1alpha1.ClusterSummary)
-			oldClusterSummary := e.ObjectOld.(*configv1alpha1.ClusterSummary)
+			newClusterSummary := e.ObjectNew.(*configv1beta1.ClusterSummary)
+			oldClusterSummary := e.ObjectOld.(*configv1beta1.ClusterSummary)
 			log := logger.WithValues("predicate", "updateEvent",
 				"namespace", newClusterSummary.Namespace,
 				"clustersummary", newClusterSummary.Name,
@@ -322,8 +322,8 @@ func ClusterSummaryPredicates(logger logr.Logger) predicate.Funcs {
 func HealthCheckReportPredicates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			newHCR := e.ObjectNew.(*libsveltosv1alpha1.HealthCheckReport)
-			oldHCR := e.ObjectOld.(*libsveltosv1alpha1.HealthCheckReport)
+			newHCR := e.ObjectNew.(*libsveltosv1beta1.HealthCheckReport)
+			oldHCR := e.ObjectOld.(*libsveltosv1beta1.HealthCheckReport)
 			log := logger.WithValues("predicate", "updateEvent",
 				"namespace", newHCR.Namespace,
 				"healthCheckReport", newHCR.Name,
@@ -382,8 +382,8 @@ func HealthCheckReportPredicates(logger logr.Logger) predicate.Funcs {
 func HealthCheckPredicates(logger logr.Logger) predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			newHC := e.ObjectNew.(*libsveltosv1alpha1.HealthCheck)
-			oldHC := e.ObjectOld.(*libsveltosv1alpha1.HealthCheck)
+			newHC := e.ObjectNew.(*libsveltosv1beta1.HealthCheck)
+			oldHC := e.ObjectOld.(*libsveltosv1beta1.HealthCheck)
 			log := logger.WithValues("predicate", "updateEvent",
 				"healthCheck", newHC.Name,
 			)

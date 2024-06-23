@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -38,9 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	configv1alpha1 "github.com/projectsveltos/addon-controller/api/v1alpha1"
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
@@ -88,7 +87,7 @@ type ClusterHealthCheckReconciler struct {
 	CHCToClusterMap map[types.NamespacedName]*libsveltosset.Set
 
 	// key: ClusterHealthCheck; value ClusterHealthCheck Selector
-	ClusterHealthChecks map[corev1.ObjectReference]libsveltosv1alpha1.Selector
+	ClusterHealthChecks map[corev1.ObjectReference]libsveltosv1beta1.Selector
 
 	// For each cluster contains current labels
 	// This is needed in following scenario:
@@ -151,7 +150,7 @@ func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.R
 	logger.V(logs.LogInfo).Info("Reconciling")
 
 	// Fecth the ClusterHealthCheck instance
-	clusterHealthCheck := &libsveltosv1alpha1.ClusterHealthCheck{}
+	clusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{}
 	if err := r.Get(ctx, req.NamespacedName, clusterHealthCheck); err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -209,15 +208,15 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 
 	r.cleanMaps(clusterHealthCheckScope)
 
-	f := getHandlersForFeature(libsveltosv1alpha1.FeatureClusterHealthCheck)
+	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to undeploy")
 		return reconcile.Result{Requeue: true, RequeueAfter: deleteRequeueAfter}
 	}
 
-	if controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1alpha1.ClusterHealthCheckFinalizer) {
-		controllerutil.RemoveFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1alpha1.ClusterHealthCheckFinalizer)
+	if controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer) {
+		controllerutil.RemoveFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer)
 	}
 
 	logger.V(logs.LogInfo).Info("Reconcile delete success")
@@ -232,19 +231,13 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	logger := clusterHealthCheckScope.Logger
 	logger.V(logs.LogInfo).Info("Reconciling ClusterHealthCheck")
 
-	if !controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1alpha1.ClusterHealthCheckFinalizer) {
+	if !controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer) {
 		if err := r.addFinalizer(ctx, clusterHealthCheckScope); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	parsedSelector, err := labels.Parse(clusterHealthCheckScope.GetSelector())
-	if err != nil {
-		logger.V(logs.LogDebug).Info(fmt.Sprintf("failed to parse clusterSelector: %v", err))
-		return reconcile.Result{}, err
-	}
-
-	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, parsedSelector, "", clusterHealthCheckScope.Logger)
+	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, clusterHealthCheckScope.GetSelector(), "", clusterHealthCheckScope.Logger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -259,7 +252,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 
 	r.updateMaps(clusterHealthCheckScope)
 
-	f := getHandlersForFeature(libsveltosv1alpha1.FeatureClusterHealthCheck)
+	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger); err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to deploy")
 		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
@@ -272,29 +265,29 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (controller.Controller, error) {
 	c, err := ctrl.NewControllerManagedBy(mgr).
-		For(&libsveltosv1alpha1.ClusterHealthCheck{}).
+		For(&libsveltosv1beta1.ClusterHealthCheck{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.ConcurrentReconciles,
 		}).
-		Watches(&libsveltosv1alpha1.SveltosCluster{},
+		Watches(&libsveltosv1beta1.SveltosCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForSveltosCluster),
 			builder.WithPredicates(
 				SveltosClusterPredicates(mgr.GetLogger().WithValues("predicate", "sveltosclusterpredicate")),
 			),
 		).
-		Watches(&configv1alpha1.ClusterSummary{},
+		Watches(&configv1beta1.ClusterSummary{},
 			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForClusterSummary),
 			builder.WithPredicates(
 				ClusterSummaryPredicates(mgr.GetLogger().WithValues("predicate", "clustersummarypredicate")),
 			),
 		).
-		Watches(&libsveltosv1alpha1.HealthCheckReport{},
+		Watches(&libsveltosv1beta1.HealthCheckReport{},
 			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheckReport),
 			builder.WithPredicates(
 				HealthCheckReportPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckreportpredicate")),
 			),
 		).
-		Watches(&libsveltosv1alpha1.HealthCheck{},
+		Watches(&libsveltosv1beta1.HealthCheck{},
 			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForHealthCheck),
 			builder.WithPredicates(
 				HealthCheckPredicates(mgr.GetLogger().WithValues("predicate", "healthcheckpredicate")),
@@ -342,7 +335,7 @@ func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controll
 }
 
 func (r *ClusterHealthCheckReconciler) addFinalizer(ctx context.Context, clusterHealthCheckScope *scope.ClusterHealthCheckScope) error {
-	controllerutil.AddFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1alpha1.ClusterHealthCheckFinalizer)
+	controllerutil.AddFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer)
 	// Register the finalizer immediately to avoid orphaning clusterHealthCheck resources on delete
 	if err := clusterHealthCheckScope.PatchObject(ctx); err != nil {
 		clusterHealthCheckScope.Error(err, "Failed to add finalizer")
@@ -364,8 +357,8 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 	for k, l := range r.ClusterMap {
 		l.Erase(
 			&corev1.ObjectReference{
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.ClusterHealthCheckKind,
 				Name:       clusterHealthCheckScope.Name(),
 			},
 		)
@@ -381,8 +374,8 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 	for k, l := range r.HealthCheckMap {
 		l.Erase(
 			&corev1.ObjectReference{
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.ClusterHealthCheckKind,
 				Name:       clusterHealthCheckScope.Name(),
 			},
 		)
@@ -463,8 +456,8 @@ func (r *ClusterHealthCheckReconciler) updateHealthCheckMaps(clusterHealthCheckS
 		tmpResource := referencedResource
 		r.getReferenceMapForEntry(&tmpResource).Insert(
 			&corev1.ObjectReference{
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.ClusterHealthCheckKind,
 				Name:       clusterHealthCheckScope.Name(),
 			},
 		)
@@ -475,8 +468,8 @@ func (r *ClusterHealthCheckReconciler) updateHealthCheckMaps(clusterHealthCheckS
 		referencedResource := toBeRemoved[i]
 		r.getReferenceMapForEntry(&referencedResource).Erase(
 			&corev1.ObjectReference{
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-				Kind:       libsveltosv1alpha1.ClusterHealthCheckKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.ClusterHealthCheckKind,
 				Name:       clusterHealthCheckScope.Name(),
 			},
 		)
@@ -522,13 +515,13 @@ func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Conte
 		clusterMap[getClusterID(c.ClusterInfo.Cluster)] = true
 	}
 
-	newClusterInfo := make([]libsveltosv1alpha1.ClusterCondition, 0)
+	newClusterInfo := make([]libsveltosv1beta1.ClusterCondition, 0)
 	for i := range chc.Status.MatchingClusterRefs {
 		c := chc.Status.MatchingClusterRefs[i]
 		if _, ok := clusterMap[getClusterID(c)]; !ok {
 			newClusterInfo = append(newClusterInfo,
-				libsveltosv1alpha1.ClusterCondition{
-					ClusterInfo: libsveltosv1alpha1.ClusterInfo{
+				libsveltosv1beta1.ClusterCondition{
+					ClusterInfo: libsveltosv1beta1.ClusterInfo{
 						Cluster: c,
 						Hash:    nil,
 					},

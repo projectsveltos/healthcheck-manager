@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
@@ -55,7 +55,7 @@ func (r *ReloaderReportReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger.V(logs.LogInfo).Info("Reconciling ReloaderReport")
 
 	// Fecth the ReloaderReport instance
-	reloaderReport := &libsveltosv1alpha1.ReloaderReport{}
+	reloaderReport := &libsveltosv1beta1.ReloaderReport{}
 	if err := r.Get(ctx, req.NamespacedName, reloaderReport); err != nil {
 		if apierrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -94,23 +94,23 @@ func (r *ReloaderReportReconciler) SetupWithManager(mgr ctrl.Manager, collection
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&libsveltosv1alpha1.ReloaderReport{}).
+		For(&libsveltosv1beta1.ReloaderReport{}).
 		Complete(r)
 }
 
 // processReloaderReport triggers a rolling upgrade in the managed cluster for any Deployment,
 // StatefulSet and DaemonSet instance listed in the ReloaderReport
 func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
-	reloaderReport *libsveltosv1alpha1.ReloaderReport, logger logr.Logger) error {
+	reloaderReport *libsveltosv1beta1.ReloaderReport, logger logr.Logger) error {
 
 	logger = logger.WithValues("cluster", fmt.Sprintf("%s/%s",
 		reloaderReport.Spec.ClusterNamespace, reloaderReport.Spec.ClusterName))
 
 	if reloaderReport.Annotations != nil {
 		// Resource (ConfigMap or Secret) causing this rolling upgrade to be triggered
-		kind := reloaderReport.Annotations[libsveltosv1alpha1.ReloaderReportResourceKindAnnotation]
-		namespace := reloaderReport.Annotations[libsveltosv1alpha1.ReloaderReportResourceKindAnnotation]
-		name := reloaderReport.Annotations[libsveltosv1alpha1.ReloaderReportResourceKindAnnotation]
+		kind := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceKindAnnotation]
+		namespace := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceKindAnnotation]
+		name := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceKindAnnotation]
 		logger = logger.WithValues("mountedResource", fmt.Sprintf("%s:%s/%s",
 			kind, namespace, name))
 	}
@@ -124,7 +124,7 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 	value := randomString()
 
 	// Save resources listed in ReloaderReport that reconciliation failed to update
-	failed := make([]libsveltosv1alpha1.ReloaderInfo, 0)
+	failed := make([]libsveltosv1beta1.ReloaderInfo, 0)
 
 	for i := range reloaderReport.Spec.ResourcesToReload {
 		rr := &reloaderReport.Spec.ResourcesToReload[i]
@@ -148,7 +148,7 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 }
 
 func (r *ReloaderReportReconciler) triggerRollingUpgrade(ctx context.Context, remoteClient client.Client,
-	reloaderInfo *libsveltosv1alpha1.ReloaderInfo, value string, logger logr.Logger) error {
+	reloaderInfo *libsveltosv1beta1.ReloaderInfo, value string, logger logr.Logger) error {
 
 	logger = logger.WithValues("kind", reloaderInfo.Kind)
 	logger = logger.WithValues("resource", fmt.Sprintf("%s/%s", reloaderInfo.Namespace, reloaderInfo.Name))

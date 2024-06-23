@@ -38,7 +38,7 @@ import (
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	fakedeployer "github.com/projectsveltos/libsveltos/lib/deployer/fake"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
@@ -58,18 +58,18 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	It("removeConditionEntry removes cluster entry", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
-				ClusterConditions: []libsveltosv1alpha1.ClusterCondition{
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{
 					*getClusterCondition(clusterNamespace, clusterName, clusterType),
 					*getClusterCondition(clusterNamespace, randomString(), clusterType),
 					*getClusterCondition(randomString(), clusterName, clusterType),
-					*getClusterCondition(clusterNamespace, clusterName, libsveltosv1alpha1.ClusterTypeSveltos),
+					*getClusterCondition(clusterNamespace, clusterName, libsveltosv1beta1.ClusterTypeSveltos),
 				},
 			},
 		}
@@ -86,7 +86,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(controllers.RemoveConditionEntry(context.TODO(), c, clusterNamespace, clusterName,
 			clusterType, chc, logger)).To(Succeed())
 
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
 
 		Expect(len(currentChc.Status.ClusterConditions)).To(Equal(length - 1))
@@ -95,7 +95,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	It("updateNotificationSummariesForCluster updates entry for cluster", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		cluster := &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -104,16 +104,16 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			},
 		}
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
-				ClusterConditions: []libsveltosv1alpha1.ClusterCondition{
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{
 					*getClusterCondition(clusterNamespace, clusterName, clusterType),
 					*getClusterCondition(clusterNamespace, randomString(), clusterType),
 					*getClusterCondition(randomString(), clusterName, clusterType),
-					*getClusterCondition(clusterNamespace, clusterName, libsveltosv1alpha1.ClusterTypeSveltos),
+					*getClusterCondition(clusterNamespace, clusterName, libsveltosv1beta1.ClusterTypeSveltos),
 				},
 			},
 		}
@@ -125,23 +125,23 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		notificationSummary := libsveltosv1alpha1.NotificationSummary{
+		notificationSummary := libsveltosv1beta1.NotificationSummary{
 			Name:   randomString(),
-			Status: libsveltosv1alpha1.NotificationStatusDelivered,
+			Status: libsveltosv1beta1.NotificationStatusDelivered,
 		}
 
-		summaries := []libsveltosv1alpha1.NotificationSummary{
+		summaries := []libsveltosv1beta1.NotificationSummary{
 			notificationSummary,
 		}
 
 		Expect(controllers.UpdateNotificationSummariesForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
 			chc, summaries, logger)).To(Succeed())
 
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
 		Expect(len(currentChc.Status.ClusterConditions)).To(Equal(len(chc.Status.ClusterConditions)))
 
-		var currentNotificationSummaries []libsveltosv1alpha1.NotificationSummary
+		var currentNotificationSummaries []libsveltosv1beta1.NotificationSummary
 		for i := range currentChc.Status.ClusterConditions {
 			cc := &currentChc.Status.ClusterConditions[i]
 			if cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
@@ -159,7 +159,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	It("updateConditionsForCluster updates entry for cluster", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		cluster := &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -168,16 +168,16 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			},
 		}
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
-				ClusterConditions: []libsveltosv1alpha1.ClusterCondition{
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{
 					*getClusterCondition(clusterNamespace, clusterName, clusterType),
 					*getClusterCondition(clusterNamespace, randomString(), clusterType),
 					*getClusterCondition(randomString(), clusterName, clusterType),
-					*getClusterCondition(clusterNamespace, clusterName, libsveltosv1alpha1.ClusterTypeSveltos),
+					*getClusterCondition(clusterNamespace, clusterName, libsveltosv1beta1.ClusterTypeSveltos),
 				},
 			},
 		}
@@ -189,14 +189,14 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		livenessCheck := libsveltosv1alpha1.LivenessCheck{
+		livenessCheck := libsveltosv1beta1.LivenessCheck{
 			Name: randomString(),
-			Type: libsveltosv1alpha1.LivenessTypeAddons,
+			Type: libsveltosv1beta1.LivenessTypeAddons,
 		}
 
-		conditions := []libsveltosv1alpha1.Condition{
+		conditions := []libsveltosv1beta1.Condition{
 			{
-				Type:   libsveltosv1alpha1.ConditionType(controllers.GetConditionType(&livenessCheck)),
+				Type:   libsveltosv1beta1.ConditionType(controllers.GetConditionType(&livenessCheck)),
 				Status: corev1.ConditionTrue,
 			},
 		}
@@ -204,11 +204,11 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(controllers.UpdateConditionsForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
 			chc, conditions, logger)).To(Succeed())
 
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
 		Expect(len(currentChc.Status.ClusterConditions)).To(Equal(len(chc.Status.ClusterConditions)))
 
-		var currentConditions []libsveltosv1alpha1.Condition
+		var currentConditions []libsveltosv1beta1.Condition
 		for i := range currentChc.Status.ClusterConditions {
 			cc := &currentChc.Status.ClusterConditions[i]
 			if cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
@@ -226,13 +226,13 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	It("evaluateClusterHealthCheckForCluster ", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeSveltos
+		clusterType := libsveltosv1beta1.ClusterTypeSveltos
 
 		// Following creates a ClusterSummary and an empty ClusterHealthCheck
 		c := prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName, clusterType)
 
 		// Verify clusterHealthCheck has been created
-		chcs := &libsveltosv1alpha1.ClusterHealthCheckList{}
+		chcs := &libsveltosv1beta1.ClusterHealthCheckList{}
 		Expect(c.List(context.TODO(), chcs)).To(Succeed())
 		Expect(len(chcs.Items)).To(Equal(1))
 
@@ -251,13 +251,13 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(conditions).ToNot(BeNil())
 		Expect(len(conditions)).To(Equal(1))
 		Expect(conditions[0].Status).To(Equal(corev1.ConditionTrue))
-		Expect(conditions[0].Type).To(Equal(libsveltosv1alpha1.ConditionType(controllers.GetConditionType(&livenessCheck))))
+		Expect(conditions[0].Type).To(Equal(libsveltosv1beta1.ConditionType(controllers.GetConditionType(&livenessCheck))))
 	})
 
 	It("processClusterHealthCheck queues job", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		// Following creates a ClusterSummary and an empty ClusterHealthCheck
 		c := prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName, clusterType)
@@ -278,7 +278,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(c.Create(context.TODO(), cpMachine)).To(Succeed())
 
 		// Verify clusterHealthCheck has been created
-		chcs := &libsveltosv1alpha1.ClusterHealthCheckList{}
+		chcs := &libsveltosv1beta1.ClusterHealthCheckList{}
 		Expect(c.List(context.TODO(), chcs)).To(Succeed())
 		Expect(len(chcs.Items)).To(Equal(1))
 
@@ -294,7 +294,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
@@ -311,23 +311,23 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(c.Get(context.TODO(), types.NamespacedName{Namespace: clusterNamespace, Name: clusterName}, currentCluster)).To(Succeed())
 		Expect(addTypeInformationToObject(c.Scheme(), currentCluster)).To(Succeed())
 
-		f := controllers.GetHandlersForFeature(libsveltosv1alpha1.FeatureClusterHealthCheck)
+		f := controllers.GetHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 		clusterInfo, err := controllers.ProcessClusterHealthCheck(&reconciler, context.TODO(), chcScope,
 			controllers.GetKeyFromObject(c.Scheme(), currentCluster), f, logger)
 		Expect(err).To(BeNil())
 
 		Expect(clusterInfo).ToNot(BeNil())
-		Expect(clusterInfo.Status).To(Equal(libsveltosv1alpha1.SveltosStatusProvisioning))
+		Expect(clusterInfo.Status).To(Equal(libsveltosv1beta1.SveltosStatusProvisioning))
 
 		// Expect job to be queued
-		Expect(dep.IsInProgress(clusterNamespace, clusterName, chc.Name, libsveltosv1alpha1.FeatureClusterHealthCheck,
+		Expect(dep.IsInProgress(clusterNamespace, clusterName, chc.Name, libsveltosv1beta1.FeatureClusterHealthCheck,
 			clusterType, false)).To(BeTrue())
 	})
 
 	It("isClusterEntryRemoved returns true when there is no entry for a Cluster in ClusterHealthCheck status", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		// Following creates a ClusterSummary and an empty ClusterHealthCheck
 		c := prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName, clusterType)
@@ -342,13 +342,13 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
 
 		// Verify clusterHealthCheck has been created
-		chcs := &libsveltosv1alpha1.ClusterHealthCheckList{}
+		chcs := &libsveltosv1beta1.ClusterHealthCheckList{}
 		Expect(c.List(context.TODO(), chcs)).To(Succeed())
 		Expect(len(chcs.Items)).To(Equal(1))
 
@@ -360,9 +360,9 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		Expect(controllers.IsClusterEntryRemoved(&reconciler, &chc, controllers.GetKeyFromObject(c.Scheme(), currentCluster))).To(BeTrue())
 
-		chc.Status.ClusterConditions = []libsveltosv1alpha1.ClusterCondition{
+		chc.Status.ClusterConditions = []libsveltosv1beta1.ClusterCondition{
 			{
-				ClusterInfo: libsveltosv1alpha1.ClusterInfo{
+				ClusterInfo: libsveltosv1beta1.ClusterInfo{
 					Cluster: *controllers.GetKeyFromObject(c.Scheme(), currentCluster),
 				},
 			},
@@ -373,12 +373,12 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	})
 
 	It("deployHealthChecks deploys healthChecks", func() {
-		healthCheck := &libsveltosv1alpha1.HealthCheck{
+		healthCheck := &libsveltosv1beta1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Spec: libsveltosv1alpha1.HealthCheckSpec{
-				ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+			Spec: libsveltosv1beta1.HealthCheckSpec{
+				ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
 					{
 						Kind:    randomString(),
 						Group:   randomString(),
@@ -394,7 +394,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -413,36 +413,36 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(testEnv.Create(context.TODO(), cluster)).To(Succeed())
 		Expect(waitForObject(context.TODO(), testEnv.Client, cluster)).To(Succeed())
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-				LivenessChecks: []libsveltosv1alpha1.LivenessCheck{
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				LivenessChecks: []libsveltosv1beta1.LivenessCheck{
 					{
 						Name: randomString(),
-						Type: libsveltosv1alpha1.LivenessTypeHealthCheck,
+						Type: libsveltosv1beta1.LivenessTypeHealthCheck,
 						LivenessSourceRef: &corev1.ObjectReference{
-							APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-							Kind:       libsveltosv1alpha1.HealthCheckKind,
+							APIVersion: libsveltosv1beta1.GroupVersion.String(),
+							Kind:       libsveltosv1beta1.HealthCheckKind,
 							Name:       healthCheck.Name,
 						},
 					},
 				},
-				Notifications: []libsveltosv1alpha1.Notification{
+				Notifications: []libsveltosv1beta1.Notification{
 					{
 						Name: randomString(),
-						Type: libsveltosv1alpha1.NotificationTypeKubernetesEvent,
+						Type: libsveltosv1beta1.NotificationTypeKubernetesEvent,
 					},
 				},
 			},
-			Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
 				MatchingClusterRefs: []corev1.ObjectReference{
 					{
 						Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String(), Namespace: clusterNamespace, Name: clusterName,
 					},
 				},
-				ClusterConditions: []libsveltosv1alpha1.ClusterCondition{},
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{},
 			},
 		}
 
@@ -462,7 +462,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			clusterType, chc, logger)).To(Succeed())
 
 		Eventually(func() bool {
-			currentHealthCheck := &libsveltosv1alpha1.HealthCheck{}
+			currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
 			err := testEnv.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name}, currentHealthCheck)
 			if err != nil {
 				return false
@@ -473,7 +473,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			if currentHealthCheck.Annotations == nil {
 				return false
 			}
-			if _, ok := currentHealthCheck.Annotations[libsveltosv1alpha1.DeployedBySveltosAnnotation]; !ok {
+			if _, ok := currentHealthCheck.Annotations[libsveltosv1beta1.DeployedBySveltosAnnotation]; !ok {
 				return false
 			}
 			return true
@@ -481,12 +481,12 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	})
 
 	It("removeStaleHealthChecks removes healthCheck deployed by a ClusterHealthCheck and not referenced anymore", func() {
-		healthCheck := &libsveltosv1alpha1.HealthCheck{
+		healthCheck := &libsveltosv1beta1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Spec: libsveltosv1alpha1.HealthCheckSpec{
-				ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+			Spec: libsveltosv1beta1.HealthCheckSpec{
+				ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
 					{
 						Kind:    randomString(),
 						Group:   randomString(),
@@ -502,7 +502,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -521,36 +521,36 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(testEnv.Create(context.TODO(), cluster)).To(Succeed())
 		Expect(waitForObject(context.TODO(), testEnv.Client, cluster)).To(Succeed())
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-				LivenessChecks: []libsveltosv1alpha1.LivenessCheck{
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				LivenessChecks: []libsveltosv1beta1.LivenessCheck{
 					{
 						Name: randomString(),
-						Type: libsveltosv1alpha1.LivenessTypeHealthCheck,
+						Type: libsveltosv1beta1.LivenessTypeHealthCheck,
 						LivenessSourceRef: &corev1.ObjectReference{
-							APIVersion: libsveltosv1alpha1.GroupVersion.Group,
-							Kind:       libsveltosv1alpha1.HealthCheckKind,
+							APIVersion: libsveltosv1beta1.GroupVersion.Group,
+							Kind:       libsveltosv1beta1.HealthCheckKind,
 							Name:       randomString(), // make it reference different healthCheck
 						},
 					},
 				},
-				Notifications: []libsveltosv1alpha1.Notification{
+				Notifications: []libsveltosv1beta1.Notification{
 					{
 						Name: randomString(),
-						Type: libsveltosv1alpha1.NotificationTypeKubernetesEvent,
+						Type: libsveltosv1beta1.NotificationTypeKubernetesEvent,
 					},
 				},
 			},
-			Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
 				MatchingClusterRefs: []corev1.ObjectReference{
 					{
 						Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String(), Namespace: clusterNamespace, Name: clusterName,
 					},
 				},
-				ClusterConditions: []libsveltosv1alpha1.ClusterCondition{},
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{},
 			},
 		}
 
@@ -574,7 +574,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			chc, logger)).To(Succeed())
 
 		Eventually(func() bool {
-			currentHealthCheck := &libsveltosv1alpha1.HealthCheck{}
+			currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
 			err := testEnv.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name}, currentHealthCheck)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -589,27 +589,27 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		healthCheckName1 := randomString()
 		healthCheckName2 := randomString()
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-				LivenessChecks: []libsveltosv1alpha1.LivenessCheck{
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				LivenessChecks: []libsveltosv1beta1.LivenessCheck{
 					{
 						Name: randomString(),
-						Type: libsveltosv1alpha1.LivenessTypeHealthCheck,
+						Type: libsveltosv1beta1.LivenessTypeHealthCheck,
 						LivenessSourceRef: &corev1.ObjectReference{
-							APIVersion: libsveltosv1alpha1.GroupVersion.Group,
-							Kind:       libsveltosv1alpha1.HealthCheckKind,
+							APIVersion: libsveltosv1beta1.GroupVersion.Group,
+							Kind:       libsveltosv1beta1.HealthCheckKind,
 							Name:       healthCheckName1,
 						},
 					},
 					{
 						Name: randomString(),
-						Type: libsveltosv1alpha1.LivenessTypeHealthCheck,
+						Type: libsveltosv1beta1.LivenessTypeHealthCheck,
 						LivenessSourceRef: &corev1.ObjectReference{
-							APIVersion: libsveltosv1alpha1.GroupVersion.Group,
-							Kind:       libsveltosv1alpha1.HealthCheckKind,
+							APIVersion: libsveltosv1beta1.GroupVersion.Group,
+							Kind:       libsveltosv1beta1.HealthCheckKind,
 							Name:       healthCheckName2,
 						},
 					},
@@ -620,8 +620,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		referenced := controllers.GetReferencedHealthChecks(chc, logger)
 
 		objRef := &corev1.ObjectReference{
-			APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-			Kind:       libsveltosv1alpha1.HealthCheckKind,
+			APIVersion: libsveltosv1beta1.GroupVersion.String(),
+			Kind:       libsveltosv1beta1.HealthCheckKind,
 			Name:       healthCheckName1,
 		}
 		Expect(referenced.Has(objRef)).To(BeTrue())
@@ -637,18 +637,18 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 	})
 })
 
-func getClusterCondition(clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType) *libsveltosv1alpha1.ClusterCondition {
+func getClusterCondition(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType) *libsveltosv1beta1.ClusterCondition {
 	var apiVersion, kind string
-	if clusterType == libsveltosv1alpha1.ClusterTypeCapi {
+	if clusterType == libsveltosv1beta1.ClusterTypeCapi {
 		apiVersion = clusterv1.GroupVersion.String()
 		kind = ClusterKind
 	} else {
-		apiVersion = libsveltosv1alpha1.GroupVersion.String()
-		kind = libsveltosv1alpha1.SveltosClusterKind
+		apiVersion = libsveltosv1beta1.GroupVersion.String()
+		kind = libsveltosv1beta1.SveltosClusterKind
 	}
 
-	return &libsveltosv1alpha1.ClusterCondition{
-		ClusterInfo: libsveltosv1alpha1.ClusterInfo{
+	return &libsveltosv1beta1.ClusterCondition{
+		ClusterInfo: libsveltosv1beta1.ClusterInfo{
 			Cluster: corev1.ObjectReference{
 				Namespace:  clusterNamespace,
 				Name:       clusterName,

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
@@ -28,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	configv1alpha1 "github.com/projectsveltos/addon-controller/api/v1alpha1"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
@@ -37,7 +38,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckRe
 	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
-	healthCheckReport := o.(*libsveltosv1alpha1.HealthCheckReport)
+	healthCheckReport := o.(*libsveltosv1beta1.HealthCheckReport)
 	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
 		"healthCheckReport", fmt.Sprintf("%s/%s", healthCheckReport.GetNamespace(), healthCheckReport.GetName()))
 
@@ -47,8 +48,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckRe
 	defer r.Mux.Unlock()
 
 	// Use the HealthCheck this HealthCheckReport is about
-	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-		Kind: libsveltosv1alpha1.HealthCheckKind, Name: healthCheckReport.Spec.HealthCheckName}
+	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1beta1.GroupVersion.String(),
+		Kind: libsveltosv1beta1.HealthCheckKind, Name: healthCheckReport.Spec.HealthCheckName}
 
 	// Get all ClusterHealthChecks referencing this HealthCheck
 	requests := make([]ctrl.Request, r.getReferenceMapForEntry(&healthCheckInfo).Len())
@@ -71,7 +72,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
 	ctx context.Context, o client.Object,
 ) []reconcile.Request {
 
-	healthCheck := o.(*libsveltosv1alpha1.HealthCheck)
+	healthCheck := o.(*libsveltosv1beta1.HealthCheck)
 	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
 		"healthCheck", healthCheck.GetName())
 
@@ -80,8 +81,8 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
 	r.Mux.Lock()
 	defer r.Mux.Unlock()
 
-	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-		Kind: libsveltosv1alpha1.HealthCheckKind, Name: healthCheck.Name}
+	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1beta1.GroupVersion.String(),
+		Kind: libsveltosv1beta1.HealthCheckKind, Name: healthCheck.Name}
 
 	// Get all ClusterHealthChecks referencing this HealthCheck
 	requests := make([]ctrl.Request, r.getReferenceMapForEntry(&healthCheckInfo).Len())
@@ -153,13 +154,15 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForACluster(
 	// matching the Cluster
 	for k := range r.ClusterHealthChecks {
 		clusterHealthCheckSelector := r.ClusterHealthChecks[k]
-		parsedSelector, err := labels.Parse(string(clusterHealthCheckSelector))
+		clusterSelector, err := metav1.LabelSelectorAsSelector(&clusterHealthCheckSelector.LabelSelector)
 		if err != nil {
 			// When clusterSelector is fixed, this ClusterHealthCheck instance
 			// will be reconciled
+			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to convert selector %v", err))
 			continue
 		}
-		if parsedSelector.Matches(labels.Set(cluster.GetLabels())) {
+
+		if clusterSelector.Matches(labels.Set(cluster.GetLabels())) {
 			l := logger.WithValues("clusterHealthCheck", k.Name)
 			l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
 			requests = append(requests, ctrl.Request{
@@ -194,22 +197,22 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 		return nil
 	}
 
-	clusterName, ok := csLabels[configv1alpha1.ClusterNameLabel]
+	clusterName, ok := csLabels[configv1beta1.ClusterNameLabel]
 	if !ok {
 		logger.V(logs.LogInfo).Info("clustersummary has no label with cluster name. Cannot reconcile.")
 		return nil
 	}
 
-	clusterType, ok := csLabels[configv1alpha1.ClusterTypeLabel]
+	clusterType, ok := csLabels[configv1beta1.ClusterTypeLabel]
 	if !ok {
 		logger.V(logs.LogInfo).Info("clustersummary has no label with cluster type. Cannot reconcile.")
 		return nil
 	}
 
-	kind := libsveltosv1alpha1.SveltosClusterKind
-	apiVersion := libsveltosv1alpha1.GroupVersion.String()
+	kind := libsveltosv1beta1.SveltosClusterKind
+	apiVersion := libsveltosv1beta1.GroupVersion.String()
 
-	if clusterType == string(libsveltosv1alpha1.ClusterTypeCapi) {
+	if clusterType == string(libsveltosv1beta1.ClusterTypeCapi) {
 		kind = "Cluster"
 		apiVersion = clusterv1.GroupVersion.String()
 	}
@@ -243,13 +246,14 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 		// matching the Cluster
 		for k := range r.ClusterHealthChecks {
 			clusterHealthCheckSelector := r.ClusterHealthChecks[k]
-			parsedSelector, err := labels.Parse(string(clusterHealthCheckSelector))
+			clusterSelector, err := metav1.LabelSelectorAsSelector(&clusterHealthCheckSelector.LabelSelector)
 			if err != nil {
 				// When clusterSelector is fixed, this ClusterHealthCheck instance
 				// will be reconciled
+				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to convert selector %v", err))
 				continue
 			}
-			if parsedSelector.Matches(labels.Set(clusterLabels)) {
+			if clusterSelector.Matches(labels.Set(clusterLabels)) {
 				l := logger.WithValues("clusterHealthCheck", k.Name)
 				l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
 				requests = append(requests, ctrl.Request{
@@ -304,13 +308,15 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
 		// matching the Cluster
 		for k := range r.ClusterHealthChecks {
 			clusterHealthCheckSelector := r.ClusterHealthChecks[k]
-			parsedSelector, err := labels.Parse(string(clusterHealthCheckSelector))
+			clusterSelector, err := metav1.LabelSelectorAsSelector(&clusterHealthCheckSelector.LabelSelector)
 			if err != nil {
 				// When clusterSelector is fixed, this ClusterHealthCheck instance
 				// will be reconciled
+				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to convert selector %v", err))
 				continue
 			}
-			if parsedSelector.Matches(labels.Set(clusterLabels)) {
+
+			if clusterSelector.Matches(labels.Set(clusterLabels)) {
 				l := logger.WithValues("clusterHealthCheck", k.Name)
 				l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
 				requests = append(requests, ctrl.Request{

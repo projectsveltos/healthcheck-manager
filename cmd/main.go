@@ -49,7 +49,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/crd"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	"github.com/projectsveltos/libsveltos/lib/logsettings"
@@ -131,7 +131,7 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 
 	logsettings.RegisterForLogSettings(ctx,
-		libsveltosv1alpha1.ComponentHealthCheckManager, ctrl.Log.WithName("log-setter"),
+		libsveltosv1beta1.ComponentHealthCheckManager, ctrl.Log.WithName("log-setter"),
 		ctrl.GetConfigOrDie())
 
 	d := deployer.GetClient(ctx, ctrl.Log.WithName("deployer"), mgr.GetClient(), workers)
@@ -315,7 +315,7 @@ func getClusterHealthCheckReconciler(mgr manager.Manager) *controllers.ClusterHe
 		ShardKey:             shardKey,
 		ClusterMap:           make(map[corev1.ObjectReference]*libsveltosset.Set),
 		CHCToClusterMap:      make(map[types.NamespacedName]*libsveltosset.Set),
-		ClusterHealthChecks:  make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+		ClusterHealthChecks:  make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 		ClusterLabels:        make(map[corev1.ObjectReference]map[string]string),
 		HealthCheckMap:       make(map[corev1.ObjectReference]*libsveltosset.Set),
 		CHCToHealthCheckMap:  make(map[types.NamespacedName]*libsveltosset.Set),

@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
@@ -85,7 +85,7 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 	}
 
 	logger.V(logs.LogDebug).Info("collecting ReloaderReports from cluster")
-	reloaderReportList := libsveltosv1alpha1.ReloaderReportList{}
+	reloaderReportList := libsveltosv1beta1.ReloaderReportList{}
 	err = remoteClient.List(ctx, &reloaderReportList)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 }
 
 func updateReloaderReport(ctx context.Context, c client.Client, cluster *corev1.ObjectReference,
-	reloaderReport *libsveltosv1alpha1.ReloaderReport, logger logr.Logger) error {
+	reloaderReport *libsveltosv1beta1.ReloaderReport, logger logr.Logger) error {
 
 	if reloaderReport.Spec.ClusterName != "" {
 		// if ClusterName is set, this is coming from a
@@ -132,7 +132,7 @@ func updateReloaderReport(ctx context.Context, c client.Client, cluster *corev1.
 
 	clusterType := clusterproxy.GetClusterType(cluster)
 
-	currentReloaderReport := &libsveltosv1alpha1.ReloaderReport{}
+	currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 	err := c.Get(ctx,
 		types.NamespacedName{Namespace: cluster.Namespace, Name: reloaderReport.Name},
 		currentReloaderReport)

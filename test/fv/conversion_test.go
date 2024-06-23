@@ -1,5 +1,5 @@
 /*
-Copyright 2023. projectsveltos.io. All rights reserved.
+Copyright 2024. projectsveltos.io. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,31 +29,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
-// This test verifies that a ClusterHealthCheck with:
-// - liveness check of type add-ons
-// - notifications of type Kubernetes events
-// when add-ons are deployed, event is generated
-var _ = Describe("Liveness: healthCheck Notifications: events", func() {
+var _ = Describe("Conversion", func() {
 	const (
-		namePrefix = "healthcheck-events-"
+		namePrefix = "conversion-"
 	)
 
-	It("Verifies healthCheck events are delivered", Label("FV"), func() {
-		healthCheck := &libsveltosv1beta1.HealthCheck{
+	It("Post a clusterHealthCheck.v1alpha1 and verify all is deployed", Label("FV"), func() {
+		healthCheck := &libsveltosv1alpha1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Spec: libsveltosv1beta1.HealthCheckSpec{
-				ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
+			Spec: libsveltosv1alpha1.HealthCheckSpec{
+				ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
 					{
 						Group:   "apps",
 						Version: "v1",
 						Kind:    "Deployment",
-						LabelFilters: []libsveltosv1beta1.LabelFilter{
-							{Key: "control-plane", Operation: libsveltosv1beta1.OperationEqual, Value: "sveltos-agent"},
+						LabelFilters: []libsveltosv1alpha1.LabelFilter{
+							{Key: "control-plane", Operation: libsveltosv1alpha1.OperationEqual, Value: "sveltos-agent"},
 						},
 					},
 				},
@@ -64,22 +61,37 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		By(fmt.Sprintf("Creating healthCheck %s", healthCheck.Name))
 		Expect(k8sClient.Create(context.TODO(), healthCheck)).To(Succeed())
 
-		lc := libsveltosv1beta1.LivenessCheck{
+		lc := libsveltosv1alpha1.LivenessCheck{
 			Name: randomString(),
-			Type: libsveltosv1beta1.LivenessTypeHealthCheck,
+			Type: libsveltosv1alpha1.LivenessTypeHealthCheck,
 			LivenessSourceRef: &corev1.ObjectReference{
 				Name:       healthCheck.Name,
-				APIVersion: libsveltosv1beta1.GroupVersion.String(),
-				Kind:       libsveltosv1beta1.HealthCheckKind,
+				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1alpha1.HealthCheckKind,
 			},
 		}
 
-		notification := libsveltosv1beta1.Notification{Name: randomString(), Type: libsveltosv1beta1.NotificationTypeKubernetesEvent}
+		notification := libsveltosv1alpha1.Notification{Name: randomString(), Type: libsveltosv1alpha1.NotificationTypeKubernetesEvent}
 
 		Byf("Create a ClusterHealthCheck matching Cluster %s/%s", kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)
-		clusterHealthCheck := getClusterHealthCheck(namePrefix, map[string]string{key: value},
-			[]libsveltosv1beta1.LivenessCheck{lc}, []libsveltosv1beta1.Notification{notification})
+		clusterHealthCheck := &libsveltosv1alpha1.ClusterHealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namePrefix + randomString(),
+			},
+			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
+				ClusterSelector: libsveltosv1alpha1.Selector(fmt.Sprintf("%s=%s", key, value)),
+				LivenessChecks:  []libsveltosv1alpha1.LivenessCheck{lc},
+				Notifications:   []libsveltosv1alpha1.Notification{notification},
+			},
+		}
 		Expect(k8sClient.Create(context.TODO(), clusterHealthCheck)).To(Succeed())
+
+		currentClusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{}
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterHealthCheck.Name},
+			currentClusterHealthCheck)).To(Succeed())
+		Expect(currentClusterHealthCheck.Spec.ClusterSelector.LabelSelector).ToNot(BeNil())
+		Expect(currentClusterHealthCheck.Spec.ClusterSelector.LabelSelector.MatchLabels).ToNot(BeNil())
+		Expect(currentClusterHealthCheck.Spec.ClusterSelector.LabelSelector.MatchLabels[key]).To(Equal(value))
 
 		Byf("Getting client to access the workload cluster")
 		workloadClient, err := getKindWorkloadClusterKubeconfig()
@@ -103,14 +115,14 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 
 		By("Verifying healthCheckReport exists in the management cluster")
 		Eventually(func() bool {
-			clusterType := libsveltosv1beta1.ClusterTypeCapi
-			labels := libsveltosv1beta1.GetHealthCheckReportLabels(healthCheck.Name,
+			clusterType := libsveltosv1alpha1.ClusterTypeCapi
+			labels := libsveltosv1alpha1.GetHealthCheckReportLabels(healthCheck.Name,
 				kindWorkloadCluster.Name, &clusterType)
 			listOptions := []client.ListOption{
 				client.InNamespace(kindWorkloadCluster.Namespace),
 				client.MatchingLabels(labels),
 			}
-			healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
+			healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
 			err = k8sClient.List(context.TODO(), healthCheckReportList, listOptions...)
 			return err == nil && len(healthCheckReportList.Items) == 1
 		}, timeout, pollingInterval).Should(BeTrue())

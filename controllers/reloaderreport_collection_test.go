@@ -33,7 +33,7 @@ import (
 	"k8s.io/klog/v2/textlogger"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 var _ = Describe("ReloaderReport Collection", func() {
@@ -56,7 +56,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
 
 		By("Creating reloaderReport in the managed cluster")
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 		reloaderReport := getReloaderReport("", "", &clusterType)
 		reloaderReport.Namespace = reloaderReportNamespace
 		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
@@ -77,7 +77,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		// projectsveltos namespace in the managed cluster. CollectAndProcessReloaderReportsFromCluster
 		// removes ReloaderReport from managed cluster after fetching it to management cluster
 		Eventually(func() bool {
-			currentReloaderReport := &libsveltosv1alpha1.ReloaderReport{}
+			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 			err = testEnv.Get(context.TODO(),
 				types.NamespacedName{Namespace: reloaderReportNamespace, Name: reloaderReport.Name},
 				currentReloaderReport)
@@ -104,7 +104,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		// projectsveltos namespace in the managed cluster. CollectAndProcessReloaderReportsFromCluster
 		// removes ReloaderReport from managed cluster after fetching it to management cluster
 		Eventually(func() bool {
-			currentReloaderReport := &libsveltosv1alpha1.ReloaderReport{}
+			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 			err = testEnv.Get(context.TODO(),
 				types.NamespacedName{Namespace: reloaderReportNamespace, Name: reloaderReport.Name},
 				currentReloaderReport)
@@ -116,7 +116,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 	})
 })
 
-func validateReloaderReports(cluster *clusterv1.Cluster, expectedReloaderInfo []libsveltosv1alpha1.ReloaderInfo) {
+func validateReloaderReports(cluster *clusterv1.Cluster, expectedReloaderInfo []libsveltosv1beta1.ReloaderInfo) {
 	// Verify ReloaderReport is created in the cluster namespace
 	// Eventual loop so testEnv Cache is synced
 	Eventually(func() bool {
@@ -124,7 +124,7 @@ func validateReloaderReports(cluster *clusterv1.Cluster, expectedReloaderInfo []
 			client.InNamespace(cluster.Namespace),
 		}
 
-		reloaderReports := &libsveltosv1alpha1.ReloaderReportList{}
+		reloaderReports := &libsveltosv1beta1.ReloaderReportList{}
 		err := testEnv.List(context.TODO(), reloaderReports, listOptions...)
 		if err != nil {
 			return false
