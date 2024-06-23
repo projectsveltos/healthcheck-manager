@@ -36,22 +36,27 @@ import (
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	fakedeployer "github.com/projectsveltos/libsveltos/lib/deployer/fake"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
-func getClusterHealthCheckInstance(name, addonLivenessName string) *libsveltosv1alpha1.ClusterHealthCheck {
-	selector := "bar=foo"
-	return &libsveltosv1alpha1.ClusterHealthCheck{
+func getClusterHealthCheckInstance(name, addonLivenessName string) *libsveltosv1beta1.ClusterHealthCheck {
+	return &libsveltosv1beta1.ClusterHealthCheck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-			ClusterSelector: libsveltosv1alpha1.Selector(selector),
-			LivenessChecks: []libsveltosv1alpha1.LivenessCheck{
+		Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+			ClusterSelector: libsveltosv1beta1.Selector{
+				LabelSelector: metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"bar": "foo",
+					},
+				},
+			},
+			LivenessChecks: []libsveltosv1beta1.LivenessCheck{
 				{
-					Type: libsveltosv1alpha1.LivenessTypeAddons,
+					Type: libsveltosv1beta1.LivenessTypeAddons,
 					Name: addonLivenessName,
 				},
 			},
@@ -60,7 +65,7 @@ func getClusterHealthCheckInstance(name, addonLivenessName string) *libsveltosv1
 }
 
 var _ = Describe("ClusterHealthCheck: Reconciler", func() {
-	var chc *libsveltosv1alpha1.ClusterHealthCheck
+	var chc *libsveltosv1beta1.ClusterHealthCheck
 	var addonLivenessCheckName string
 	var logger logr.Logger
 
@@ -88,7 +93,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
@@ -100,19 +105,19 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		err = c.Get(context.TODO(), chcName, currentChc)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(
 			controllerutil.ContainsFinalizer(
 				currentChc,
-				libsveltosv1alpha1.ClusterHealthCheckFinalizer,
+				libsveltosv1beta1.ClusterHealthCheckFinalizer,
 			),
 		).Should(BeTrue())
 	})
 
 	It("Remove finalizer", func() {
-		Expect(controllerutil.AddFinalizer(chc, libsveltosv1alpha1.ClusterHealthCheckFinalizer)).To(BeTrue())
+		Expect(controllerutil.AddFinalizer(chc, libsveltosv1beta1.ClusterHealthCheckFinalizer)).To(BeTrue())
 
 		cluster := &clusterv1.Cluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -135,22 +140,22 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Name: chc.Name,
 		}
 
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 
 		Expect(c.Get(context.TODO(), chcName, currentChc)).To(Succeed())
 		Expect(c.Delete(context.TODO(), currentChc)).To(Succeed())
 
 		Expect(c.Get(context.TODO(), chcName, currentChc)).To(Succeed())
-		currentChc.Status.ClusterConditions = []libsveltosv1alpha1.ClusterCondition{
+		currentChc.Status.ClusterConditions = []libsveltosv1beta1.ClusterCondition{
 			{
-				ClusterInfo: libsveltosv1alpha1.ClusterInfo{
+				ClusterInfo: libsveltosv1beta1.ClusterInfo{
 					Cluster: corev1.ObjectReference{
 						Namespace:  cluster.Namespace,
 						Name:       cluster.Name,
 						APIVersion: cluster.APIVersion,
 						Kind:       cluster.Kind,
 					},
-					Status: libsveltosv1alpha1.SveltosStatusProvisioned,
+					Status: libsveltosv1beta1.SveltosStatusProvisioned,
 					Hash:   []byte(randomString()),
 				},
 			},
@@ -159,7 +164,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		Expect(c.Status().Update(context.TODO(), currentChc)).To(Succeed())
 
 		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
+		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -168,7 +173,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
@@ -182,11 +187,11 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		err = c.Get(context.TODO(), chcName, currentChc)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(controllerutil.ContainsFinalizer(currentChc, libsveltosv1alpha1.ClusterHealthCheckFinalizer)).To(BeTrue())
+		Expect(controllerutil.ContainsFinalizer(currentChc, libsveltosv1beta1.ClusterHealthCheckFinalizer)).To(BeTrue())
 
 		Expect(c.Get(context.TODO(), chcName, currentChc)).To(Succeed())
 
-		currentChc.Status.ClusterConditions = []libsveltosv1alpha1.ClusterCondition{}
+		currentChc.Status.ClusterConditions = []libsveltosv1beta1.ClusterCondition{}
 		Expect(c.Status().Update(context.TODO(), currentChc)).To(Succeed())
 
 		// Because ClusterHealthCheck is currently deployed nowhere (Status.ClusterCondition is set
@@ -210,9 +215,9 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			WithObjects(initObjects...).Build()
 
 		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
+		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
 
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
 		currentChc.Status.MatchingClusterRefs = []corev1.ObjectReference{
 			{
@@ -224,8 +229,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			{
 				Namespace:  randomString(),
 				Name:       randomString(),
-				Kind:       libsveltosv1alpha1.SveltosClusterKind,
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.SveltosClusterKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
 			},
 		}
 
@@ -238,7 +243,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
@@ -270,7 +275,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		Expect(addTypeInformationToObject(scheme, chc)).To(Succeed())
 
 		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
+		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -279,7 +284,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
@@ -294,11 +299,11 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		chcRef := controllers.GetKeyFromObject(scheme, chc)
 
 		clusterInfo := &corev1.ObjectReference{Namespace: randomString(), Name: randomString(),
-			Kind: libsveltosv1alpha1.SveltosClusterKind, APIVersion: libsveltosv1alpha1.GroupVersion.String()}
+			Kind: libsveltosv1beta1.SveltosClusterKind, APIVersion: libsveltosv1beta1.GroupVersion.String()}
 		controllers.GetClusterMapForEntry(&reconciler, clusterInfo).Insert(chcRef)
 
 		healthCheckInfo := &corev1.ObjectReference{Name: randomString(),
-			Kind: libsveltosv1alpha1.HealthCheckKind, APIVersion: libsveltosv1alpha1.GroupVersion.String()}
+			Kind: libsveltosv1beta1.HealthCheckKind, APIVersion: libsveltosv1beta1.GroupVersion.String()}
 		controllers.GetReferenceMapForEntry(&reconciler, healthCheckInfo).Insert(chcRef)
 
 		reconciler.ClusterHealthChecks[*chcRef] = chc.Spec.ClusterSelector
@@ -313,13 +318,13 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 	It("updateMaps updates ClusterHealthCheckReconciler maps", func() {
 		hcName := randomString()
 
-		chc.Spec.LivenessChecks = append(chc.Spec.LivenessChecks, libsveltosv1alpha1.LivenessCheck{
-			Type: libsveltosv1alpha1.LivenessTypeHealthCheck,
+		chc.Spec.LivenessChecks = append(chc.Spec.LivenessChecks, libsveltosv1beta1.LivenessCheck{
+			Type: libsveltosv1beta1.LivenessTypeHealthCheck,
 			Name: randomString(),
 			LivenessSourceRef: &corev1.ObjectReference{
 				Name:       hcName,
-				Kind:       libsveltosv1alpha1.HealthCheckKind,
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.HealthCheckKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
 			},
 		})
 
@@ -328,8 +333,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		chc.Status.MatchingClusterRefs = []corev1.ObjectReference{
 			{
-				Kind:       libsveltosv1alpha1.SveltosClusterKind,
-				APIVersion: libsveltosv1alpha1.GroupVersion.String(),
+				Kind:       libsveltosv1beta1.SveltosClusterKind,
+				APIVersion: libsveltosv1beta1.GroupVersion.String(),
 				Namespace:  clusterNamespace,
 				Name:       clusterName,
 			},
@@ -343,7 +348,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			WithObjects(initObjects...).Build()
 
 		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1alpha1.FeatureClusterHealthCheck)).To(Succeed())
+		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
@@ -352,7 +357,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		}
@@ -367,11 +372,11 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		controllers.UpdateMaps(&reconciler, chcScope)
 
 		clusterInfo := &corev1.ObjectReference{Namespace: clusterNamespace, Name: clusterName,
-			Kind: libsveltosv1alpha1.SveltosClusterKind, APIVersion: libsveltosv1alpha1.GroupVersion.String()}
+			Kind: libsveltosv1beta1.SveltosClusterKind, APIVersion: libsveltosv1beta1.GroupVersion.String()}
 		Expect(controllers.GetClusterMapForEntry(&reconciler, clusterInfo).Len()).To(Equal(1))
 
 		healthCheckInfo := &corev1.ObjectReference{Name: hcName,
-			Kind: libsveltosv1alpha1.HealthCheckKind, APIVersion: libsveltosv1alpha1.GroupVersion.String()}
+			Kind: libsveltosv1beta1.HealthCheckKind, APIVersion: libsveltosv1beta1.GroupVersion.String()}
 		Expect(controllers.GetReferenceMapForEntry(&reconciler, healthCheckInfo).Len()).To(Equal(1))
 	})
 })

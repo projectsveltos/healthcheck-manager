@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
@@ -50,7 +50,7 @@ const (
 )
 
 type getCurrentHash func(tx context.Context, c client.Client,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error)
+	chc *libsveltosv1beta1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error)
 
 type feature struct {
 	id          string
@@ -60,7 +60,7 @@ type feature struct {
 }
 
 func (r *ClusterHealthCheckReconciler) isClusterAShardMatch(ctx context.Context,
-	clusterInfo *libsveltosv1alpha1.ClusterInfo) (bool, error) {
+	clusterInfo *libsveltosv1beta1.ClusterInfo) (bool, error) {
 
 	clusterType := clusterproxy.GetClusterType(&clusterInfo.Cluster)
 	cluster, err := clusterproxy.GetCluster(ctx, r.Client, clusterInfo.Cluster.Namespace,
@@ -96,14 +96,14 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 			return err
 		}
 
-		var clusterInfo *libsveltosv1alpha1.ClusterInfo
+		var clusterInfo *libsveltosv1beta1.ClusterInfo
 		if !shardMatch {
 			l := logger.WithValues("cluster", fmt.Sprintf("%s:%s/%s",
 				c.ClusterInfo.Cluster.Kind, c.ClusterInfo.Cluster.Namespace, c.ClusterInfo.Cluster.Name))
 			l.V(logs.LogDebug).Info("cluster is not a shard match")
 			// Since cluster is not a shard match, another deployment will deploy and update
 			// this specific clusterInfo status. Here we simply return current status.
-			if c.ClusterInfo.Status != libsveltosv1alpha1.SveltosStatusProvisioned {
+			if c.ClusterInfo.Status != libsveltosv1beta1.SveltosStatusProvisioned {
 				allProcessed = false
 			}
 			// This is a required parameter. It is set by the deployment matching the
@@ -119,7 +119,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 			}
 			if clusterInfo != nil {
 				chc.Status.ClusterConditions[i].ClusterInfo = *clusterInfo
-				if clusterInfo.Status != libsveltosv1alpha1.SveltosStatusProvisioned {
+				if clusterInfo.Status != libsveltosv1beta1.SveltosStatusProvisioned {
 					allProcessed = false
 				}
 			}
@@ -156,7 +156,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 			continue
 		}
 
-		if !shardMatch && chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1alpha1.SveltosStatusRemoved {
+		if !shardMatch && chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1beta1.SveltosStatusRemoved {
 			// If shard is not a match, wait for other controller to remove
 			err = fmt.Errorf("remove pending")
 			continue
@@ -177,7 +177,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 // processClusterHealthCheck detect whether it is needed to deploy ClusterHealthCheck in current passed cluster.
 func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Context, chcScope *scope.ClusterHealthCheckScope,
 	cluster *corev1.ObjectReference, f feature, logger logr.Logger,
-) (*libsveltosv1alpha1.ClusterInfo, error) {
+) (*libsveltosv1beta1.ClusterInfo, error) {
 
 	if !isClusterStillMatching(chcScope, cluster) {
 		return r.removeClusterHealthCheck(ctx, chcScope, cluster, f, logger)
@@ -214,7 +214,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 			currentHash, hash))
 	}
 
-	var status *libsveltosv1alpha1.SveltosFeatureStatus
+	var status *libsveltosv1beta1.SveltosFeatureStatus
 	var result deployer.Result
 
 	if isConfigSame {
@@ -230,26 +230,26 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		if result.Err != nil {
 			errorMessage = result.Err.Error()
 		}
-		clusterInfo := &libsveltosv1alpha1.ClusterInfo{
+		clusterInfo := &libsveltosv1beta1.ClusterInfo{
 			Cluster:        *cluster,
 			Status:         *status,
 			Hash:           currentHash,
 			FailureMessage: &errorMessage,
 		}
 
-		if *status == libsveltosv1alpha1.SveltosStatusProvisioned {
+		if *status == libsveltosv1beta1.SveltosStatusProvisioned {
 			return clusterInfo, nil
 		}
-		if *status == libsveltosv1alpha1.SveltosStatusProvisioning {
+		if *status == libsveltosv1beta1.SveltosStatusProvisioning {
 			return clusterInfo, fmt.Errorf("clusterHealthCheck is still being provisioned")
 		}
-	} else if isConfigSame && currentStatus != nil && *currentStatus == libsveltosv1alpha1.SveltosStatusProvisioned {
+	} else if isConfigSame && currentStatus != nil && *currentStatus == libsveltosv1beta1.SveltosStatusProvisioned {
 		logger.V(logs.LogInfo).Info("already deployed")
-		s := libsveltosv1alpha1.SveltosStatusProvisioned
+		s := libsveltosv1beta1.SveltosStatusProvisioned
 		status = &s
 	} else {
 		logger.V(logs.LogInfo).Info("no result is available. queue job and mark status as provisioning")
-		s := libsveltosv1alpha1.SveltosStatusProvisioning
+		s := libsveltosv1beta1.SveltosStatusProvisioning
 		status = &s
 
 		// Getting here means either ClusterHealthCheck failed to be deployed or ClusterHealthCheck has changed.
@@ -260,7 +260,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		}
 	}
 
-	clusterInfo := &libsveltosv1alpha1.ClusterInfo{
+	clusterInfo := &libsveltosv1beta1.ClusterInfo{
 		Cluster:        *cluster,
 		Status:         *status,
 		Hash:           currentHash,
@@ -271,7 +271,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 }
 
 func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Context, chcScope *scope.ClusterHealthCheckScope,
-	cluster *corev1.ObjectReference, f feature, logger logr.Logger) (*libsveltosv1alpha1.ClusterInfo, error) {
+	cluster *corev1.ObjectReference, f feature, logger logr.Logger) (*libsveltosv1beta1.ClusterInfo, error) {
 
 	chc := chcScope.ClusterHealthCheck
 
@@ -302,18 +302,18 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		clusterproxy.GetClusterType(cluster), true)
 	status := r.convertResultStatus(result)
 
-	clusterInfo := &libsveltosv1alpha1.ClusterInfo{
+	clusterInfo := &libsveltosv1beta1.ClusterInfo{
 		Cluster: *cluster,
-		Status:  libsveltosv1alpha1.SveltosStatusRemoving,
+		Status:  libsveltosv1beta1.SveltosStatusRemoving,
 		Hash:    nil,
 	}
 
 	if status != nil {
-		if *status == libsveltosv1alpha1.SveltosStatusRemoving {
+		if *status == libsveltosv1beta1.SveltosStatusRemoving {
 			return clusterInfo, fmt.Errorf("feature is still being removed")
 		}
 
-		if *status == libsveltosv1alpha1.SveltosStatusRemoved {
+		if *status == libsveltosv1beta1.SveltosStatusRemoved {
 			if err := removeConditionEntry(ctx, r.Client, cluster.Namespace, cluster.Name,
 				clusterproxy.GetClusterType(cluster), chc, logger); err != nil {
 				return nil, err
@@ -334,19 +334,19 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 	return clusterInfo, fmt.Errorf("cleanup request is queued")
 }
 
-func (r *ClusterHealthCheckReconciler) convertResultStatus(result deployer.Result) *libsveltosv1alpha1.SveltosFeatureStatus {
+func (r *ClusterHealthCheckReconciler) convertResultStatus(result deployer.Result) *libsveltosv1beta1.SveltosFeatureStatus {
 	switch result.ResultStatus {
 	case deployer.Deployed:
-		s := libsveltosv1alpha1.SveltosStatusProvisioned
+		s := libsveltosv1beta1.SveltosStatusProvisioned
 		return &s
 	case deployer.Failed:
-		s := libsveltosv1alpha1.SveltosStatusFailed
+		s := libsveltosv1beta1.SveltosStatusFailed
 		return &s
 	case deployer.InProgress:
-		s := libsveltosv1alpha1.SveltosStatusProvisioning
+		s := libsveltosv1beta1.SveltosStatusProvisioning
 		return &s
 	case deployer.Removed:
-		s := libsveltosv1alpha1.SveltosStatusRemoved
+		s := libsveltosv1beta1.SveltosStatusRemoved
 		return &s
 	case deployer.Unavailable:
 		return nil
@@ -357,8 +357,8 @@ func (r *ClusterHealthCheckReconciler) convertResultStatus(result deployer.Resul
 
 // getCHCInClusterHashAndStatus returns the hash of the ClusterHealthCheck that was deployed/evaluated in a given
 // Cluster (if ever deployed/evaluated)
-func (r *ClusterHealthCheckReconciler) getCHCInClusterHashAndStatus(chc *libsveltosv1alpha1.ClusterHealthCheck,
-	cluster *corev1.ObjectReference) ([]byte, *libsveltosv1alpha1.SveltosFeatureStatus) {
+func (r *ClusterHealthCheckReconciler) getCHCInClusterHashAndStatus(chc *libsveltosv1beta1.ClusterHealthCheck,
+	cluster *corev1.ObjectReference) ([]byte, *libsveltosv1beta1.SveltosFeatureStatus) {
 
 	for i := range chc.Status.ClusterConditions {
 		cCondition := &chc.Status.ClusterConditions[i]
@@ -372,7 +372,7 @@ func (r *ClusterHealthCheckReconciler) getCHCInClusterHashAndStatus(chc *libsvel
 
 // isPaused returns true if Sveltos/CAPI Cluster is paused or ClusterHealthCheck has paused annotation.
 func (r *ClusterHealthCheckReconciler) isPaused(ctx context.Context, cluster *corev1.ObjectReference,
-	chc *libsveltosv1alpha1.ClusterHealthCheck) (bool, error) {
+	chc *libsveltosv1beta1.ClusterHealthCheck) (bool, error) {
 
 	isClusterPaused, err := clusterproxy.IsClusterPaused(ctx, r.Client, cluster.Namespace, cluster.Name,
 		clusterproxy.GetClusterType(cluster))
@@ -421,7 +421,7 @@ func (r *ClusterHealthCheckReconciler) canProceed(ctx context.Context, chcScope 
 }
 
 // isClusterEntryRemoved returns true if feature is there is no entry for cluster in Status.ClusterConditions
-func (r *ClusterHealthCheckReconciler) isClusterEntryRemoved(chc *libsveltosv1alpha1.ClusterHealthCheck,
+func (r *ClusterHealthCheckReconciler) isClusterEntryRemoved(chc *libsveltosv1beta1.ClusterHealthCheck,
 	cluster *corev1.ObjectReference) bool {
 
 	for i := range chc.Status.ClusterConditions {
@@ -437,7 +437,7 @@ func (r *ClusterHealthCheckReconciler) isClusterEntryRemoved(chc *libsveltosv1al
 
 // clusterHealthCheckHash returns the clusterHealthCheck hash
 func clusterHealthCheckHash(ctx context.Context, c client.Client,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error) {
+	chc *libsveltosv1beta1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error) {
 
 	h := sha256.New()
 	var config string
@@ -468,12 +468,12 @@ func clusterHealthCheckHash(ctx context.Context, c client.Client,
 // fetchReferencedResources fetches referenced HealthChecks and corresponding
 // HealthCheckReports. Returns slice of byte representing those.
 func fetchReferencedResources(ctx context.Context, c client.Client,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, cluster *corev1.ObjectReference) (string, error) {
+	chc *libsveltosv1beta1.ClusterHealthCheck, cluster *corev1.ObjectReference) (string, error) {
 
 	var config string
 	for i := range chc.Spec.LivenessChecks {
 		lc := &chc.Spec.LivenessChecks[i]
-		if lc.Type == libsveltosv1alpha1.LivenessTypeHealthCheck {
+		if lc.Type == libsveltosv1beta1.LivenessTypeHealthCheck {
 			resource, err := fetchHealthCheck(ctx, c, lc.LivenessSourceRef)
 			if err != nil {
 				return "", err
@@ -500,13 +500,13 @@ func fetchReferencedResources(ctx context.Context, c client.Client,
 
 // fetchHealthCheck fetches referenced HealthCheck
 func fetchHealthCheck(ctx context.Context, c client.Client, ref *corev1.ObjectReference,
-) (*libsveltosv1alpha1.HealthCheck, error) {
+) (*libsveltosv1beta1.HealthCheck, error) {
 
 	if ref == nil {
 		return nil, nil
 	}
 
-	healthCheck := &libsveltosv1alpha1.HealthCheck{}
+	healthCheck := &libsveltosv1beta1.HealthCheck{}
 	err := c.Get(ctx, types.NamespacedName{Name: ref.Name}, healthCheck)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -523,12 +523,12 @@ func fetchHealthCheck(ctx context.Context, c client.Client, ref *corev1.ObjectRe
 // look at resources directly in managed cluster);
 func processClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName, applicant, featureID string,
-	clusterType libsveltosv1alpha1.ClusterType, options deployer.Options, logger logr.Logger) error {
+	clusterType libsveltosv1beta1.ClusterType, options deployer.Options, logger logr.Logger) error {
 
 	logger = logger.WithValues("clusterhealthcheck", applicant)
 	logger = logger.WithValues("cluster", fmt.Sprintf("%s:%s/%s", clusterType, clusterNamespace, clusterName))
 
-	chc := &libsveltosv1alpha1.ClusterHealthCheck{}
+	chc := &libsveltosv1beta1.ClusterHealthCheck{}
 	err := c.Get(ctx, types.NamespacedName{Name: applicant}, chc)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -566,8 +566,8 @@ func processClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 // - evaluate all health checks (updating ClusterHealthCheck Status)
 // - send notifications
 func evaluateHealthChecksAndSendNotificationsForCluster(ctx context.Context, c client.Client,
-	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
 
 	logger.V(logs.LogDebug).Info("Evaluate health checks and send Notifications for clusterHealthCheck")
 
@@ -589,11 +589,11 @@ func evaluateHealthChecksAndSendNotificationsForCluster(ctx context.Context, c c
 // undeployClusterHealthCheckResourcesFromCluster cleans resources associtated with ClusterHealthCheck instance from cluster
 func undeployClusterHealthCheckResourcesFromCluster(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName, applicant, featureID string,
-	clusterType libsveltosv1alpha1.ClusterType, options deployer.Options, logger logr.Logger) error {
+	clusterType libsveltosv1beta1.ClusterType, options deployer.Options, logger logr.Logger) error {
 
 	logger = logger.WithValues("clusterhealthcheck", applicant)
 
-	chc := &libsveltosv1alpha1.ClusterHealthCheck{}
+	chc := &libsveltosv1beta1.ClusterHealthCheck{}
 	err := c.Get(ctx, types.NamespacedName{Name: applicant}, chc)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -618,21 +618,21 @@ func undeployClusterHealthCheckResourcesFromCluster(ctx context.Context, c clien
 
 // evaluateClusterHealthCheckForCluster re-evaluates all LivenessChecks.
 // Returns:
-// - list of libsveltosv1alpha1.Condition for this cluster;
+// - list of libsveltosv1beta1.Condition for this cluster;
 // - bool indicating whether one of the liveness checks changed status;
 // - if an error occurs, returns the error
 func evaluateClusterHealthCheckForCluster(ctx context.Context, c client.Client,
-	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) ([]libsveltosv1alpha1.Condition, bool, error) {
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) ([]libsveltosv1beta1.Condition, bool, error) {
 
-	conditions := make([]libsveltosv1alpha1.Condition, len(chc.Spec.LivenessChecks))
+	conditions := make([]libsveltosv1beta1.Condition, len(chc.Spec.LivenessChecks))
 
 	statusChanged := false
 	for i := range chc.Spec.LivenessChecks {
 		livenessCheck := chc.Spec.LivenessChecks[i]
 
-		conditions[i] = libsveltosv1alpha1.Condition{
-			Type:               libsveltosv1alpha1.ConditionType(getConditionType(&livenessCheck)),
+		conditions[i] = libsveltosv1beta1.Condition{
+			Type:               libsveltosv1beta1.ConditionType(getConditionType(&livenessCheck)),
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		}
 
@@ -650,7 +650,7 @@ func evaluateClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 		conditions[i].Name = livenessCheck.Name
 		conditions[i].Status = getConditionStatus(passing)
 		if !passing {
-			conditions[i].Severity = libsveltosv1alpha1.ConditionSeverityWarning
+			conditions[i].Severity = libsveltosv1beta1.ConditionSeverityWarning
 			conditions[i].Message = message
 		}
 	}
@@ -662,16 +662,16 @@ func evaluateClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 // if resendAll is set to true, all Notifications are sent. Otherwise only the ones which have not been
 // sent yet will be delivered.
 func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck, resendAll bool,
-	conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck, resendAll bool,
+	conditions []libsveltosv1beta1.Condition, logger logr.Logger) error {
 
-	notificationStatus := make(map[string]libsveltosv1alpha1.NotificationStatus)
+	notificationStatus := make(map[string]libsveltosv1beta1.NotificationStatus)
 	// Ignore status if all notifications need to be sent again
 	if !resendAll {
 		notificationStatus = buildNotificationStatusMap(clusterNamespace, clusterName, clusterType, chc)
 	}
 
-	notificationSummaries := make([]libsveltosv1alpha1.NotificationSummary, 0)
+	notificationSummaries := make([]libsveltosv1beta1.NotificationSummary, 0)
 
 	var sendNotificationError error
 	for i := range chc.Spec.Notifications {
@@ -684,23 +684,23 @@ func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, c
 				sendNotificationError = err
 				failureMessage := err.Error()
 				notificationSummaries = append(notificationSummaries,
-					libsveltosv1alpha1.NotificationSummary{
+					libsveltosv1beta1.NotificationSummary{
 						Name:           n.Name,
-						Status:         libsveltosv1alpha1.NotificationStatusFailedToDeliver,
+						Status:         libsveltosv1beta1.NotificationStatusFailedToDeliver,
 						FailureMessage: &failureMessage,
 					})
 			} else {
 				notificationSummaries = append(notificationSummaries,
-					libsveltosv1alpha1.NotificationSummary{
+					libsveltosv1beta1.NotificationSummary{
 						Name:   n.Name,
-						Status: libsveltosv1alpha1.NotificationStatusDelivered,
+						Status: libsveltosv1beta1.NotificationStatusDelivered,
 					})
 			}
 		} else {
 			notificationSummaries = append(notificationSummaries,
-				libsveltosv1alpha1.NotificationSummary{
+				libsveltosv1beta1.NotificationSummary{
 					Name:   n.Name,
-					Status: libsveltosv1alpha1.NotificationStatusDelivered,
+					Status: libsveltosv1beta1.NotificationStatusDelivered,
 				})
 		}
 	}
@@ -716,12 +716,12 @@ func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, c
 // updateConditionsForCluster updates ClusterHealthCheck Status.ClusterConditions with latest
 // report on liveness checks for this cluster
 func updateConditionsForCluster(ctx context.Context, c client.Client,
-	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, conditions []libsveltosv1alpha1.Condition, logger logr.Logger) error {
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, conditions []libsveltosv1beta1.Condition, logger logr.Logger) error {
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		logger.V(logs.LogDebug).Info("updating clusterhealthcheck clusterConditions")
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		err := c.Get(ctx, types.NamespacedName{Name: chc.Name}, currentChc)
 		if err != nil {
 			return err
@@ -750,12 +750,12 @@ func updateConditionsForCluster(ctx context.Context, c client.Client,
 // updateNotificationSummariesForCluster updates ClusterHealthCheck Status.NotifiicationSummaries with latest
 // report on notification checks
 func updateNotificationSummariesForCluster(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	notificationSummaries []libsveltosv1alpha1.NotificationSummary, logger logr.Logger) error {
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
+	notificationSummaries []libsveltosv1beta1.NotificationSummary, logger logr.Logger) error {
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		logger.V(logs.LogDebug).Info("updating clusterhealthcheck notificationSummaries")
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		err := c.Get(ctx, types.NamespacedName{Name: chc.Name}, currentChc)
 		if err != nil {
 			return err
@@ -781,11 +781,11 @@ func updateNotificationSummariesForCluster(ctx context.Context, c client.Client,
 }
 
 func removeConditionEntry(ctx context.Context, c client.Client,
-	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		currentChc := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		err := c.Get(ctx, types.NamespacedName{Name: chc.Name}, currentChc)
 		if err != nil {
 			return err
@@ -805,7 +805,7 @@ func removeConditionEntry(ctx context.Context, c client.Client,
 	return err
 }
 
-func remove(s []libsveltosv1alpha1.ClusterCondition, i int) []libsveltosv1alpha1.ClusterCondition {
+func remove(s []libsveltosv1beta1.ClusterCondition, i int) []libsveltosv1beta1.ClusterCondition {
 	s[i] = s[len(s)-1]
 	return s[:len(s)-1]
 }
@@ -829,8 +829,8 @@ func isClusterStillMatching(chcScope *scope.ClusterHealthCheckScope, cluster *co
 // HealthCheck instance it used to referenced and it is not referencing anymore.
 // An HealthCheck with zero OwnerReference will be deleted from managed cluster.
 func removeStaleHealthChecks(ctx context.Context, c client.Client,
-	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
 
 	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
 		"", "", clusterType, logger)
@@ -839,7 +839,7 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 		return err
 	}
 
-	healthCheckList := &libsveltosv1alpha1.HealthCheckList{}
+	healthCheckList := &libsveltosv1beta1.HealthCheckList{}
 	err = remoteClient.List(ctx, healthCheckList)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get list HealthChecks: %v", err))
@@ -853,8 +853,8 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 		hc := &healthCheckList.Items[i]
 
 		objRef := &corev1.ObjectReference{
-			APIVersion: libsveltosv1alpha1.GroupVersion.String(),
-			Kind:       libsveltosv1alpha1.HealthCheckKind,
+			APIVersion: libsveltosv1beta1.GroupVersion.String(),
+			Kind:       libsveltosv1beta1.HealthCheckKind,
 			Name:       hc.Name,
 		}
 
@@ -892,8 +892,8 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 // deployHealthChecks deploys (creates or updates) all HealthChecks referenced by this ClusterHealthCheck
 // instance.
 func deployHealthChecks(ctx context.Context, c client.Client,
-	clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
-	chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) error {
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
 
 	currentReferenced := getReferencedHealthChecks(chc, logger)
 	if currentReferenced.Len() == 0 {
@@ -924,10 +924,10 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 
 // deployHealthCheck deploys (creates or updates) referenced HealthCheck and recursively any ConfigMap/Secret
 // the HealthCheck references (containing the lua script)
-func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	lc *libsveltosv1alpha1.LivenessCheck, logger logr.Logger) error {
+func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *libsveltosv1beta1.ClusterHealthCheck,
+	lc *libsveltosv1beta1.LivenessCheck, logger logr.Logger) error {
 
-	if lc.Type != libsveltosv1alpha1.LivenessTypeHealthCheck {
+	if lc.Type != libsveltosv1beta1.LivenessTypeHealthCheck {
 		return nil
 	}
 
@@ -936,8 +936,8 @@ func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *
 		return nil
 	}
 
-	if lc.LivenessSourceRef.Kind != libsveltosv1alpha1.HealthCheckKind ||
-		lc.LivenessSourceRef.APIVersion != libsveltosv1alpha1.GroupVersion.String() {
+	if lc.LivenessSourceRef.Kind != libsveltosv1beta1.HealthCheckKind ||
+		lc.LivenessSourceRef.APIVersion != libsveltosv1beta1.GroupVersion.String() {
 
 		msg := fmt.Sprintf("liveness check %s of type HealthCheck can only reference HealthCheck resource", lc.Name)
 		logger.V(logs.LogInfo).Info(msg)
@@ -945,7 +945,7 @@ func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *
 	}
 
 	// Fetch HealthCheck
-	healthCheck := &libsveltosv1alpha1.HealthCheck{}
+	healthCheck := &libsveltosv1beta1.HealthCheck{}
 	err := c.Get(ctx, types.NamespacedName{Name: lc.LivenessSourceRef.Name}, healthCheck)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch HealthCheck: %v", err))
@@ -961,12 +961,12 @@ func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *
 	return nil
 }
 
-func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, chc *libsveltosv1alpha1.ClusterHealthCheck,
-	healthCheck *libsveltosv1alpha1.HealthCheck, logger logr.Logger) error {
+func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, chc *libsveltosv1beta1.ClusterHealthCheck,
+	healthCheck *libsveltosv1beta1.HealthCheck, logger logr.Logger) error {
 
 	logger = logger.WithValues("healthCheck", healthCheck.Name)
 
-	currentHealthCheck := &libsveltosv1alpha1.HealthCheck{}
+	currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
 	err := remoteClient.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name}, currentHealthCheck)
 	if err == nil {
 		logger.V(logs.LogDebug).Info("updating healthCheck")
@@ -975,7 +975,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 		// ServiceAccount representing the tenant admin when fetching resources
 		currentHealthCheck.Labels = healthCheck.Labels
 		currentHealthCheck.Annotations = map[string]string{
-			libsveltosv1alpha1.DeployedBySveltosAnnotation: "true",
+			libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
 		}
 		deployer.AddOwnerReference(currentHealthCheck, chc)
 		return remoteClient.Update(ctx, currentHealthCheck)
@@ -987,7 +987,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 	// ServiceAccount representing the tenant admin when fetching resources
 	currentHealthCheck.Labels = healthCheck.Labels
 	currentHealthCheck.Annotations = map[string]string{
-		libsveltosv1alpha1.DeployedBySveltosAnnotation: "true",
+		libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
 	}
 	deployer.AddOwnerReference(currentHealthCheck, chc)
 
@@ -995,7 +995,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 	return remoteClient.Create(ctx, currentHealthCheck)
 }
 
-func getReferencedHealthChecks(chc *libsveltosv1alpha1.ClusterHealthCheck, logger logr.Logger) *libsveltosset.Set {
+func getReferencedHealthChecks(chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) *libsveltosset.Set {
 	currentReferenced := &libsveltosset.Set{}
 
 	if !chc.DeletionTimestamp.IsZero() {
@@ -1005,11 +1005,11 @@ func getReferencedHealthChecks(chc *libsveltosv1alpha1.ClusterHealthCheck, logge
 
 	for i := range chc.Spec.LivenessChecks {
 		lc := chc.Spec.LivenessChecks[i]
-		if lc.Type == libsveltosv1alpha1.LivenessTypeHealthCheck {
+		if lc.Type == libsveltosv1beta1.LivenessTypeHealthCheck {
 			if lc.LivenessSourceRef != nil {
 				currentReferenced.Insert(&corev1.ObjectReference{
-					APIVersion: libsveltosv1alpha1.GroupVersion.String(), // the only resources that can be referenced is HealthCheck
-					Kind:       libsveltosv1alpha1.HealthCheckKind,
+					APIVersion: libsveltosv1beta1.GroupVersion.String(), // the only resources that can be referenced is HealthCheck
+					Kind:       libsveltosv1beta1.HealthCheckKind,
 					Name:       lc.LivenessSourceRef.Name,
 				})
 			}

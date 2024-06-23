@@ -28,16 +28,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 var _ = Describe("Notification", func() {
-	var n *libsveltosv1alpha1.Notification
+	var n *libsveltosv1beta1.Notification
 
 	BeforeEach(func() {
-		n = &libsveltosv1alpha1.Notification{
+		n = &libsveltosv1beta1.Notification{
 			Name: randomString(),
-			Type: libsveltosv1alpha1.NotificationTypeKubernetesEvent,
+			Type: libsveltosv1beta1.NotificationTypeKubernetesEvent,
 		}
 
 	})
@@ -52,26 +52,26 @@ var _ = Describe("Notification", func() {
 
 	It("doSendNotification returns false when nothing has changed and notification was already delivered",
 		func() {
-			status := make(map[string]libsveltosv1alpha1.NotificationStatus)
-			status[n.Name] = libsveltosv1alpha1.NotificationStatusDelivered
+			status := make(map[string]libsveltosv1beta1.NotificationStatus)
+			status[n.Name] = libsveltosv1beta1.NotificationStatusDelivered
 			Expect(controllers.DoSendNotification(n, status, false)).To(BeFalse())
 		})
 
 	It("buildNotificationStatusMap creates map with status for each notification", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		notificationName := randomString()
 
-		chc := &libsveltosv1alpha1.ClusterHealthCheck{
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
 			},
-			Status: libsveltosv1alpha1.ClusterHealthCheckStatus{
-				ClusterConditions: []libsveltosv1alpha1.ClusterCondition{
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{
 					{
-						ClusterInfo: libsveltosv1alpha1.ClusterInfo{
+						ClusterInfo: libsveltosv1beta1.ClusterInfo{
 							Cluster: corev1.ObjectReference{
 								Namespace:  clusterNamespace,
 								Name:       clusterName,
@@ -79,10 +79,10 @@ var _ = Describe("Notification", func() {
 								APIVersion: clusterv1.GroupVersion.String(),
 							},
 						},
-						NotificationSummaries: []libsveltosv1alpha1.NotificationSummary{
+						NotificationSummaries: []libsveltosv1beta1.NotificationSummary{
 							{
 								Name:   notificationName,
-								Status: libsveltosv1alpha1.NotificationStatusDelivered,
+								Status: libsveltosv1beta1.NotificationStatusDelivered,
 							},
 						},
 					},
@@ -94,7 +94,7 @@ var _ = Describe("Notification", func() {
 		Expect(result).ToNot(BeNil())
 		status, ok := result[notificationName]
 		Expect(ok).To(BeTrue())
-		Expect(status).To(Equal(libsveltosv1alpha1.NotificationStatusDelivered))
+		Expect(status).To(Equal(libsveltosv1beta1.NotificationStatusDelivered))
 	})
 
 	It("getWebexInfo get webex information from Secret", func() {
@@ -105,16 +105,16 @@ var _ = Describe("Notification", func() {
 				Name:      randomString(),
 				Namespace: randomString(),
 			},
-			Type: libsveltosv1alpha1.ClusterProfileSecretType,
+			Type: libsveltosv1beta1.ClusterProfileSecretType,
 			Data: map[string][]byte{
-				libsveltosv1alpha1.WebexRoomID: []byte(webexRoomID),
-				libsveltosv1alpha1.WebexToken:  []byte(webexToken),
+				libsveltosv1beta1.WebexRoomID: []byte(webexRoomID),
+				libsveltosv1beta1.WebexToken:  []byte(webexToken),
 			},
 		}
 
-		notification := &libsveltosv1alpha1.Notification{
+		notification := &libsveltosv1beta1.Notification{
 			Name: randomString(),
-			Type: libsveltosv1alpha1.NotificationTypeWebex,
+			Type: libsveltosv1beta1.NotificationTypeWebex,
 			NotificationRef: &corev1.ObjectReference{
 				Kind:       "Secret",
 				APIVersion: "v1",
@@ -145,16 +145,16 @@ var _ = Describe("Notification", func() {
 				Name:      randomString(),
 				Namespace: randomString(),
 			},
-			Type: libsveltosv1alpha1.ClusterProfileSecretType,
+			Type: libsveltosv1beta1.ClusterProfileSecretType,
 			Data: map[string][]byte{
-				libsveltosv1alpha1.SlackChannelID: []byte(slackChannelID),
-				libsveltosv1alpha1.SlackToken:     []byte(slackToken),
+				libsveltosv1beta1.SlackChannelID: []byte(slackChannelID),
+				libsveltosv1beta1.SlackToken:     []byte(slackToken),
 			},
 		}
 
-		notification := &libsveltosv1alpha1.Notification{
+		notification := &libsveltosv1beta1.Notification{
 			Name: randomString(),
-			Type: libsveltosv1alpha1.NotificationTypeWebex,
+			Type: libsveltosv1beta1.NotificationTypeWebex,
 			NotificationRef: &corev1.ObjectReference{
 				Kind:       "Secret",
 				APIVersion: "v1",

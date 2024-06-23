@@ -24,7 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
@@ -45,7 +45,7 @@ func init() {
 	metrics.Registry.MustRegister(programClusterHealthCheckDurationHistogram)
 }
 
-func newClusterHealthCheckHistogram(clusterNamespace, clusterName string, clusterType libsveltosv1alpha1.ClusterType,
+func newClusterHealthCheckHistogram(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
 	logger logr.Logger) prometheus.Histogram {
 
 	clusterInfo := strings.ReplaceAll(fmt.Sprintf("%s_%s_%s", clusterType, clusterNamespace, clusterName), "-", "_")
@@ -82,9 +82,9 @@ func logCollectorError(err error, logger logr.Logger) {
 }
 
 func programDuration(elapsed time.Duration, clusterNamespace, clusterName, featureID string,
-	clusterType libsveltosv1alpha1.ClusterType, logger logr.Logger) {
+	clusterType libsveltosv1beta1.ClusterType, logger logr.Logger) {
 
-	if featureID == string(libsveltosv1alpha1.FeatureClusterHealthCheck) {
+	if featureID == string(libsveltosv1beta1.FeatureClusterHealthCheck) {
 		programClusterHealthCheckDurationHistogram.Observe(elapsed.Seconds())
 		clusterHistogram := newClusterHealthCheckHistogram(clusterNamespace, clusterName, clusterType, logger)
 		if clusterHistogram != nil {

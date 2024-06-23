@@ -38,9 +38,9 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	configv1alpha1 "github.com/projectsveltos/addon-controller/api/v1alpha1"
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
@@ -64,7 +64,7 @@ func randomString() string {
 
 func setupScheme() (*runtime.Scheme, error) {
 	s := runtime.NewScheme()
-	if err := configv1alpha1.AddToScheme(s); err != nil {
+	if err := configv1beta1.AddToScheme(s); err != nil {
 		return nil, err
 	}
 	if err := clusterv1.AddToScheme(s); err != nil {
@@ -76,7 +76,7 @@ func setupScheme() (*runtime.Scheme, error) {
 	if err := apiextensionsv1.AddToScheme(s); err != nil {
 		return nil, err
 	}
-	if err := libsveltosv1alpha1.AddToScheme(s); err != nil {
+	if err := libsveltosv1beta1.AddToScheme(s); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -129,7 +129,7 @@ func getClusterHealthCheckReconciler(c client.Client) *controllers.ClusterHealth
 		Scheme:              scheme,
 		ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 		CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-		ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+		ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 		HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 		CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 		ClusterLabels:       make(map[corev1.ObjectReference]map[string]string),
@@ -137,13 +137,13 @@ func getClusterHealthCheckReconciler(c client.Client) *controllers.ClusterHealth
 	}
 }
 
-func getHealthCheckInstance(name string) *libsveltosv1alpha1.HealthCheck {
-	return &libsveltosv1alpha1.HealthCheck{
+func getHealthCheckInstance(name string) *libsveltosv1beta1.HealthCheck {
+	return &libsveltosv1beta1.HealthCheck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: libsveltosv1alpha1.HealthCheckSpec{
-			ResourceSelectors: []libsveltosv1alpha1.ResourceSelector{
+		Spec: libsveltosv1beta1.HealthCheckSpec{
+			ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
 				{
 					Group:    randomString(),
 					Version:  randomString(),
@@ -156,32 +156,32 @@ func getHealthCheckInstance(name string) *libsveltosv1alpha1.HealthCheck {
 	}
 }
 
-func getHealthCheckReport(healthCheckName, clusterNamespace, clusterName string) *libsveltosv1alpha1.HealthCheckReport {
-	return &libsveltosv1alpha1.HealthCheckReport{
+func getHealthCheckReport(healthCheckName, clusterNamespace, clusterName string) *libsveltosv1beta1.HealthCheckReport {
+	return &libsveltosv1beta1.HealthCheckReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: randomString(),
 			Labels: map[string]string{
-				libsveltosv1alpha1.HealthCheckNameLabel: healthCheckName,
+				libsveltosv1beta1.HealthCheckNameLabel: healthCheckName,
 			},
 		},
-		Spec: libsveltosv1alpha1.HealthCheckReportSpec{
+		Spec: libsveltosv1beta1.HealthCheckReportSpec{
 			ClusterNamespace: clusterNamespace,
 			ClusterName:      clusterName,
 			HealthCheckName:  healthCheckName,
-			ClusterType:      libsveltosv1alpha1.ClusterTypeCapi,
+			ClusterType:      libsveltosv1beta1.ClusterTypeCapi,
 		},
 	}
 }
 
 func getReloaderReport(clusterNamespace, clusterName string,
-	clusterType *libsveltosv1alpha1.ClusterType) *libsveltosv1alpha1.ReloaderReport {
+	clusterType *libsveltosv1beta1.ClusterType) *libsveltosv1beta1.ReloaderReport {
 
-	return &libsveltosv1alpha1.ReloaderReport{
+	return &libsveltosv1beta1.ReloaderReport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   randomString(),
-			Labels: libsveltosv1alpha1.GetReloaderReportLabels(clusterName, clusterType),
+			Labels: libsveltosv1beta1.GetReloaderReportLabels(clusterName, clusterType),
 		},
-		Spec: libsveltosv1alpha1.ReloaderReportSpec{
+		Spec: libsveltosv1beta1.ReloaderReportSpec{
 			ClusterNamespace: clusterNamespace,
 			ClusterName:      clusterName,
 			ClusterType:      *clusterType,

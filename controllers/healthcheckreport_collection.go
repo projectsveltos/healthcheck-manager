@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
@@ -40,16 +40,16 @@ const (
 )
 
 // removeHealthCheckReports deletes all HealthCheckReport corresponding to HealthCheck instance
-func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheck *libsveltosv1alpha1.HealthCheck,
+func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheck *libsveltosv1beta1.HealthCheck,
 	logger logr.Logger) error {
 
 	listOptions := []client.ListOption{
 		client.MatchingLabels{
-			libsveltosv1alpha1.HealthCheckNameLabel: healthCheck.Name,
+			libsveltosv1beta1.HealthCheckNameLabel: healthCheck.Name,
 		},
 	}
 
-	healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
+	healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 	err := c.List(ctx, healthCheckReportList, listOptions...)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to list HealthCheckReports. Err: %v", err))
@@ -69,16 +69,16 @@ func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheck 
 
 // removeHealthCheckReportsFromCluster deletes all HealthCheckReport corresponding to Cluster instance
 func removeHealthCheckReportsFromCluster(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
-	clusterType libsveltosv1alpha1.ClusterType, logger logr.Logger) error {
+	clusterType libsveltosv1beta1.ClusterType, logger logr.Logger) error {
 
 	listOptions := []client.ListOption{
 		client.MatchingLabels{
-			libsveltosv1alpha1.HealthCheckReportClusterNameLabel: clusterName,
-			libsveltosv1alpha1.HealthCheckReportClusterTypeLabel: strings.ToLower(string(clusterType)),
+			libsveltosv1beta1.HealthCheckReportClusterNameLabel: clusterName,
+			libsveltosv1beta1.HealthCheckReportClusterTypeLabel: strings.ToLower(string(clusterType)),
 		},
 	}
 
-	healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
+	healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 	err := c.List(ctx, healthCheckReportList, listOptions...)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to list HealthCheckReports. Err: %v", err))
@@ -154,7 +154,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	}
 
 	logger.V(logs.LogDebug).Info("collecting HealthCheckReports from cluster")
-	healthCheckReportList := libsveltosv1alpha1.HealthCheckReportList{}
+	healthCheckReportList := libsveltosv1beta1.HealthCheckReportList{}
 	err = remoteClient.List(ctx, &healthCheckReportList)
 	if err != nil {
 		return err
@@ -179,7 +179,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		}
 		logger.V(logs.LogDebug).Info("updating in managed cluster")
 		// Update HealthCheckReport Status in managed cluster
-		phase := libsveltosv1alpha1.ReportProcessed
+		phase := libsveltosv1beta1.ReportProcessed
 		hcr.Status.Phase = &phase
 		err = remoteClient.Status().Update(ctx, hcr)
 		if err != nil {
@@ -191,23 +191,23 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 }
 
 func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *corev1.ObjectReference,
-	healthCheckReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
+	healthCheckReport *libsveltosv1beta1.HealthCheckReport, logger logr.Logger) error {
 
 	if healthCheckReport.Labels == nil {
 		logger.V(logs.LogInfo).Info(malformedLabelError)
 		return errors.New(malformedLabelError)
 	}
 
-	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckNameLabel]
+	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1beta1.HealthCheckNameLabel]
 	if !ok {
 		logger.V(logs.LogInfo).Info(missingLabelError)
 		return errors.New(missingLabelError)
 	}
 
 	clusterType := clusterproxy.GetClusterType(cluster)
-	healthCheckReportName := libsveltosv1alpha1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
+	healthCheckReportName := libsveltosv1beta1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
 
-	currentHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{}
+	currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
 	err := c.Get(ctx,
 		types.NamespacedName{Namespace: cluster.Namespace, Name: healthCheckReportName},
 		currentHealthCheckReport)
@@ -219,7 +219,7 @@ func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 }
 
 func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *corev1.ObjectReference,
-	healthCheckReport *libsveltosv1alpha1.HealthCheckReport, logger logr.Logger) error {
+	healthCheckReport *libsveltosv1beta1.HealthCheckReport, logger logr.Logger) error {
 
 	if healthCheckReport.Spec.ClusterName != "" {
 		// if ClusterName is set, this is coming from a
@@ -233,14 +233,14 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 		return errors.New(malformedLabelError)
 	}
 
-	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1alpha1.HealthCheckNameLabel]
+	healthCheckName, ok := healthCheckReport.Labels[libsveltosv1beta1.HealthCheckNameLabel]
 	if !ok {
 		logger.V(logs.LogInfo).Info(missingLabelError)
 		return errors.New(missingLabelError)
 	}
 
 	// Verify HealthCheck still exists
-	currentHealthCheck := libsveltosv1alpha1.HealthCheck{}
+	currentHealthCheck := libsveltosv1beta1.HealthCheck{}
 	err := c.Get(ctx, types.NamespacedName{Name: healthCheckName}, &currentHealthCheck)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -252,9 +252,9 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 	}
 
 	clusterType := clusterproxy.GetClusterType(cluster)
-	healthCheckReportName := libsveltosv1alpha1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
+	healthCheckReportName := libsveltosv1beta1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
 
-	currentHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{}
+	currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
 	err = c.Get(ctx,
 		types.NamespacedName{Namespace: cluster.Namespace, Name: healthCheckReportName},
 		currentHealthCheckReport)
@@ -263,7 +263,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 			logger.V(logs.LogDebug).Info("create HealthCheckReport in management cluster")
 			currentHealthCheckReport.Namespace = cluster.Namespace
 			currentHealthCheckReport.Name = healthCheckReportName
-			currentHealthCheckReport.Labels = libsveltosv1alpha1.GetHealthCheckReportLabels(
+			currentHealthCheckReport.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
 				healthCheckName, cluster.Name, &clusterType)
 			currentHealthCheckReport.Spec = healthCheckReport.Spec
 			currentHealthCheckReport.Spec.ClusterNamespace = cluster.Namespace
@@ -279,7 +279,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 	currentHealthCheckReport.Spec.ClusterNamespace = cluster.Namespace
 	currentHealthCheckReport.Spec.ClusterName = cluster.Name
 	currentHealthCheckReport.Spec.ClusterType = clusterType
-	currentHealthCheckReport.Labels = libsveltosv1alpha1.GetHealthCheckReportLabels(
+	currentHealthCheckReport.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
 		healthCheckName, cluster.Name, &clusterType)
 	return c.Update(ctx, currentHealthCheckReport)
 }
