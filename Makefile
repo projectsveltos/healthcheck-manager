@@ -25,7 +25,7 @@ ARCH ?= amd64
 OS ?= $(shell uname -s | tr A-Z a-z)
 K8S_LATEST_VER ?= $(shell curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
 export CONTROLLER_IMG ?= $(REGISTRY)/$(IMAGE_NAME)
-TAG ?= dev
+TAG ?= v0.33.0
 
 .PHONY: all
 all: build
@@ -312,8 +312,8 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	@echo "Waiting for projectsveltos hc-manager to be available..."
 	$(KUBECTL) wait --for=condition=Available deployment/hc-manager -n projectsveltos --timeout=$(TIMEOUT)
 
-	@echo "Install sveltos conversion webhook"
-	$(KUBECTL) apply -f  https://raw.githubusercontent.com/projectsveltos/conversion-webhook/$(TAG)/manifest/manifest.yaml
+	@echo "Install sveltos conversion webhook (use dev for conversion-webhook)"
+	$(KUBECTL) apply -f  https://raw.githubusercontent.com/projectsveltos/conversion-webhook/dev/manifest/manifest.yaml
 
 	@echo "Waiting for projectsveltos conversion webhook to be available..."
 	$(KUBECTL) wait --for=condition=Available deployment/conversion-webhook -n projectsveltos --timeout=$(TIMEOUT)
