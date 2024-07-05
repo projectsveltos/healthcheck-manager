@@ -33,11 +33,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 var _ = Describe("HealthCheck Deployer", func() {
-	var healthCheck *libsveltosv1alpha1.HealthCheck
+	var healthCheck *libsveltosv1beta1.HealthCheck
 	var logger logr.Logger
 
 	BeforeEach(func() {
@@ -58,26 +58,26 @@ var _ = Describe("HealthCheck Deployer", func() {
 
 		Expect(controllers.RemoveHealthCheckReports(context.TODO(), c, healthCheck, logger)).To(Succeed())
 
-		healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
+		healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 		Expect(c.List(context.TODO(), healthCheckReportList)).To(Succeed())
 		Expect(len(healthCheckReportList.Items)).To(BeZero())
 	})
 
 	It("removeHealthCheckReportsFromCluster deletes all HealthCheckReport for a given cluster instance", func() {
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 		clusterNamespace := randomString()
 		clusterName := randomString()
 
 		// Create a healthCheckReport from clusterNamespace/clusterName for a random HealthCheck (healthCheckName)
 		healthCheckName := randomString()
 		healthCheckReport1 := getHealthCheckReport(healthCheckName, clusterNamespace, clusterName)
-		healthCheckReport1.Labels = libsveltosv1alpha1.GetHealthCheckReportLabels(
+		healthCheckReport1.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
 			healthCheck.Name, clusterName, &clusterType)
 
 		// Create a healthCheckReport from clusterNamespace/clusterName for a random HealthCheck (healthCheckName)
 		healthCheckName = randomString()
 		healthCheckReport2 := getHealthCheckReport(healthCheckName, clusterNamespace, clusterName)
-		healthCheckReport2.Labels = libsveltosv1alpha1.GetHealthCheckReportLabels(
+		healthCheckReport2.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
 			healthCheck.Name, clusterName, &clusterType)
 
 		initObjects := []client.Object{
@@ -91,7 +91,7 @@ var _ = Describe("HealthCheck Deployer", func() {
 		Expect(controllers.RemoveHealthCheckReportsFromCluster(context.TODO(), c, clusterNamespace, clusterName,
 			clusterType, logger)).To(Succeed())
 
-		healthCheckReportList := &libsveltosv1alpha1.HealthCheckReportList{}
+		healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 		Expect(c.List(context.TODO(), healthCheckReportList)).To(Succeed())
 		Expect(len(healthCheckReportList.Items)).To(BeZero())
 	})
@@ -127,7 +127,7 @@ var _ = Describe("HealthCheck Deployer", func() {
 		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
 			testEnv.Client, getClusterRef(cluster), logger)).To(Succeed())
 
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 
@@ -139,12 +139,12 @@ var _ = Describe("HealthCheck Deployer", func() {
 	})
 })
 
-func validateHealthCheckReports(healthCheckName string, cluster *clusterv1.Cluster, clusterType *libsveltosv1alpha1.ClusterType) {
+func validateHealthCheckReports(healthCheckName string, cluster *clusterv1.Cluster, clusterType *libsveltosv1beta1.ClusterType) {
 	// Verify HealthCheckReport is created
 	// Eventual loop so testEnv Cache is synced
 	Eventually(func() bool {
-		healthCheckReportName := libsveltosv1alpha1.GetHealthCheckReportName(healthCheckName, cluster.Name, clusterType)
-		currentHealthCheckReport := &libsveltosv1alpha1.HealthCheckReport{}
+		healthCheckReportName := libsveltosv1beta1.GetHealthCheckReportName(healthCheckName, cluster.Name, clusterType)
+		currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
 		err := testEnv.Get(context.TODO(),
 			types.NamespacedName{Namespace: cluster.Namespace, Name: healthCheckReportName}, currentHealthCheckReport)
 		if err != nil {
@@ -161,7 +161,7 @@ func validateHealthCheckReports(healthCheckName string, cluster *clusterv1.Clust
 			By("Spec ClusterNamespace and ClusterName not set")
 			return false
 		}
-		v, ok := currentHealthCheckReport.Labels[libsveltosv1alpha1.HealthCheckNameLabel]
+		v, ok := currentHealthCheckReport.Labels[libsveltosv1beta1.HealthCheckNameLabel]
 		return ok && v == healthCheckName
 	}, timeout, pollingInterval).Should(BeTrue())
 }

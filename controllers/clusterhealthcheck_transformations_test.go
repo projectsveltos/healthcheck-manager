@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
@@ -56,21 +56,33 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 			},
 		}
 
-		matchingClusterHealthCheck := &libsveltosv1alpha1.ClusterHealthCheck{
+		matchingClusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: upstreamClusterNamePrefix + randomString(),
 			},
-			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-				ClusterSelector: libsveltosv1alpha1.Selector("env=production"),
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				ClusterSelector: libsveltosv1beta1.Selector{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"env": "production",
+						},
+					},
+				},
 			},
 		}
 
-		nonMatchingClusterHealthCheck := &libsveltosv1alpha1.ClusterHealthCheck{
+		nonMatchingClusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: upstreamClusterNamePrefix + randomString(),
 			},
-			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-				ClusterSelector: libsveltosv1alpha1.Selector("env=qa"),
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				ClusterSelector: libsveltosv1beta1.Selector{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"env": "qa",
+						},
+					},
+				},
 			},
 		}
 
@@ -88,7 +100,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 			Scheme:              scheme,
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1alpha1.Selector),
+			ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
 			HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
 			CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
 			ClusterLabels:       make(map[corev1.ObjectReference]map[string]string),
@@ -97,10 +109,10 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 
 		By("Setting ClusterHealthCheckReconciler internal structures")
 		matchingInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion,
-			Kind: libsveltosv1alpha1.ClusterHealthCheckKind, Name: matchingClusterHealthCheck.Name}
+			Kind: libsveltosv1beta1.ClusterHealthCheckKind, Name: matchingClusterHealthCheck.Name}
 		reconciler.ClusterHealthChecks[matchingInfo] = matchingClusterHealthCheck.Spec.ClusterSelector
 		nonMatchingInfo := corev1.ObjectReference{APIVersion: cluster.APIVersion,
-			Kind: libsveltosv1alpha1.ClusterHealthCheckKind, Name: nonMatchingClusterHealthCheck.Name}
+			Kind: libsveltosv1beta1.ClusterHealthCheckKind, Name: nonMatchingClusterHealthCheck.Name}
 		reconciler.ClusterHealthChecks[nonMatchingInfo] = nonMatchingClusterHealthCheck.Spec.ClusterSelector
 
 		// ClusterMap contains, per ClusterName, list of ClusterHealthChecks matching it.
@@ -142,7 +154,13 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		Expect(requests).To(ContainElement(expected))
 
 		By("Changing clusterHealthCheck ClusterSelector again to have no ClusterHealthCheck match")
-		matchingClusterHealthCheck.Spec.ClusterSelector = libsveltosv1alpha1.Selector("env=qa")
+		matchingClusterHealthCheck.Spec.ClusterSelector = libsveltosv1beta1.Selector{
+			LabelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"env": "qa",
+				},
+			},
+		}
 		Expect(c.Update(context.TODO(), matchingClusterHealthCheck)).To(Succeed())
 		nonMatchingClusterHealthCheck.Spec.ClusterSelector = matchingClusterHealthCheck.Spec.ClusterSelector
 		Expect(c.Update(context.TODO(), nonMatchingClusterHealthCheck)).To(Succeed())
@@ -181,12 +199,18 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 			},
 		}
 
-		clusterHealthCheck := &libsveltosv1alpha1.ClusterHealthCheck{
+		clusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: upstreamClusterNamePrefix + randomString(),
 			},
-			Spec: libsveltosv1alpha1.ClusterHealthCheckSpec{
-				ClusterSelector: libsveltosv1alpha1.Selector("env=production"),
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				ClusterSelector: libsveltosv1beta1.Selector{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"env": "production",
+						},
+					},
+				},
 			},
 		}
 

@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
@@ -46,7 +46,7 @@ func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	logger.V(logs.LogInfo).Info("Reconciling HealthCheck")
 
 	// Fecth the HealthCheck instance
-	healthCheck := &libsveltosv1alpha1.HealthCheck{}
+	healthCheck := &libsveltosv1beta1.HealthCheck{}
 	if err := r.Get(ctx, req.NamespacedName, healthCheck); err != nil {
 		if apierrors.IsNotFound(err) {
 			err = removeHealthCheckReports(ctx, r.Client, healthCheck, logger)
@@ -82,6 +82,6 @@ func (r *HealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&libsveltosv1alpha1.HealthCheck{}).
+		For(&libsveltosv1beta1.HealthCheck{}).
 		Complete(r)
 }

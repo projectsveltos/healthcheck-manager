@@ -32,20 +32,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 const clusterHealthCheckNamePrefix = "scope-"
 
 var _ = Describe("ClusterHealthCheckScope", func() {
-	var clusterHealthCheck *libsveltosv1alpha1.ClusterHealthCheck
+	var clusterHealthCheck *libsveltosv1beta1.ClusterHealthCheck
 	var c client.Client
 	var logger logr.Logger
 
 	BeforeEach(func() {
 		logger = textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1)))
 
-		clusterHealthCheck = &libsveltosv1alpha1.ClusterHealthCheck{
+		clusterHealthCheck = &libsveltosv1beta1.ClusterHealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: clusterHealthCheckNamePrefix + randomString(),
 			},
@@ -93,7 +93,13 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 	})
 
 	It("GetSelector returns ClusterHealthCheck ClusterSelector", func() {
-		clusterHealthCheck.Spec.ClusterSelector = libsveltosv1alpha1.Selector("zone=east")
+		clusterHealthCheck.Spec.ClusterSelector = libsveltosv1beta1.Selector{
+			LabelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"zone": "east",
+				},
+			},
+		}
 		params := scope.ClusterHealthCheckScopeParams{
 			Client:             c,
 			ClusterHealthCheck: clusterHealthCheck,
@@ -104,7 +110,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(scope).ToNot(BeNil())
 
-		Expect(scope.GetSelector()).To(Equal(string(clusterHealthCheck.Spec.ClusterSelector)))
+		Expect(*scope.GetSelector()).To(Equal(clusterHealthCheck.Spec.ClusterSelector.LabelSelector))
 	})
 
 	It("Close updates ClusterHealthCheck", func() {
@@ -121,7 +127,7 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		clusterHealthCheck.Labels = map[string]string{"clusters": "hr"}
 		Expect(scope.Close(context.TODO())).To(Succeed())
 
-		currentClusterHealthCheck := &libsveltosv1alpha1.ClusterHealthCheck{}
+		currentClusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: clusterHealthCheck.Name}, currentClusterHealthCheck)).To(Succeed())
 		Expect(currentClusterHealthCheck.Labels).ToNot(BeNil())
 		Expect(len(currentClusterHealthCheck.Labels)).To(Equal(1))
@@ -165,13 +171,13 @@ var _ = Describe("ClusterHealthCheckScope", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
 		hash := []byte(randomString())
-		clusterCondition := libsveltosv1alpha1.ClusterCondition{
-			ClusterInfo: libsveltosv1alpha1.ClusterInfo{
+		clusterCondition := libsveltosv1beta1.ClusterCondition{
+			ClusterInfo: libsveltosv1beta1.ClusterInfo{
 				Cluster: corev1.ObjectReference{Namespace: clusterNamespace, Name: clusterName},
 				Hash:    hash,
 			},
 		}
-		scope.SetClusterConditions([]libsveltosv1alpha1.ClusterCondition{clusterCondition})
+		scope.SetClusterConditions([]libsveltosv1beta1.ClusterCondition{clusterCondition})
 		Expect(clusterHealthCheck.Status.ClusterConditions).ToNot(BeNil())
 		Expect(len(clusterHealthCheck.Status.ClusterConditions)).To(Equal(1))
 		Expect(clusterHealthCheck.Status.ClusterConditions[0].ClusterInfo.Cluster.Namespace).To(Equal(clusterNamespace))

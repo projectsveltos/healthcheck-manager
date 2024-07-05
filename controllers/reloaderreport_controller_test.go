@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/utils"
 )
 
@@ -240,7 +240,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		}
 
 		value := randomString()
-		resourceToReload := &libsveltosv1alpha1.ReloaderInfo{
+		resourceToReload := &libsveltosv1beta1.ReloaderInfo{
 			Kind:      "Deployment",
 			Namespace: randomString(),
 			Name:      randomString(),
@@ -274,7 +274,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 		}
 
 		value := randomString()
-		resourceToReload := &libsveltosv1alpha1.ReloaderInfo{
+		resourceToReload := &libsveltosv1beta1.ReloaderInfo{
 			Kind:      "Deployment",
 			Namespace: obj.GetNamespace(),
 			Name:      obj.GetName(),
@@ -316,7 +316,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 	It("processReloaderReport deletes ReloaderReport in the management cluster", func() {
 		cluster := prepareCluster()
 
-		clusterType := libsveltosv1alpha1.ClusterTypeCapi
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
 		reloaderReport := getReloaderReport(cluster.Namespace, cluster.Name, &clusterType)
 		reloaderReport.Namespace = cluster.Namespace
 		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
@@ -330,7 +330,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 			reloaderReport, logger)).To(Succeed())
 
 		Eventually(func() bool {
-			currentReloaderReport := &libsveltosv1alpha1.ReloaderReport{}
+			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 			err := testEnv.Get(context.TODO(),
 				types.NamespacedName{Namespace: reloaderReport.Namespace, Name: reloaderReport.Name},
 				currentReloaderReport)

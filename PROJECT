@@ -12,17 +12,17 @@ resources:
   domain: projectsveltos.io
   group: lib
   kind: ClusterHealthCheck
-  version: v1alpha1
+  version: v1beta1
 - controller: true
   domain: projectsveltos.io
   group: lib
   kind: HealthCheck
-  version: v1alpha1
+  version: v1beta1
 - controller: true
   domain: projectsveltos.io
   group: lib
   kind: SveltosCluster
-  version: v1alpha1
+  version: v1beta1
 - controller: true
   domain: cluster.x-k8s.io
   kind: Cluster
@@ -31,5 +31,5 @@ resources:
   domain: projectsveltos.io
   group: lib
   kind: ReloaderReport
-  version: v1alpha1
+  version: v1beta1
 version: "3"

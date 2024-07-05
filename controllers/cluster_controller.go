@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
@@ -63,7 +63,7 @@ func processCluster(ctx context.Context, c client.Client, cluster client.Object,
 	if err := c.Get(ctx, req.NamespacedName, cluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			err = removeHealthCheckReportsFromCluster(ctx, c, req.Namespace, req.Name,
-				libsveltosv1alpha1.ClusterTypeCapi, logger)
+				libsveltosv1beta1.ClusterTypeCapi, logger)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -80,7 +80,7 @@ func processCluster(ctx context.Context, c client.Client, cluster client.Object,
 	// Handle deleted cluster
 	if !cluster.GetDeletionTimestamp().IsZero() {
 		err := removeHealthCheckReportsFromCluster(ctx, c, req.Namespace, req.Name,
-			libsveltosv1alpha1.ClusterTypeCapi, logger)
+			libsveltosv1beta1.ClusterTypeCapi, logger)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

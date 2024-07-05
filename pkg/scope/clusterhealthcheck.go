@@ -22,17 +22,18 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 // ClusterHealthCheckScopeParams defines the input parameters used to create a new ClusterHealthCheck Scope.
 type ClusterHealthCheckScopeParams struct {
 	Client             client.Client
 	Logger             logr.Logger
-	ClusterHealthCheck *libsveltosv1alpha1.ClusterHealthCheck
+	ClusterHealthCheck *libsveltosv1beta1.ClusterHealthCheck
 	ControllerName     string
 }
 
@@ -64,7 +65,7 @@ type ClusterHealthCheckScope struct {
 	logr.Logger
 	client             client.Client
 	patchHelper        *patch.Helper
-	ClusterHealthCheck *libsveltosv1alpha1.ClusterHealthCheck
+	ClusterHealthCheck *libsveltosv1beta1.ClusterHealthCheck
 	controllerName     string
 }
 
@@ -93,8 +94,8 @@ func (s *ClusterHealthCheckScope) ControllerName() string {
 }
 
 // GetSelector returns the ClusterSelector
-func (s *ClusterHealthCheckScope) GetSelector() string {
-	return string(s.ClusterHealthCheck.Spec.ClusterSelector)
+func (s *ClusterHealthCheckScope) GetSelector() *metav1.LabelSelector {
+	return &s.ClusterHealthCheck.Spec.ClusterSelector.LabelSelector
 }
 
 // SetMatchingClusterRefs sets the feature status.
@@ -103,6 +104,6 @@ func (s *ClusterHealthCheckScope) SetMatchingClusterRefs(matchingClusters []core
 }
 
 // SetClusterConditions sets the ClusterConditions Status field.
-func (s *ClusterHealthCheckScope) SetClusterConditions(clusterConditions []libsveltosv1alpha1.ClusterCondition) {
+func (s *ClusterHealthCheckScope) SetClusterConditions(clusterConditions []libsveltosv1beta1.ClusterCondition) {
 	s.ClusterHealthCheck.Status.ClusterConditions = clusterConditions
 }

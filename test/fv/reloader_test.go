@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	libsveltosv1alpha1 "github.com/projectsveltos/libsveltos/api/v1alpha1"
+	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	libsveltosutils "github.com/projectsveltos/libsveltos/lib/utils"
 )
 
@@ -90,18 +90,18 @@ var _ = Describe("ReloaderReports processing", func() {
 
 		Byf("Create a reloaderReport listing deployoment %s/%s as resource to reload",
 			deployment.GetNamespace(), deployment.GetName())
-		reloaderReport := &libsveltosv1alpha1.ReloaderReport{
+		reloaderReport := &libsveltosv1beta1.ReloaderReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      randomString(),
 				Namespace: "projectsveltos",
 				Annotations: map[string]string{
-					libsveltosv1alpha1.ReloaderReportResourceKindAnnotation:      "configMap",
-					libsveltosv1alpha1.ReloaderReportResourceNamespaceAnnotation: randomString(),
-					libsveltosv1alpha1.ReloaderReportResourceNameAnnotation:      randomString(),
+					libsveltosv1beta1.ReloaderReportResourceKindAnnotation:      "configMap",
+					libsveltosv1beta1.ReloaderReportResourceNamespaceAnnotation: randomString(),
+					libsveltosv1beta1.ReloaderReportResourceNameAnnotation:      randomString(),
 				},
 			},
-			Spec: libsveltosv1alpha1.ReloaderReportSpec{
-				ResourcesToReload: []libsveltosv1alpha1.ReloaderInfo{
+			Spec: libsveltosv1beta1.ReloaderReportSpec{
+				ResourcesToReload: []libsveltosv1beta1.ReloaderInfo{
 					{
 						Kind:      "Deployment",
 						Namespace: deployment.GetNamespace(),
@@ -114,7 +114,7 @@ var _ = Describe("ReloaderReports processing", func() {
 
 		Byf("Verifying ReloaderReport is removed from managed cluster")
 		Eventually(func() bool {
-			currentReloaderReport := &libsveltosv1alpha1.ReloaderReport{}
+			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 			err = workloadClient.Get(context.TODO(),
 				types.NamespacedName{Namespace: reloaderReport.Namespace, Name: reloaderReport.Name},
 				currentReloaderReport)
