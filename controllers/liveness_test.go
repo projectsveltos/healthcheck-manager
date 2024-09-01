@@ -315,7 +315,7 @@ func createSecretWithKubeconfig(clusterNamespace, clusterName string) {
 			Name:      clusterName + sveltosKubeconfigPostfix,
 		},
 		Data: map[string][]byte{
-			"data": testEnv.Kubeconfig,
+			"value": testEnv.Kubeconfig,
 		},
 	}
 
