@@ -64,7 +64,8 @@ var _ = Describe("ReloaderReport Collection", func() {
 		Expect(waitForObject(context.TODO(), testEnv.Client, reloaderReport)).To(Succeed())
 
 		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(), testEnv.Client,
-			getClusterRef(cluster), textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
+			getClusterRef(cluster), version,
+			textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
 
 		By("Verify ReloaderReport is created in the management cluster")
 		// ReloaderReport is fetched from managed cluster (testEnv, projectsveltos namespace)
@@ -94,7 +95,8 @@ var _ = Describe("ReloaderReport Collection", func() {
 		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
 
 		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(), testEnv.Client,
-			getClusterRef(cluster), textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
+			getClusterRef(cluster), version,
+			textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
 
 		validateReloaderReports(cluster, reloaderReport.Spec.ResourcesToReload)
 
