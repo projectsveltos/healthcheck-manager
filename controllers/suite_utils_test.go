@@ -55,6 +55,7 @@ var (
 
 const (
 	sveltosKubeconfigPostfix = "-kubeconfig"
+	version                  = "v0.31.0"
 )
 
 func randomString() string {
@@ -246,6 +247,22 @@ func prepareCluster() *clusterv1.Cluster {
 	}
 	Expect(testEnv.Client.Create(context.TODO(), secret)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv.Client, secret)).To(Succeed())
+
+	By("Create the ConfigMap with sveltos-agent version")
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: controllers.ReportNamespace,
+			Name:      "sveltos-agent-version",
+		},
+		Data: map[string]string{
+			"sveltos-agent-version": version,
+		},
+	}
+	err := testEnv.Client.Create(context.TODO(), cm)
+	if err != nil {
+		Expect(apierrors.IsAlreadyExists(err)).To(BeTrue())
+	}
+	Expect(waitForObject(context.TODO(), testEnv.Client, cm)).To(Succeed())
 
 	Expect(addTypeInformationToObject(scheme, cluster)).To(Succeed())
 

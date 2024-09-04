@@ -32,6 +32,7 @@ import (
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+	"github.com/projectsveltos/libsveltos/lib/sveltos_upgrade"
 )
 
 const (
@@ -97,7 +98,7 @@ func removeHealthCheckReportsFromCluster(ctx context.Context, c client.Client, c
 }
 
 // Periodically collects HealthCheckReports from each managed cluster.
-func collectHealthCheckReports(c client.Client, shardKey string, logger logr.Logger) {
+func collectHealthCheckReports(c client.Client, shardKey, version string, logger logr.Logger) {
 	interval := 10 * time.Second
 	if shardKey != "" {
 		// This controller will only fetch ClassifierReport instances
@@ -115,7 +116,7 @@ func collectHealthCheckReports(c client.Client, shardKey string, logger logr.Log
 
 		for i := range clusterList {
 			cluster := &clusterList[i]
-			err = collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, logger)
+			err = collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, version, logger)
 			if err != nil {
 				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect HealthCheckReports from cluster: %s %s/%s %v",
 					cluster.Kind, cluster.Namespace, cluster.Name, err))
@@ -127,7 +128,7 @@ func collectHealthCheckReports(c client.Client, shardKey string, logger logr.Log
 }
 
 func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c client.Client,
-	cluster *corev1.ObjectReference, logger logr.Logger) error {
+	cluster *corev1.ObjectReference, version string, logger logr.Logger) error {
 
 	logger = logger.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 	clusterRef := &corev1.ObjectReference{
@@ -151,6 +152,11 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		"", "", clusterproxy.GetClusterType(clusterRef), logger)
 	if err != nil {
 		return err
+	}
+
+	if !sveltos_upgrade.IsVersionCompatible(ctx, remoteClient, version) {
+		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
+		return errors.New(compatibilityErrorMsg)
 	}
 
 	logger.V(logs.LogDebug).Info("collecting HealthCheckReports from cluster")
