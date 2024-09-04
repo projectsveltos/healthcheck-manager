@@ -86,7 +86,7 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 		return err
 	}
 
-	if !sveltos_upgrade.IsVersionCompatible(ctx, remoteClient, version) {
+	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, remoteClient, version) {
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
 		return errors.New(compatibilityErrorMsg)
 	}
