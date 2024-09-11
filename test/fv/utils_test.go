@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
-	"github.com/projectsveltos/addon-controller/controllers"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
@@ -89,9 +88,9 @@ func getClusterSummary(ctx context.Context,
 	listOptions := []client.ListOption{
 		client.InNamespace(clusterNamespace),
 		client.MatchingLabels{
-			controllers.ClusterProfileLabelName: clusterProfileName,
-			configv1beta1.ClusterNameLabel:      clusterName,
-			configv1beta1.ClusterTypeLabel:      string(libsveltosv1beta1.ClusterTypeCapi),
+			"projectsveltos.io/cluster-profile-name": clusterProfileName,
+			configv1beta1.ClusterNameLabel:           clusterName,
+			configv1beta1.ClusterTypeLabel:           string(libsveltosv1beta1.ClusterTypeCapi),
 		},
 	}
 
@@ -377,7 +376,7 @@ func deleteClusterHealthCheck(clusterHealthCheckName string) {
 func deleteClusterProfile(clusterProfile *configv1beta1.ClusterProfile) {
 	listOptions := []client.ListOption{
 		client.MatchingLabels{
-			controllers.ClusterProfileLabelName: clusterProfile.Name,
+			"projectsveltos.io/cluster-profile-name": clusterProfile.Name,
 		},
 	}
 	clusterSummaryList := &configv1beta1.ClusterSummaryList{}
