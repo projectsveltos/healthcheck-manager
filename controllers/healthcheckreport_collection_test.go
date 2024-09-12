@@ -125,7 +125,7 @@ var _ = Describe("HealthCheck Deployer", func() {
 		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
 
 		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
-			testEnv.Client, getClusterRef(cluster), logger)).To(Succeed())
+			testEnv.Client, getClusterRef(cluster), version, logger)).To(Succeed())
 
 		clusterType := libsveltosv1beta1.ClusterTypeCapi
 
@@ -133,7 +133,7 @@ var _ = Describe("HealthCheck Deployer", func() {
 
 		// Update HealthCheckReports and validate again
 		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
-			testEnv.Client, getClusterRef(cluster), logger)).To(Succeed())
+			testEnv.Client, getClusterRef(cluster), version, logger)).To(Succeed())
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 	})

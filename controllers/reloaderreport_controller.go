@@ -46,6 +46,8 @@ type ReloaderReportReconciler struct {
 	client.Client
 	Scheme             *runtime.Scheme
 	ReloaderReportMode ReportMode
+	ShardKey           string // when set, only clusters matching the ShardKey will be reconciled
+	Version            string
 }
 
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=reloaderreports,verbs=create;get;list;watch;update;patch;delete
@@ -90,7 +92,7 @@ func (r *ReloaderReportReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 // SetupWithManager sets up the controller with the Manager.
 func (r *ReloaderReportReconciler) SetupWithManager(mgr ctrl.Manager, collectionInterval int) error {
 	if r.ReloaderReportMode == CollectFromManagementCluster {
-		go collectReloaderReports(mgr.GetClient(), collectionInterval, mgr.GetLogger())
+		go collectReloaderReports(mgr.GetClient(), collectionInterval, r.ShardKey, r.Version, mgr.GetLogger())
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

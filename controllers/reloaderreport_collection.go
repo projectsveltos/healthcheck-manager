@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -30,23 +31,24 @@ import (
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+	"github.com/projectsveltos/libsveltos/lib/sveltos_upgrade"
 )
 
 // Periodically collects ReloaderReports from each managed cluster.
-func collectReloaderReports(c client.Client, collectionInterval int, logger logr.Logger) {
+func collectReloaderReports(c client.Client, collectionInterval int, shardKey, version string, logger logr.Logger) {
 	logger.V(logs.LogInfo).Info(fmt.Sprintf("collection time is set to %d seconds", collectionInterval))
 
 	ctx := context.TODO()
 	for {
 		logger.V(logs.LogDebug).Info("collecting ReloaderReports")
-		clusterList, err := clusterproxy.GetListOfClusters(ctx, c, "", logger)
+		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, "", shardKey, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
 		}
 
 		for i := range clusterList {
 			cluster := &clusterList[i]
-			err = collectAndProcessReloaderReportsFromCluster(ctx, c, cluster, logger)
+			err = collectAndProcessReloaderReportsFromCluster(ctx, c, cluster, version, logger)
 			if err != nil {
 				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect ReloaderReports from cluster: %s %s/%s %v",
 					cluster.Kind, cluster.Namespace, cluster.Name, err))
@@ -58,7 +60,7 @@ func collectReloaderReports(c client.Client, collectionInterval int, logger logr
 }
 
 func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.Client,
-	cluster *corev1.ObjectReference, logger logr.Logger) error {
+	cluster *corev1.ObjectReference, version string, logger logr.Logger) error {
 
 	logger = logger.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 	clusterRef := &corev1.ObjectReference{
@@ -82,6 +84,11 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 		"", "", clusterproxy.GetClusterType(clusterRef), logger)
 	if err != nil {
 		return err
+	}
+
+	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, remoteClient, version) {
+		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
+		return errors.New(compatibilityErrorMsg)
 	}
 
 	logger.V(logs.LogDebug).Info("collecting ReloaderReports from cluster")

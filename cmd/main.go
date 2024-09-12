@@ -62,6 +62,7 @@ import (
 var (
 	setupLog                     = ctrl.Log.WithName("setup")
 	shardKey                     string
+	version                      string
 	diagnosticsAddress           string
 	insecureDiagnostics          bool
 	workers                      int
@@ -148,12 +149,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterHealthCheck")
 		os.Exit(1)
 	}
-	if err = (&controllers.HealthCheckReconciler{
-		Client:                mgr.GetClient(),
-		Scheme:                mgr.GetScheme(),
-		HealthCheckReportMode: reportMode,
-		ShardKey:              shardKey,
-	}).SetupWithManager(mgr); err != nil {
+	if err = (getHealthCheckReconciler(mgr)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HealthCheck")
 		os.Exit(1)
 	}
@@ -165,11 +161,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SveltosCluster")
 		os.Exit(1)
 	}
-	if err = (&controllers.ReloaderReportReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		ReloaderReportMode: reportMode,
-	}).SetupWithManager(mgr, reloaderReportCollectionTime); err != nil {
+	if err = (getReloaderReportReconciler(mgr)).SetupWithManager(mgr, reloaderReportCollectionTime); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ReloaderReport")
 		os.Exit(1)
 	}
@@ -205,6 +197,8 @@ func initFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&shardKey, "shard-key", "",
 		"If set, and report-mode is set to collect, this deployment will fetch only from clusters matching this shard")
+
+	fs.StringVar(&version, "version", "", "current sveltos version")
 
 	fs.IntVar(&workers, "worker-number", defaultWorkers,
 		"Number of worker. Workers are used to verify health checks in managed clusters")
@@ -340,5 +334,25 @@ func getDiagnosticsOptions() metricsserver.Options {
 		BindAddress:    diagnosticsAddress,
 		SecureServing:  true,
 		FilterProvider: filters.WithAuthenticationAndAuthorization,
+	}
+}
+
+func getHealthCheckReconciler(mgr manager.Manager) *controllers.HealthCheckReconciler {
+	return &controllers.HealthCheckReconciler{
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		HealthCheckReportMode: reportMode,
+		ShardKey:              shardKey,
+		Version:               version,
+	}
+}
+
+func getReloaderReportReconciler(mgr manager.Manager) *controllers.ReloaderReportReconciler {
+	return &controllers.ReloaderReportReconciler{
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		ReloaderReportMode: reportMode,
+		ShardKey:           shardKey,
+		Version:            version,
 	}
 }
