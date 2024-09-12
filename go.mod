@@ -12,8 +12,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v0.38.1
-	github.com/projectsveltos/libsveltos v0.38.1
+	github.com/projectsveltos/addon-controller v0.38.1-0.20240912091211-9789955dec68
+	github.com/projectsveltos/libsveltos v0.38.1-0.20240911140937-72f68c9b58ea
 	github.com/prometheus/client_golang v1.20.3
 	github.com/slack-go/slack v0.14.0
 	github.com/spf13/pflag v1.0.5
