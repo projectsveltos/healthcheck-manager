@@ -8,7 +8,7 @@ require (
 	golang.org/x/oauth2 v0.24.0
 	k8s.io/client-go v0.31.2
 	sigs.k8s.io/controller-tools v0.16.5
-	sigs.k8s.io/kind v0.24.0
+	sigs.k8s.io/kind v0.25.0
 )
 
 require (
