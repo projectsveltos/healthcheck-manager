@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -74,6 +75,9 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 		err = sendDiscordNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1beta1.NotificationTypeTeams:
 		err = sendTeamsNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
+	case libsveltosv1beta1.NotificationTypeSMTP:
+		// TODO: add SMTP support
+		err = errors.New("not supported yet")
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
