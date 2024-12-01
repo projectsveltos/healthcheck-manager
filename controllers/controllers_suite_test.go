@@ -35,7 +35,7 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/internal/test/helpers"
 	libsveltoscrd "github.com/projectsveltos/libsveltos/lib/crd"
-	"github.com/projectsveltos/libsveltos/lib/utils"
+	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 )
 
 var (
@@ -81,37 +81,37 @@ var _ = BeforeSuite(func() {
 	}()
 
 	var sveltosCRD *unstructured.Unstructured
-	sveltosCRD, err = utils.GetUnstructured(libsveltoscrd.GetSveltosClusterCRDYAML())
+	sveltosCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetSveltosClusterCRDYAML())
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), sveltosCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, sveltosCRD)).To(Succeed())
 
 	var clusterHealthCheckCRD *unstructured.Unstructured
-	clusterHealthCheckCRD, err = utils.GetUnstructured(libsveltoscrd.GetClusterHealthCheckCRDYAML())
+	clusterHealthCheckCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetClusterHealthCheckCRDYAML())
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), clusterHealthCheckCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, clusterHealthCheckCRD)).To(Succeed())
 
 	var healthCheckCRD *unstructured.Unstructured
-	healthCheckCRD, err = utils.GetUnstructured(libsveltoscrd.GetHealthCheckCRDYAML())
+	healthCheckCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetHealthCheckCRDYAML())
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), healthCheckCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, healthCheckCRD)).To(Succeed())
 
 	var healthCheckReportCRD *unstructured.Unstructured
-	healthCheckReportCRD, err = utils.GetUnstructured(libsveltoscrd.GetHealthCheckReportCRDYAML())
+	healthCheckReportCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetHealthCheckReportCRDYAML())
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), healthCheckReportCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, healthCheckReportCRD)).To(Succeed())
 
 	var reloaderReportCRD *unstructured.Unstructured
-	reloaderReportCRD, err = utils.GetUnstructured(libsveltoscrd.GetReloaderReportCRDYAML())
+	reloaderReportCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetReloaderReportCRDYAML())
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), reloaderReportCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, reloaderReportCRD)).To(Succeed())
 
 	var dcCRD *unstructured.Unstructured
-	dcCRD, err = utils.GetUnstructured(libsveltoscrd.GetDebuggingConfigurationCRDYAML())
+	dcCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetDebuggingConfigurationCRDYAML())
 	Expect(err).To(BeNil())
 	Expect(testEnv.Create(context.TODO(), dcCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, dcCRD)).To(Succeed())

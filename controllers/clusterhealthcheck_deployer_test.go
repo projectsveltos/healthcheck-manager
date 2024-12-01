@@ -39,8 +39,8 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	"github.com/projectsveltos/libsveltos/lib/deployer"
 	fakedeployer "github.com/projectsveltos/libsveltos/lib/deployer/fake"
+	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
@@ -561,7 +561,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		// Add ClusterHealthCheck as owner of healthCheck. This indicates previously healthCheck was
 		// deployed because of this ClusterHealthCheck instance
-		deployer.AddOwnerReference(healthCheck, chc)
+		k8s_utils.AddOwnerReference(healthCheck, chc)
 		Expect(testEnv.Client.Update(context.TODO(), healthCheck)).To(Succeed())
 
 		createSecretWithKubeconfig(clusterNamespace, clusterName)
