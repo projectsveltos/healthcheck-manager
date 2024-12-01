@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	libsveltosutils "github.com/projectsveltos/libsveltos/lib/utils"
+	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 )
 
 var (
@@ -84,7 +84,7 @@ var _ = Describe("ReloaderReports processing", func() {
 		Expect(workloadClient.Create(context.TODO(), ns)).To(Succeed())
 
 		Byf("Create a deployment in namespace %s", nsName)
-		deployment, err := libsveltosutils.GetUnstructured([]byte(fmt.Sprintf(deploymentToReload, ns.Name)))
+		deployment, err := k8s_utils.GetUnstructured([]byte(fmt.Sprintf(deploymentToReload, ns.Name)))
 		Expect(err).To(BeNil())
 		Expect(workloadClient.Create(context.TODO(), deployment)).To(BeNil())
 
