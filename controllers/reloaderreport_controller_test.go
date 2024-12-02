@@ -33,7 +33,7 @@ import (
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	"github.com/projectsveltos/libsveltos/lib/utils"
+	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 )
 
 var (
@@ -149,7 +149,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 	})
 
 	It("fetchAndPrepareDeployment fetches deployment and updates its containers' envs", func() {
-		obj, err := utils.GetUnstructured([]byte(depl))
+		obj, err := k8s_utils.GetUnstructured([]byte(depl))
 		Expect(err).To(BeNil())
 		initObjects := []client.Object{
 			obj,
@@ -183,7 +183,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 	})
 
 	It("fetchAndPrepareStatefulSet fetches statefulSet and updates its containers' envs", func() {
-		obj, err := utils.GetUnstructured([]byte(statefulSet))
+		obj, err := k8s_utils.GetUnstructured([]byte(statefulSet))
 		Expect(err).To(BeNil())
 		initObjects := []client.Object{
 			obj,
@@ -208,7 +208,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 	})
 
 	It("fetchAndPrepareDaemonSet fetches daemonSet and updates its containers' envs", func() {
-		obj, err := utils.GetUnstructured([]byte(daemonSet))
+		obj, err := k8s_utils.GetUnstructured([]byte(daemonSet))
 		Expect(err).To(BeNil())
 		initObjects := []client.Object{
 			obj,
@@ -261,7 +261,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 	})
 
 	It("triggerRollingUpgrade updates Deployment containers' env", func() {
-		obj, err := utils.GetUnstructured([]byte(depl))
+		obj, err := k8s_utils.GetUnstructured([]byte(depl))
 		Expect(err).To(BeNil())
 		initObjects := []client.Object{
 			obj,

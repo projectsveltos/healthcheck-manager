@@ -39,6 +39,7 @@ import (
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
+	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 	"github.com/projectsveltos/libsveltos/lib/sharding"
@@ -867,7 +868,7 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 			continue
 		}
 
-		deployer.RemoveOwnerReference(hc, chc)
+		k8s_utils.RemoveOwnerReference(hc, chc)
 
 		if len(hc.GetOwnerReferences()) != 0 {
 			// Other ClusterHealthChecks are still deploying this very same policy
@@ -977,7 +978,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 		currentHealthCheck.Annotations = map[string]string{
 			libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
 		}
-		deployer.AddOwnerReference(currentHealthCheck, chc)
+		k8s_utils.AddOwnerReference(currentHealthCheck, chc)
 		return remoteClient.Update(ctx, currentHealthCheck)
 	}
 
@@ -989,7 +990,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client, 
 	currentHealthCheck.Annotations = map[string]string{
 		libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
 	}
-	deployer.AddOwnerReference(currentHealthCheck, chc)
+	k8s_utils.AddOwnerReference(currentHealthCheck, chc)
 
 	logger.V(logs.LogDebug).Info("creating healthCheck")
 	return remoteClient.Create(ctx, currentHealthCheck)
