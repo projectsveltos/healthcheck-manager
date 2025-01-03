@@ -20,12 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
 	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
 	"github.com/bwmarrin/discordgo"
 	"github.com/go-logr/logr"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	webexteams "github.com/jbogarin/go-cisco-webex-teams/sdk"
 	"github.com/slack-go/slack"
 	corev1 "k8s.io/api/core/v1"
@@ -55,6 +57,11 @@ type teamsInfo struct {
 	webhookUrl string
 }
 
+type telegramInfo struct {
+	token  string
+	chatID int64
+}
+
 // sendNotification delivers notification
 func sendNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
 	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
@@ -75,6 +82,8 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 		err = sendDiscordNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1beta1.NotificationTypeTeams:
 		err = sendTeamsNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
+	case libsveltosv1beta1.NotificationTypeTelegram:
+		err = sendTelegramNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1beta1.NotificationTypeSMTP:
 		// TODO: add SMTP support
 		err = errors.New("not supported yet")
@@ -245,6 +254,34 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 	return err
 }
 
+func sendTelegramNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
+	logger logr.Logger) error {
+
+	info, err := getTelegramInfo(ctx, c, n)
+	if err != nil {
+		return err
+	}
+
+	l := logger.WithValues("chatid", info.chatID)
+	l.V(logs.LogInfo).Info("send telegram message")
+
+	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	bot, err := tgbotapi.NewBotAPI(info.token)
+	if err != nil {
+		l.V(logs.LogInfo).Info(fmt.Sprintf("failed to get telegram bot: %v", err))
+		return err
+	}
+
+	l.V(logs.LogDebug).Info("sending message to channel")
+
+	msg := tgbotapi.NewMessage(info.chatID, message)
+	_, err = bot.Send(msg)
+
+	return err
+}
+
 func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
 	conditions []libsveltosv1beta1.Condition, logger logr.Logger) (string, bool) {
 
@@ -409,4 +446,29 @@ func getTeamsInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.Not
 	}
 
 	return &teamsInfo{webhookUrl: string(webhookUrl)}, nil
+}
+
+func getTelegramInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.Notification) (*telegramInfo, error) {
+	secret, err := getSecret(ctx, c, n)
+	if err != nil {
+		return nil, err
+	}
+
+	authToken, ok := secret.Data[libsveltosv1beta1.TelegramToken]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain telegram token")
+	}
+
+	chatIDData, ok := secret.Data[libsveltosv1beta1.TelegramChatID]
+	if !ok {
+		return nil, fmt.Errorf("secret does not contain telegram chatID")
+	}
+
+	str := string(chatIDData)
+	chatID, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chatID")
+	}
+
+	return &telegramInfo{token: string(authToken), chatID: chatID}, nil
 }
