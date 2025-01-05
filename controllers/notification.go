@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -36,6 +35,7 @@ import (
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+	sveltosnotifications "github.com/projectsveltos/libsveltos/lib/notifications"
 )
 
 type slackInfo struct {
@@ -85,8 +85,7 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	case libsveltosv1beta1.NotificationTypeTelegram:
 		err = sendTelegramNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	case libsveltosv1beta1.NotificationTypeSMTP:
-		// TODO: add SMTP support
-		err = errors.New("not supported yet")
+		err = sendSMTPNotification(ctx, c, clusterNamespace, clusterName, clusterType, n, conditions, logger)
 	default:
 		logger.V(logs.LogInfo).Info("no handler registered for notification")
 		panic(1)
@@ -280,6 +279,23 @@ func sendTelegramNotification(ctx context.Context, c client.Client, clusterNames
 	_, err = bot.Send(msg)
 
 	return err
+}
+
+func sendSMTPNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
+	logger logr.Logger) error {
+
+	mailer, err := sveltosnotifications.NewMailer(ctx, c, n)
+	if err != nil {
+		return err
+	}
+
+	l := logger.WithValues("notification", n.Name)
+	l.V(logs.LogInfo).Info("send smtp message")
+
+	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	return mailer.SendMail("Sveltos Notification", message, false, nil)
 }
 
 func getNotificationMessage(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
