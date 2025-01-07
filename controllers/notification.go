@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -128,7 +130,13 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 	l := logger.WithValues("channel", info.channelID)
 	l.V(logs.LogInfo).Info("send slack message")
 
-	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	msgSlack, err := composeSlackMessage(message, passing)
+	if err != nil {
+		l.V(logs.LogInfo).Info("failed to format slack message: %v", err)
+		return err
+	}
 
 	api := slack.New(info.token)
 	if api == nil {
@@ -137,7 +145,8 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 
 	l.V(logs.LogDebug).Info(fmt.Sprintf("Sending message to channel %s", info.channelID))
 
-	_, _, err = api.PostMessage(info.channelID, slack.MsgOptionText(message, false))
+	_, _, err = api.PostMessage(info.channelID, slack.MsgOptionText("ProjectSveltos Updates", false),
+		slack.MsgOptionAttachments(msgSlack))
 	if err != nil {
 		l.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
 		return err
@@ -155,7 +164,13 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 		return err
 	}
 
-	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	formattedMessage, err := composeWebexMessage(message, passing, logger)
+	if err != nil {
+		logger.V(logs.LogInfo).Info("failed to format webex message: %v", err)
+		return err
+	}
 
 	webexClient := webexteams.NewClient()
 	if webexClient == nil {
@@ -172,6 +187,10 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 	webexMessage := &webexteams.MessageCreateRequest{
 		RoomID:   info.room,
 		Markdown: message,
+		Attachments: []webexteams.Attachment{{
+			ContentType: webexContentType,
+			Content:     formattedMessage,
+		}},
 	}
 
 	_, resp, err := webexClient.Messages.CreateMessage(webexMessage)
@@ -199,7 +218,14 @@ func sendDiscordNotification(ctx context.Context, c client.Client, clusterNamesp
 	l := logger.WithValues("channel", info.channelID)
 	l.V(logs.LogInfo).Info("send discord message")
 
-	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	// Format Message
+	discordReply, err := composeDiscordMessage(message, passing)
+	if err != nil {
+		l.V(logs.LogInfo).Info("failed to format discord message: %v", err)
+		return err
+	}
 
 	// Create a new Discord session using the provided token
 	dg, err := discordgo.New("Bot " + info.token)
@@ -208,9 +234,10 @@ func sendDiscordNotification(ctx context.Context, c client.Client, clusterNamesp
 		return err
 	}
 
-	// Create a new message with both a text content and the file attachment
+	// Send message with formatted message in embeds
 	_, err = dg.ChannelMessageSendComplex(info.channelID, &discordgo.MessageSend{
-		Content: message,
+		Content: "ProjectSveltos Updates",
+		Embeds:  discordReply,
 	})
 
 	return err
@@ -228,7 +255,28 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 	l := logger.WithValues("webhookUrl", info.webhookUrl)
 	l.V(logs.LogInfo).Info("send teams message")
 
-	message, _ := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+	message, passing := getNotificationMessage(clusterNamespace, clusterName, clusterType, conditions, logger)
+
+	// Format message using adaptive cards
+	card, err := composeTeamsMessage(message, passing, logger)
+	if err != nil {
+		l.V(logs.LogInfo).Info("failed to format teams message: %v", err)
+		return err
+	}
+
+	// Create message and attach card
+	teamsMessage := &adaptivecard.Message{Type: adaptivecard.TypeMessage}
+	if err := teamsMessage.Attach(card); err != nil {
+		l.V(logs.LogInfo).Info("failed to add teams card: %v", err)
+		return err
+	}
+
+	// Prepare message
+	if err := teamsMessage.Prepare(); err != nil {
+		l.V(logs.LogInfo).Info("failed to prepare teams message payload: %v", err)
+		return err
+	}
+
 	teamsClient := goteamsnotify.NewTeamsClient()
 
 	// Validate Teams Webhook expected format
@@ -237,14 +285,7 @@ func sendTeamsNotification(ctx context.Context, c client.Client, clusterNamespac
 		return err
 	}
 
-	// Create adaptive card with the clusterName as the title of the message
-	teamsMessage, err := adaptivecard.NewSimpleMessage(message, clusterName, true)
-	if err != nil {
-		l.V(logs.LogInfo).Info("failed to create Teams message: %v", err)
-		return err
-	}
-
-	// Send the meesage with the user provided webhook URL
+	// Send the message with the user provided webhook URL
 	if teamsClient.Send(info.webhookUrl, teamsMessage) != nil {
 		l.V(logs.LogInfo).Info("failed to send Teams message: %v", err)
 		return err
@@ -302,18 +343,18 @@ func getNotificationMessage(clusterNamespace, clusterName string, clusterType li
 	conditions []libsveltosv1beta1.Condition, logger logr.Logger) (string, bool) {
 
 	passing := true
-	message := fmt.Sprintf("cluster %s:%s/%s  \n", clusterType, clusterNamespace, clusterName)
+	message := fmt.Sprintf("Cluster %s:%s/%s  \n", clusterType, clusterNamespace, clusterName)
 	for i := range conditions {
 		c := &conditions[i]
 		if c.Status != corev1.ConditionTrue {
 			passing = false
-			message += fmt.Sprintf("liveness check %q failing  \n", c.Type)
+			message += fmt.Sprintf("Liveness check %q failing  \n", c.Type)
 			message += fmt.Sprintf("%s  \n", c.Message)
 		}
 	}
 
 	if passing {
-		message += "all liveness checks are passing"
+		message += "All liveness checks are passing"
 		logger.V(logs.LogDebug).Info("all liveness checks are passing")
 	} else {
 		logger.V(logs.LogDebug).Info("some of the liveness checks are not passing")
@@ -487,4 +528,173 @@ func getTelegramInfo(ctx context.Context, c client.Client, n *libsveltosv1beta1.
 	}
 
 	return &telegramInfo{token: string(authToken), chatID: chatID}, nil
+}
+
+func composeDiscordMessage(message string, passing bool) ([]*discordgo.MessageEmbed, error) {
+	lines := strings.Split(message, "\n")
+	if len(lines) == 0 {
+		embed := []*discordgo.MessageEmbed{{
+			Type:  discordgo.EmbedTypeRich,
+			Title: "no message",
+		}}
+		return embed, fmt.Errorf("empty message")
+	}
+
+	description := "Failing some checks."
+	color := discordRed
+	if passing {
+		description = "Passing!"
+		color = discordGreen
+	}
+
+	content := []*discordgo.MessageEmbedField{}
+	title := lines[0]
+	name := ""
+	val := ""
+	empty := true
+
+	fail_reg := regexp.MustCompile(failedTestRegexp)
+
+	for _, line := range lines[1:] {
+		if fail_reg.MatchString(line) {
+			if name != "" {
+				content = append(content, &discordgo.MessageEmbedField{Name: name, Value: val})
+				empty = true
+			}
+			name = line
+		} else if empty {
+			val = line
+			empty = false
+		} else {
+			val += "\n" + line
+		}
+	}
+	content = append(content, &discordgo.MessageEmbedField{Name: name, Value: val})
+
+	embed := []*discordgo.MessageEmbed{{
+		Type:        discordgo.EmbedTypeRich,
+		Title:       title,
+		Description: description,
+		Color:       color,
+		Fields:      content,
+	}}
+	return embed, nil
+}
+
+func composeTeamsMessage(message string, passing bool, logger logr.Logger) (adaptivecard.Card, error) {
+	card := adaptivecard.NewCard()
+
+	lines := strings.Split(message, "\n")
+	if len(lines) == 0 {
+		return card, fmt.Errorf("empty message")
+	}
+
+	titleBlock := adaptivecard.NewTextBlock(lines[0], true)
+	titleBlock.Weight = adaptivecard.WeightBolder
+	titleBlock.Size = adaptivecard.SizeLarge
+
+	// Adding title to card
+	if err := card.AddElement(false, titleBlock); err != nil {
+		logger.V(logs.LogDebug).Info("error adding card")
+	}
+
+	if passing {
+		titleBlock.Text = "Passing! \n"
+		titleBlock.Color = adaptivecard.ColorGood
+	} else {
+		titleBlock.Text = "Failing some checks. \n"
+		titleBlock.Color = adaptivecard.ColorAttention
+	}
+
+	// Adding msg summary -- all tests passing or some failing
+	if err := card.AddElement(false, titleBlock); err != nil {
+		logger.V(logs.LogDebug).Info("error adding card")
+	}
+
+	// Adding remaining msg to card
+	fail_regex := regexp.MustCompile(failedTestRegexp)
+
+	for _, line := range lines[1:] {
+		textblock := adaptivecard.NewTextBlock(line, true)
+
+		if fail_regex.MatchString(line) {
+			textblock.Color = adaptivecard.ColorAttention
+			textblock.Separator = true
+		} else {
+			textblock.Separator = false
+			textblock.Color = adaptivecard.ColorDefault
+		}
+
+		if err := card.AddElement(false, textblock); err != nil {
+			logger.V(logs.LogDebug).Info("error adding card")
+		}
+	}
+	return card, nil
+}
+
+func composeWebexMessage(message string, passing bool, logger logr.Logger) (map[string]interface{}, error) {
+	cardData := map[string]interface{}{}
+
+	// using addaptivecard from teams formatting
+	card, err := composeTeamsMessage(message, passing, logger)
+	if err != nil {
+		return cardData, err
+	}
+
+	// fixing version/schema for webex compatibility
+	card.Version = webexAdaptiveCardVersion
+	card.Schema = webexAdaptiveCardSchema
+
+	// convert adaptiveCard to map[string]interface{}
+	jsonBytes, err := json.MarshalIndent(card, "", "  ")
+	if err != nil {
+		logger.V(logs.LogDebug).Info("Error Marshaling Card")
+		return cardData, err
+	}
+
+	err = json.Unmarshal(jsonBytes, &cardData)
+	if err != nil {
+		logger.V(logs.LogDebug).Info("Error Unmarshaling Card")
+		return cardData, err
+	}
+
+	// Remove added field for teams adaptive card : not required for webex
+	delete(cardData, webexCardFieldMSTeams)
+
+	return cardData, nil
+}
+
+func composeSlackMessage(message string, passing bool) (slack.Attachment, error) {
+	attachment := slack.Attachment{
+		MarkdownIn: []string{"text"},
+	}
+
+	lines := strings.Split(message, "\n")
+	if len(lines) == 0 {
+		return attachment, fmt.Errorf("empty message")
+	}
+
+	// adding color to summarize msg
+	color := slackRed
+	if passing {
+		color = slackGreen
+	}
+	attachment.Color = color
+
+	// adding title
+	attachment.Title = lines[0]
+
+	// adding the remaining msg
+	markdownText := strings.Builder{}
+	fail_reg := regexp.MustCompile(failedTestRegexp)
+
+	for _, line := range lines[1:] {
+		if fail_reg.MatchString(line) {
+			markdownText.WriteString("*" + line + "*\n")
+		} else {
+			markdownText.WriteString(line + "\n")
+		}
+	}
+	attachment.Text = markdownText.String()
+	return attachment, nil
 }
