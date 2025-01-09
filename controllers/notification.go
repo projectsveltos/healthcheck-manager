@@ -326,7 +326,11 @@ func sendSMTPNotification(ctx context.Context, c client.Client, clusterNamespace
 	clusterType libsveltosv1beta1.ClusterType, n *libsveltosv1beta1.Notification, conditions []libsveltosv1beta1.Condition,
 	logger logr.Logger) error {
 
-	mailer, err := sveltosnotifications.NewMailer(ctx, c, n)
+	if n.NotificationRef == nil {
+		return fmt.Errorf("notificationRef is not set")
+	}
+
+	mailer, err := sveltosnotifications.NewMailer(ctx, c, n.NotificationRef)
 	if err != nil {
 		return err
 	}
