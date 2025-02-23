@@ -35,13 +35,15 @@ import (
 )
 
 // Periodically collects ReloaderReports from each managed cluster.
-func collectReloaderReports(c client.Client, collectionInterval int, shardKey, version string, logger logr.Logger) {
+func collectReloaderReports(c client.Client, collectionInterval int, shardKey, capiOnboardAnnotation, version string,
+	logger logr.Logger) {
+
 	logger.V(logs.LogInfo).Info(fmt.Sprintf("collection time is set to %d seconds", collectionInterval))
 
 	ctx := context.TODO()
 	for {
 		logger.V(logs.LogDebug).Info("collecting ReloaderReports")
-		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, "", shardKey, logger)
+		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, "", capiOnboardAnnotation, shardKey, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
 		}

@@ -74,12 +74,12 @@ const (
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
 type ClusterHealthCheckReconciler struct {
 	client.Client
-	Scheme               *runtime.Scheme
-	ConcurrentReconciles int
-	Deployer             deployer.DeployerInterface
-	ShardKey             string // when set, only clusters matching the ShardKey will be reconciled
-	// use a Mutex to update Map as MaxConcurrentReconciles is higher than one
-	Mux sync.Mutex
+	Scheme                *runtime.Scheme
+	ConcurrentReconciles  int
+	Deployer              deployer.DeployerInterface
+	ShardKey              string     // when set, only clusters matching the ShardKey will be reconciled
+	CapiOnboardAnnotation string     // when set, only capi clusters with this annotation are considered
+	Mux                   sync.Mutex // use a Mutex to update Map as MaxConcurrentReconciles is higher than one
 
 	// key: Sveltos/CAPI Cluster: value: set of all ClusterHealthCheck instances matching the Cluster
 	ClusterMap map[corev1.ObjectReference]*libsveltosset.Set
@@ -237,7 +237,8 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 		}
 	}
 
-	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, clusterHealthCheckScope.GetSelector(), "", clusterHealthCheckScope.Logger)
+	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, clusterHealthCheckScope.GetSelector(),
+		"", r.CapiOnboardAnnotation, clusterHealthCheckScope.Logger)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

@@ -75,6 +75,7 @@ var (
 	webhookPort                  int
 	syncPeriod                   time.Duration
 	healthAddr                   string
+	capiOnboardAnnotation        string
 )
 
 const (
@@ -198,6 +199,9 @@ func initFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&shardKey, "shard-key", "",
 		"If set, and report-mode is set to collect, this deployment will fetch only from clusters matching this shard")
 
+	fs.StringVar(&capiOnboardAnnotation, "capi-onboard-annotation", "",
+		"If provided, Sveltos will only manage CAPI clusters that have this exact annotation.")
+
 	fs.StringVar(&version, "version", "", "current sveltos version")
 
 	fs.IntVar(&workers, "worker-number", defaultWorkers,
@@ -302,17 +306,18 @@ func capiWatchers(ctx context.Context, mgr ctrl.Manager, clusterHealthCheckRecon
 
 func getClusterHealthCheckReconciler(mgr manager.Manager) *controllers.ClusterHealthCheckReconciler {
 	return &controllers.ClusterHealthCheckReconciler{
-		Client:               mgr.GetClient(),
-		Scheme:               mgr.GetScheme(),
-		ConcurrentReconciles: concurrentReconciles,
-		Mux:                  sync.Mutex{},
-		ShardKey:             shardKey,
-		ClusterMap:           make(map[corev1.ObjectReference]*libsveltosset.Set),
-		CHCToClusterMap:      make(map[types.NamespacedName]*libsveltosset.Set),
-		ClusterHealthChecks:  make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
-		ClusterLabels:        make(map[corev1.ObjectReference]map[string]string),
-		HealthCheckMap:       make(map[corev1.ObjectReference]*libsveltosset.Set),
-		CHCToHealthCheckMap:  make(map[types.NamespacedName]*libsveltosset.Set),
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		ConcurrentReconciles:  concurrentReconciles,
+		Mux:                   sync.Mutex{},
+		ShardKey:              shardKey,
+		CapiOnboardAnnotation: capiOnboardAnnotation,
+		ClusterMap:            make(map[corev1.ObjectReference]*libsveltosset.Set),
+		CHCToClusterMap:       make(map[types.NamespacedName]*libsveltosset.Set),
+		ClusterHealthChecks:   make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
+		ClusterLabels:         make(map[corev1.ObjectReference]map[string]string),
+		HealthCheckMap:        make(map[corev1.ObjectReference]*libsveltosset.Set),
+		CHCToHealthCheckMap:   make(map[types.NamespacedName]*libsveltosset.Set),
 	}
 }
 
@@ -343,16 +348,18 @@ func getHealthCheckReconciler(mgr manager.Manager) *controllers.HealthCheckRecon
 		Scheme:                mgr.GetScheme(),
 		HealthCheckReportMode: reportMode,
 		ShardKey:              shardKey,
+		CapiOnboardAnnotation: capiOnboardAnnotation,
 		Version:               version,
 	}
 }
 
 func getReloaderReportReconciler(mgr manager.Manager) *controllers.ReloaderReportReconciler {
 	return &controllers.ReloaderReportReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		ReloaderReportMode: reportMode,
-		ShardKey:           shardKey,
-		Version:            version,
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		ReloaderReportMode:    reportMode,
+		ShardKey:              shardKey,
+		CapiOnboardAnnotation: capiOnboardAnnotation,
+		Version:               version,
 	}
 }
