@@ -36,6 +36,7 @@ type HealthCheckReconciler struct {
 	Scheme                *runtime.Scheme
 	HealthCheckReportMode ReportMode
 	ShardKey              string // when set, only clusters matching the ShardKey will be reconciled
+	CapiOnboardAnnotation string // when set, only capi clusters with this annotation are considered
 	Version               string
 }
 
@@ -79,7 +80,7 @@ func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 // SetupWithManager sets up the controller with the Manager.
 func (r *HealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.HealthCheckReportMode == CollectFromManagementCluster {
-		go collectHealthCheckReports(mgr.GetClient(), r.ShardKey, r.Version, mgr.GetLogger())
+		go collectHealthCheckReports(mgr.GetClient(), r.ShardKey, r.CapiOnboardAnnotation, r.Version, mgr.GetLogger())
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
