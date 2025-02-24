@@ -312,12 +312,6 @@ deploy-projectsveltos: $(KUSTOMIZE) $(KUBECTL)
 	@echo "Waiting for projectsveltos hc-manager to be available..."
 	$(KUBECTL) wait --for=condition=Available deployment/hc-manager -n projectsveltos --timeout=$(TIMEOUT)
 
-	@echo "Install sveltos conversion webhook (use dev for conversion-webhook)"
-	$(KUBECTL) apply -f  https://raw.githubusercontent.com/projectsveltos/conversion-webhook/dev/manifest/manifest.yaml
-
-	@echo "Waiting for projectsveltos conversion webhook to be available..."
-	$(KUBECTL) wait --for=condition=Available deployment/conversion-webhook -n projectsveltos --timeout=$(TIMEOUT)
-
 set-manifest-image:
 	$(info Updating kustomize image patch file for manager resource)
 	sed -i'' -e 's@image: .*@image: '"docker.io/${MANIFEST_IMG}:$(MANIFEST_TAG)"'@' ./config/default/manager_image_patch.yaml
