@@ -43,6 +43,7 @@ import (
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+	predicates "github.com/projectsveltos/libsveltos/lib/predicates"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
@@ -273,7 +274,7 @@ func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (contr
 		Watches(&libsveltosv1beta1.SveltosCluster{},
 			handler.EnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForSveltosCluster),
 			builder.WithPredicates(
-				SveltosClusterPredicates(mgr.GetLogger().WithValues("predicate", "sveltosclusterpredicate")),
+				predicates.SveltosClusterPredicates(mgr.GetLogger().WithValues("predicate", "sveltosclusterpredicate")),
 			),
 		).
 		Watches(&configv1beta1.ClusterSummary{},
@@ -310,7 +311,7 @@ func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controll
 		mgr.GetCache(),
 		&clusterv1.Cluster{},
 		handler.TypedEnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForCluster),
-		ClusterPredicate{Logger: mgr.GetLogger().WithValues("predicate", "clusterpredicate")},
+		predicates.ClusterPredicate{Logger: mgr.GetLogger().WithValues("predicate", "clusterpredicate")},
 	)
 
 	// When cluster-api cluster changes, according to ClusterPredicates,
@@ -323,7 +324,7 @@ func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controll
 		mgr.GetCache(),
 		&clusterv1.Machine{},
 		handler.TypedEnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForMachine),
-		MachinePredicate{Logger: mgr.GetLogger().WithValues("predicate", "machinepredicate")},
+		predicates.MachinePredicate{Logger: mgr.GetLogger().WithValues("predicate", "machinepredicate")},
 	)
 
 	// When cluster-api machine changes, according to ClusterPredicates,
