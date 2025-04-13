@@ -26,6 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -86,20 +87,39 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		Expect(err).To(BeNil())
 		Expect(workloadClient).ToNot(BeNil())
 
-		By("Verifying HealthCheck is deployed in the manged cluster")
-		Eventually(func() error {
-			currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
-			return workloadClient.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name},
-				currentHealthCheck)
-		}, timeout, pollingInterval).Should(BeNil())
+		if isAgentLessMode() {
+			By("Verifying HealthCheck is NOT present in the manged cluster")
+			Eventually(func() bool {
+				currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
+				err = workloadClient.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name},
+					currentHealthCheck)
+				return err != nil && meta.IsNoMatchError(err) // CRD never installed
+			}, timeout, pollingInterval).Should(BeTrue())
 
-		By(fmt.Sprintf("Verifying healthCheckReport projectsveltos/%s exists", healthCheck.Name))
-		Eventually(func() error {
-			healthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
-			return workloadClient.Get(context.TODO(),
-				types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
-				healthCheckReport)
-		}, timeout, pollingInterval).Should(BeNil())
+			By("Verifying healthCheckReport NOT present in the managed cluster")
+			Eventually(func() bool {
+				healthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
+				err = workloadClient.Get(context.TODO(),
+					types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
+					healthCheckReport)
+				return err != nil && meta.IsNoMatchError(err) // CRD never installed
+			}, timeout, pollingInterval).Should(BeTrue())
+		} else {
+			By("Verifying HealthCheck is deployed in the manged cluster")
+			Eventually(func() error {
+				currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
+				return workloadClient.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name},
+					currentHealthCheck)
+			}, timeout, pollingInterval).Should(BeNil())
+
+			Byf("Verifying healthCheckReport projectsveltos/%s exists", healthCheck.Name)
+			Eventually(func() error {
+				healthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
+				return workloadClient.Get(context.TODO(),
+					types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
+					healthCheckReport)
+			}, timeout, pollingInterval).Should(BeNil())
+		}
 
 		By("Verifying healthCheckReport exists in the management cluster")
 		Eventually(func() bool {
@@ -121,26 +141,28 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		Byf("Deleting ClusterHealthCheck")
 		deleteClusterHealthCheck(clusterHealthCheck.Name)
 
-		Byf("Verifying healthCheckReport is removed (or mark as processed) from managed cluster")
-		Eventually(func() bool {
-			currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
-			err = workloadClient.Get(context.TODO(),
-				types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
-				currentHealthCheckReport)
-			if err != nil {
-				return apierrors.IsNotFound(err)
-			} else {
-				return currentHealthCheckReport.Status.Phase != nil &&
-					*currentHealthCheckReport.Status.Phase == libsveltosv1beta1.ReportProcessed
-			}
-		}, timeout, pollingInterval).Should(BeTrue())
+		if !isAgentLessMode() {
+			Byf("Verifying healthCheckReport is removed (or mark as processed) from managed cluster")
+			Eventually(func() bool {
+				currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
+				err = workloadClient.Get(context.TODO(),
+					types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
+					currentHealthCheckReport)
+				if err != nil {
+					return apierrors.IsNotFound(err)
+				} else {
+					return currentHealthCheckReport.Status.Phase != nil &&
+						*currentHealthCheckReport.Status.Phase == libsveltosv1beta1.ReportProcessed
+				}
+			}, timeout, pollingInterval).Should(BeTrue())
 
-		By("Verifying HealthCheck is removed in the manged cluster")
-		Eventually(func() bool {
-			currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
-			err = workloadClient.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name},
-				currentHealthCheck)
-			return err != nil && apierrors.IsNotFound(err)
-		}, timeout, pollingInterval).Should(BeTrue())
+			By("Verifying HealthCheck is removed in the manged cluster")
+			Eventually(func() bool {
+				currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
+				err = workloadClient.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name},
+					currentHealthCheck)
+				return err != nil && apierrors.IsNotFound(err)
+			}, timeout, pollingInterval).Should(BeTrue())
+		}
 	})
 })

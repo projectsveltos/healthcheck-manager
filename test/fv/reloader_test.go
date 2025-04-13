@@ -110,19 +110,37 @@ var _ = Describe("ReloaderReports processing", func() {
 				},
 			},
 		}
-		Expect(workloadClient.Create(context.TODO(), reloaderReport)).To(BeNil())
+		if isAgentLessMode() {
+			Expect(k8sClient.Create(context.TODO(), reloaderReport)).To(BeNil())
+		} else {
+			Expect(workloadClient.Create(context.TODO(), reloaderReport)).To(BeNil())
+		}
 
-		Byf("Verifying ReloaderReport is removed from managed cluster")
-		Eventually(func() bool {
-			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
-			err = workloadClient.Get(context.TODO(),
-				types.NamespacedName{Namespace: reloaderReport.Namespace, Name: reloaderReport.Name},
-				currentReloaderReport)
-			if err != nil {
-				return apierrors.IsNotFound(err)
-			}
-			return false
-		}, timeout, pollingInterval).Should(BeTrue())
+		if isAgentLessMode() {
+			Byf("Verifying ReloaderReport is removed from management cluster")
+			Eventually(func() bool {
+				currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
+				err = k8sClient.Get(context.TODO(),
+					types.NamespacedName{Namespace: reloaderReport.Namespace, Name: reloaderReport.Name},
+					currentReloaderReport)
+				if err != nil {
+					return apierrors.IsNotFound(err)
+				}
+				return false
+			}, timeout, pollingInterval).Should(BeTrue())
+		} else {
+			Byf("Verifying ReloaderReport is removed from managed cluster")
+			Eventually(func() bool {
+				currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
+				err = workloadClient.Get(context.TODO(),
+					types.NamespacedName{Namespace: reloaderReport.Namespace, Name: reloaderReport.Name},
+					currentReloaderReport)
+				if err != nil {
+					return apierrors.IsNotFound(err)
+				}
+				return false
+			}, timeout, pollingInterval).Should(BeTrue())
+		}
 
 		Byf("Verifying Deployment is marked for rolling upgrade")
 		Eventually(func() bool {

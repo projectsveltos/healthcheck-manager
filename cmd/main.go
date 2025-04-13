@@ -65,6 +65,7 @@ var (
 	version                      string
 	diagnosticsAddress           string
 	insecureDiagnostics          bool
+	agentInMgmtCluster           bool
 	workers                      int
 	concurrentReconciles         int
 	reportMode                   controllers.ReportMode
@@ -129,6 +130,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	controllers.SetManagementClusterAccess(mgr.GetClient(), mgr.GetConfig())
+	controllers.SetAgentInMgmtCluster(agentInMgmtCluster)
+
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
@@ -182,6 +186,9 @@ func main() {
 }
 
 func initFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&agentInMgmtCluster, "agent-in-mgmt-cluster", false,
+		"When set, indicates drift-detection-manager needs to be started in the management cluster")
+
 	fs.IntVar(&tmpReportMode, "report-mode", defaulReportMode,
 		"Indicates how ClassifierReport needs to be collected")
 

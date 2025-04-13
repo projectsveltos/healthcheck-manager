@@ -81,21 +81,25 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 		return nil
 	}
 
-	var remoteClient client.Client
-	remoteClient, err = clusterproxy.GetKubernetesClient(ctx, c, cluster.Namespace, cluster.Name,
-		"", "", clusterproxy.GetClusterType(clusterRef), logger)
-	if err != nil {
-		return err
-	}
+	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, cluster.Namespace, cluster.Name,
+		clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
 
-	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, remoteClient, version, logger) {
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
 		return errors.New(compatibilityErrorMsg)
 	}
 
 	logger.V(logs.LogDebug).Info("collecting ReloaderReports from cluster")
+
+	// ReloaderReport location depends on sveltos-agent: management cluster if it's running there,
+	// otherwise managed cluster.
+	clusterClient, err := getReloaderReportClient(ctx, cluster.Namespace, cluster.Name,
+		clusterproxy.GetClusterType(clusterRef), logger)
+	if err != nil {
+		return err
+	}
+
 	reloaderReportList := libsveltosv1beta1.ReloaderReportList{}
-	err = remoteClient.List(ctx, &reloaderReportList)
+	err = clusterClient.List(ctx, &reloaderReportList)
 	if err != nil {
 		return err
 	}
@@ -117,7 +121,7 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 				continue
 			}
 			logger.V(logs.LogDebug).Info("delete ReloaderReport in managed cluster")
-			err = remoteClient.Delete(ctx, rr)
+			err = clusterClient.Delete(ctx, rr)
 			if err != nil {
 				logger.V(logs.LogInfo).Info(
 					fmt.Sprintf("failed to deletd ReloaderReport in managed cluster. Err: %v", err))
