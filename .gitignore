@@ -35,3 +35,6 @@ version.txt
 
 ac-deployment-shard.yaml
 tmp-ac-deployment-shard.yaml
+hcm-deployment-agentless.yaml
+sveltos-agent.yaml.m
+sveltos-agent.yaml.tmp

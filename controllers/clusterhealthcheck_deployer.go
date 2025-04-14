@@ -256,7 +256,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		// Getting here means either ClusterHealthCheck failed to be deployed or ClusterHealthCheck has changed.
 		// ClusterHealthCheck must be (re)deployed.
 		if err := r.Deployer.Deploy(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id, clusterproxy.GetClusterType(cluster),
-			false, processClusterHealthCheckForCluster, programDuration, deployer.Options{}); err != nil {
+			false, f.deploy, programDuration, deployer.Options{}); err != nil {
 			return nil, err
 		}
 	}
@@ -453,6 +453,12 @@ func clusterHealthCheckHash(ctx context.Context, c client.Client,
 	for i := range clusterSummaries.Items {
 		cs := &clusterSummaries.Items[i]
 		config += render.AsCode(cs.Status.FeatureSummaries)
+	}
+
+	// When in agentless mode, HealthCheck instances are not copied to managed cluster anymore.
+	// This addition ensures the ClusterHealthCheck is redeployed due to the change in deployment location.
+	if getAgentInMgmtCluster() {
+		config += ("agentless")
 	}
 
 	var tmpConfig string
@@ -833,6 +839,21 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
 	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
 
+	// Create a map (for faster indexing) of the HealthChecks currently referenced
+	currentReferenced := getReferencedHealthChecks(chc, logger)
+
+	if getAgentInMgmtCluster() {
+		leaveEntries := &libsveltosset.Set{}
+		if chc.DeletionTimestamp.IsZero() {
+			// If removeAll is false and eventTrigger still exists, remove all entries but the one pointing
+			// to current referenced EventSource
+			leaveEntries = currentReferenced
+		}
+
+		return removeHealthCheckFromConfigMap(ctx, c, clusterNamespace, clusterName, clusterType, chc,
+			leaveEntries, logger)
+	}
+
 	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
 		"", "", clusterType, logger)
 	if err != nil {
@@ -846,9 +867,6 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get list HealthChecks: %v", err))
 		return err
 	}
-
-	// Create a map (for faster indexing) of the HealthChecks currently referenced
-	currentReferenced := getReferencedHealthChecks(chc, logger)
 
 	for i := range healthCheckList.Items {
 		hc := &healthCheckList.Items[i]
@@ -901,19 +919,12 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 		return nil
 	}
 
-	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
-		"", "", clusterType, logger)
-	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
-		return err
-	}
-
 	// classifier installs sveltos-agent and CRDs it needs, including
 	// HealthCheck and HealthCheckReport CRDs.
 
 	for i := range chc.Spec.LivenessChecks {
 		lc := chc.Spec.LivenessChecks[i]
-		err = deployHealthCheck(ctx, c, remoteClient, chc, &lc, logger)
+		err := deployHealthCheck(ctx, c, clusterNamespace, clusterName, clusterType, chc, &lc, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get deploy healthCheck: %v", err))
 			return err
@@ -925,8 +936,9 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 
 // deployHealthCheck deploys (creates or updates) referenced HealthCheck and recursively any ConfigMap/Secret
 // the HealthCheck references (containing the lua script)
-func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *libsveltosv1beta1.ClusterHealthCheck,
-	lc *libsveltosv1beta1.LivenessCheck, logger logr.Logger) error {
+func deployHealthCheck(ctx context.Context, c client.Client,
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, lc *libsveltosv1beta1.LivenessCheck, logger logr.Logger) error {
 
 	if lc.Type != libsveltosv1beta1.LivenessTypeHealthCheck {
 		return nil
@@ -950,6 +962,18 @@ func deployHealthCheck(ctx context.Context, c, remoteClient client.Client, chc *
 	err := c.Get(ctx, types.NamespacedName{Name: lc.LivenessSourceRef.Name}, healthCheck)
 	if err != nil {
 		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch HealthCheck: %v", err))
+		return err
+	}
+
+	if getAgentInMgmtCluster() {
+		return addHealthCheckToConfigMap(ctx, c, clusterNamespace, clusterName, clusterType,
+			chc, healthCheck, logger)
+	}
+
+	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
+		"", "", clusterType, logger)
+	if err != nil {
+		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
 		return err
 	}
 

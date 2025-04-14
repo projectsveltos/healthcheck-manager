@@ -19,6 +19,7 @@ package fv_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 
 	"github.com/TwiN/go-color"
 	ginkgotypes "github.com/onsi/ginkgo/v2/types"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -49,6 +51,12 @@ var (
 const (
 	timeout         = 2 * time.Minute
 	pollingInterval = 5 * time.Second
+)
+
+const (
+	deplNamespace        = "projectsveltos"
+	deplName             = "hc-manager"
+	managerContainerName = "manager"
 )
 
 func TestFv(t *testing.T) {
@@ -145,3 +153,22 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).To(BeNil())
 })
+
+func isAgentLessMode() bool {
+	By("Getting health check manager deployment")
+	classfierDepl := &appsv1.Deployment{}
+	Expect(k8sClient.Get(context.TODO(),
+		types.NamespacedName{Namespace: deplNamespace, Name: deplName},
+		classfierDepl)).To(Succeed())
+
+	Expect(len(classfierDepl.Spec.Template.Spec.Containers)).To(Equal(1))
+
+	for i := range classfierDepl.Spec.Template.Spec.Containers[0].Args {
+		if strings.Contains(classfierDepl.Spec.Template.Spec.Containers[0].Args[i], "agent-in-mgmt-cluster=true") {
+			By("healthcheck-manager in agentless mode")
+			return true
+		}
+	}
+
+	return false
+}

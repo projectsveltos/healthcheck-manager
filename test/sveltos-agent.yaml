@@ -6,13 +6,13 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: hc-manager
+  name: sveltos-agent-manager
   namespace: projectsveltos
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: hc-manager-role
+  name: sveltos-agent-manager-role
 rules:
 - apiGroups:
   - ""
@@ -20,28 +20,17 @@ rules:
   - configmaps
   verbs:
   - create
-  - delete
   - get
   - list
   - update
   - watch
 - apiGroups:
-  - ""
+  - '*'
   resources:
-  - events
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
+  - '*'
   verbs:
   - get
+  - impersonate
   - list
   - watch
 - apiGroups:
@@ -65,21 +54,53 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - cluster.x-k8s.io
+  - lib.projectsveltos.io
   resources:
-  - clusters
-  - clusters/status
-  - machines
-  - machines/status
+  - classifierreports
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - classifierreports/status
+  - eventreports/status
+  - healthcheckreports/status
+  - reloaderreports/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - classifiers
+  - eventsources
+  - healthchecks
   verbs:
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
-  - config.projectsveltos.io
+  - lib.projectsveltos.io
   resources:
-  - clustersummaries
-  - clustersummaries/status
+  - classifiers/finalizers
+  - eventreports/finalizers
+  - eventsources/finalizers
+  - healthcheckreports/finalizers
+  - healthchecks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - lib.projectsveltos.io
+  resources:
+  - debuggingconfigurations
   verbs:
   - get
   - list
@@ -87,7 +108,8 @@ rules:
 - apiGroups:
   - lib.projectsveltos.io
   resources:
-  - clusterhealthchecks
+  - eventreports
+  - healthcheckreports
   - reloaderreports
   verbs:
   - create
@@ -100,99 +122,65 @@ rules:
 - apiGroups:
   - lib.projectsveltos.io
   resources:
-  - clusterhealthchecks/finalizers
+  - reloaders
   verbs:
-  - update
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - lib.projectsveltos.io
   resources:
-  - clusterhealthchecks/status
+  - reloaders/finalizers
   verbs:
-  - get
   - patch
   - update
-- apiGroups:
-  - lib.projectsveltos.io
-  resources:
-  - debuggingconfigurations
-  - healthchecks
-  - sveltosclusters/status
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - lib.projectsveltos.io
-  resources:
-  - healthcheckreports
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - lib.projectsveltos.io
-  resources:
-  - healthcheckreports/status
-  verbs:
-  - get
-  - list
-  - update
-- apiGroups:
-  - lib.projectsveltos.io
-  resources:
-  - sveltosclusters
-  verbs:
-  - get
-  - list
-  - update
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: hc-manager-rolebinding
+  name: sveltos-agent-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: hc-manager-role
+  name: sveltos-agent-manager-role
 subjects:
 - kind: ServiceAccount
-  name: hc-manager
+  name: sveltos-agent-manager
   namespace: projectsveltos
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    control-plane: hc-manager
-  name: hc-manager
+    control-plane: sveltos-agent
+  name: sveltos-agent-manager
   namespace: projectsveltos
 spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: hc-manager
+      control-plane: sveltos-agent
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: hc-manager
+        control-plane: sveltos-agent
     spec:
       containers:
       - args:
         - --diagnostics-address=:8443
-        - --shard-key=
-        - --capi-onboard-annotation=
         - --v=5
+        - --cluster-namespace=
+        - --cluster-name=
+        - --cluster-type=
         - --version=main
-        - --agent-in-mgmt-cluster=false
+        - --current-cluster=managed-cluster
+        - --run-mode=do-not-send-reports
         command:
         - /manager
-        image: docker.io/projectsveltos/healthcheck-manager:main
+        image: docker.io/projectsveltos/sveltos-agent:main
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -231,5 +219,5 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: hc-manager
+      serviceAccountName: sveltos-agent-manager
       terminationGracePeriodSeconds: 10

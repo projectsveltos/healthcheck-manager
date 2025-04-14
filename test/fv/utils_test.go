@@ -62,11 +62,11 @@ var (
            end
          end
        end
-	   table.insert(statuses, {resource=resource, status=status, message=message}) 
-	 end  
+	   table.insert(statuses, {resource=resource, status=status, message=message})
+	 end
 	 local hs = {}
 	 if #statuses > 0 then
-	   hs.resources = statuses 
+	   hs.resources = statuses
 	 end
 	 return hs
    end`
