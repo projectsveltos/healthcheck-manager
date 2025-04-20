@@ -301,6 +301,9 @@ func getClusterHealthCheck(namePrefix string, clusterLabels map[string]string,
 	clusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namePrefix + randomString(),
+			Annotations: map[string]string{
+				randomString(): randomString(),
+			},
 		},
 		Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
 			ClusterSelector: libsveltosv1beta1.Selector{
