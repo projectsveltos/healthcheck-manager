@@ -68,7 +68,7 @@ var _ = Describe("ReloaderReports processing", func() {
 		namePrefix = "reloader-"
 	)
 
-	It("Fetch a ReloaderReport and update listed resources", Label("FV"), func() {
+	It("Fetch a ReloaderReport and update listed resources", Label("FV", "PULLMODE"), func() {
 		Byf("Getting client to access the workload cluster")
 		workloadClient, err := getKindWorkloadClusterKubeconfig()
 		Expect(err).To(BeNil())

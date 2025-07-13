@@ -76,8 +76,8 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 
 		clusterSummary.Status.FeatureSummaries = []configv1beta1.FeatureSummary{
 			{
-				Status:    configv1beta1.FeatureStatusProvisioned,
-				FeatureID: configv1beta1.FeatureHelm,
+				Status:    libsveltosv1beta1.FeatureStatusProvisioned,
+				FeatureID: libsveltosv1beta1.FeatureHelm,
 			},
 		}
 
@@ -102,8 +102,8 @@ var _ = Describe("ClusterHealthCheck Predicates: ClusterSummaryPredicates", func
 
 		clusterSummary.Status.FeatureSummaries = []configv1beta1.FeatureSummary{
 			{
-				Status:    configv1beta1.FeatureStatusProvisioned,
-				FeatureID: configv1beta1.FeatureHelm,
+				Status:    libsveltosv1beta1.FeatureStatusProvisioned,
+				FeatureID: libsveltosv1beta1.FeatureHelm,
 			},
 		}
 		clusterSummary.Status.HelmReleaseSummaries = []configv1beta1.HelmChartSummary{

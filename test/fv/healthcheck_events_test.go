@@ -42,7 +42,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		namePrefix = "healthcheck-events-"
 	)
 
-	It("Verifies healthCheck events are delivered", Label("FV"), func() {
+	It("Verifies healthCheck events are delivered", Label("FV", "PULLMODE"), func() {
 		healthCheck := &libsveltosv1beta1.HealthCheck{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: randomString(),
@@ -77,7 +77,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 
 		notification := libsveltosv1beta1.Notification{Name: randomString(), Type: libsveltosv1beta1.NotificationTypeKubernetesEvent}
 
-		Byf("Create a ClusterHealthCheck matching Cluster %s/%s", kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)
+		Byf("Create a ClusterHealthCheck matching Cluster %s/%s", kindWorkloadCluster.GetNamespace(), kindWorkloadCluster.GetName())
 		clusterHealthCheck := getClusterHealthCheck(namePrefix, map[string]string{key: value},
 			[]libsveltosv1beta1.LivenessCheck{lc}, []libsveltosv1beta1.Notification{notification})
 		Expect(k8sClient.Create(context.TODO(), clusterHealthCheck)).To(Succeed())
@@ -124,10 +124,13 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		By("Verifying healthCheckReport exists in the management cluster")
 		Eventually(func() bool {
 			clusterType := libsveltosv1beta1.ClusterTypeCapi
+			if kindWorkloadCluster.GetKind() == libsveltosv1beta1.SveltosClusterKind {
+				clusterType = libsveltosv1beta1.ClusterTypeSveltos
+			}
 			labels := libsveltosv1beta1.GetHealthCheckReportLabels(healthCheck.Name,
-				kindWorkloadCluster.Name, &clusterType)
+				kindWorkloadCluster.GetName(), &clusterType)
 			listOptions := []client.ListOption{
-				client.InNamespace(kindWorkloadCluster.Namespace),
+				client.InNamespace(kindWorkloadCluster.GetNamespace()),
 				client.MatchingLabels(labels),
 			}
 			healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
@@ -136,7 +139,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		}, timeout, pollingInterval).Should(BeTrue())
 
 		Byf("Verifying ClusterHealthCheck %s is set to Provisioned", clusterHealthCheck.Name)
-		verifyClusterHealthCheckStatus(clusterHealthCheck.Name, kindWorkloadCluster.Namespace, kindWorkloadCluster.Name)
+		verifyClusterHealthCheckStatus(clusterHealthCheck.Name, kindWorkloadCluster.GetNamespace(), kindWorkloadCluster.GetName())
 
 		Byf("Deleting ClusterHealthCheck")
 		deleteClusterHealthCheck(clusterHealthCheck.Name)

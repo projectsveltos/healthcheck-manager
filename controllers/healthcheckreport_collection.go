@@ -147,7 +147,13 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		return nil
 	}
 
-	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, cluster.Namespace, cluster.Name,
+	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, c, cluster.Namespace, cluster.Name,
+		clusterproxy.GetClusterType(cluster), logger)
+	if err != nil {
+		return err
+	}
+
+	if !isPullMode && !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, cluster.Namespace, cluster.Name,
 		clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
 
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
@@ -156,8 +162,9 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 
 	logger.V(logs.LogDebug).Info("collecting HealthCheckReports from cluster")
 
-	// EventReports location depends on sveltos-agent: management cluster if it's running there,
+	// HealthCheckReports location depends on sveltos-agent: management cluster if it's running there,
 	// otherwise managed cluster.
+	// For cluster in pull mode, the sveltos-applier copies the HealthCheckReports here
 	clusterClient, err := getHealthCheckReportClient(ctx, cluster.Namespace, cluster.Name,
 		clusterproxy.GetClusterType(clusterRef), logger)
 	if err != nil {
@@ -171,6 +178,13 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		listOptions = []client.ListOption{
 			client.InNamespace(cluster.Namespace),
 		}
+	} else if isPullMode {
+		listOptions = append(listOptions,
+			client.MatchingLabels{
+				libsveltosv1beta1.EventReportClusterNameLabel: cluster.Name,
+				libsveltosv1beta1.EventReportClusterTypeLabel: strings.ToLower(string(libsveltosv1beta1.ClusterTypeSveltos)),
+			},
+		)
 	}
 
 	healthCheckReportList := libsveltosv1beta1.HealthCheckReportList{}
@@ -280,6 +294,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 		if apierrors.IsNotFound(err) {
 			return healthCheckReport, nil
 		}
+		return nil, err
 	}
 	if !currentHealthCheck.DeletionTimestamp.IsZero() {
 		return healthCheckReport, nil

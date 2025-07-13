@@ -218,7 +218,7 @@ func fetchClusterSummaries(ctx context.Context, c client.Client, clusterNamespac
 func areAddonsDeployed(clusterSummary *configv1beta1.ClusterSummary) bool {
 	for i := range clusterSummary.Status.FeatureSummaries {
 		fs := clusterSummary.Status.FeatureSummaries[i]
-		if fs.Status != configv1beta1.FeatureStatus(libsveltosv1beta1.SveltosStatusProvisioned) {
+		if fs.Status != libsveltosv1beta1.FeatureStatus(libsveltosv1beta1.SveltosStatusProvisioned) {
 			return false
 		}
 	}

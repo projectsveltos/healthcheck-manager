@@ -39,6 +39,7 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/deployer"
 	fakedeployer "github.com/projectsveltos/libsveltos/lib/deployer/fake"
 	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
@@ -459,7 +460,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Existence of healthCheck does not verify deployHealthChecks. But deployHealthCheck is also supposed
 		// to add ClusterHealthCheck as OwnerReference of HealthCheck and annotation. So test verifies that.
 		Expect(controllers.DeployHealthChecks(context.TODO(), testEnv.Client, clusterNamespace, clusterName,
-			clusterType, chc, logger)).To(Succeed())
+			clusterType, chc, deployer.Options{}, false, logger)).To(Succeed())
 
 		Eventually(func() bool {
 			currentHealthCheck := &libsveltosv1beta1.HealthCheck{}

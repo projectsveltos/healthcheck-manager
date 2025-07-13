@@ -70,6 +70,8 @@ const (
 	// normalRequeueAfter is how long to wait before checking again to see if the cluster can be moved
 	// to ready after or workload features (for instance ingress or reporter) have failed
 	normalRequeueAfter = 20 * time.Second
+
+	configurationHash = "configurationHash"
 )
 
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
@@ -135,6 +137,10 @@ type ClusterHealthCheckReconciler struct {
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=clusterhealthchecks/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.projectsveltos.io,resources=clustersummaries,verbs=get;list;watch
 //+kubebuilder:rbac:groups=config.projectsveltos.io,resources=clustersummaries/status,verbs=get;list;watch
+//+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationgroups,verbs=get;list;watch;create;delete;update;patch
+//+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationgroups/status,verbs=get;list;watch
+//+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationbundles,verbs=get;list;watch;create;delete;update;patch
+//+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationbundles/status,verbs=get;list;watch;update
 //+kubebuilder:rbac:groups="",resources=events,verbs=get;watch;list;create;update;patch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;list
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;watch;list;create;update;delete
