@@ -81,6 +81,17 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 		return nil
 	}
 
+	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, c, cluster.Namespace, cluster.Name,
+		clusterproxy.GetClusterType(cluster), logger)
+	if err != nil {
+		return err
+	}
+
+	if isPullMode {
+		// Nothing to do in pull mode
+		return nil
+	}
+
 	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, cluster.Namespace, cluster.Name,
 		clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
 
@@ -118,6 +129,9 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 			if err != nil {
 				logger.V(logs.LogInfo).Info(
 					fmt.Sprintf("failed to update ReloaderReport in management cluster. Err: %v", err))
+				continue
+			}
+			if isPullMode {
 				continue
 			}
 			logger.V(logs.LogDebug).Info("delete ReloaderReport in managed cluster")

@@ -53,12 +53,12 @@ var _ = Describe("Liveness", func() {
 			Status: configv1beta1.ClusterSummaryStatus{
 				FeatureSummaries: []configv1beta1.FeatureSummary{
 					{
-						FeatureID: configv1beta1.FeatureHelm,
-						Status:    configv1beta1.FeatureStatusProvisioning,
+						FeatureID: libsveltosv1beta1.FeatureHelm,
+						Status:    libsveltosv1beta1.FeatureStatusProvisioning,
 					},
 					{
-						FeatureID: configv1beta1.FeatureResources,
-						Status:    configv1beta1.FeatureStatusProvisioned,
+						FeatureID: libsveltosv1beta1.FeatureResources,
+						Status:    libsveltosv1beta1.FeatureStatusProvisioned,
 					},
 				},
 			},
@@ -69,8 +69,8 @@ var _ = Describe("Liveness", func() {
 		clusterSummary.Status = configv1beta1.ClusterSummaryStatus{
 			FeatureSummaries: []configv1beta1.FeatureSummary{
 				{
-					FeatureID: configv1beta1.FeatureHelm,
-					Status:    configv1beta1.FeatureStatusProvisioned,
+					FeatureID: libsveltosv1beta1.FeatureHelm,
+					Status:    libsveltosv1beta1.FeatureStatusProvisioned,
 				},
 			},
 		}
@@ -262,12 +262,12 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 		Status: configv1beta1.ClusterSummaryStatus{
 			FeatureSummaries: []configv1beta1.FeatureSummary{
 				{
-					FeatureID: configv1beta1.FeatureHelm,
-					Status:    configv1beta1.FeatureStatusProvisioned,
+					FeatureID: libsveltosv1beta1.FeatureHelm,
+					Status:    libsveltosv1beta1.FeatureStatusProvisioned,
 				},
 				{
-					FeatureID: configv1beta1.FeatureResources,
-					Status:    configv1beta1.FeatureStatusProvisioned,
+					FeatureID: libsveltosv1beta1.FeatureResources,
+					Status:    libsveltosv1beta1.FeatureStatusProvisioned,
 				},
 			},
 		},

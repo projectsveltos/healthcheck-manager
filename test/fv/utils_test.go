@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -85,12 +84,17 @@ func randomString() string {
 func getClusterSummary(ctx context.Context,
 	clusterProfileName, clusterNamespace, clusterName string) (*configv1beta1.ClusterSummary, error) {
 
+	clusterType := libsveltosv1beta1.ClusterTypeCapi
+	if kindWorkloadCluster.GetKind() == libsveltosv1beta1.SveltosClusterKind {
+		clusterType = libsveltosv1beta1.ClusterTypeSveltos
+	}
+
 	listOptions := []client.ListOption{
 		client.InNamespace(clusterNamespace),
 		client.MatchingLabels{
 			"projectsveltos.io/cluster-profile-name": clusterProfileName,
 			configv1beta1.ClusterNameLabel:           clusterName,
-			configv1beta1.ClusterTypeLabel:           string(libsveltosv1beta1.ClusterTypeCapi),
+			configv1beta1.ClusterTypeLabel:           string(clusterType),
 		},
 	}
 
@@ -170,7 +174,7 @@ func verifyClusterSummary(clusterProfile *configv1beta1.ClusterProfile,
 	return clusterSummary
 }
 
-func verifyFeatureStatusIsProvisioned(clusterSummaryNamespace, clusterSummaryName string, featureID configv1beta1.FeatureID) {
+func verifyFeatureStatusIsProvisioned(clusterSummaryNamespace, clusterSummaryName string, featureID libsveltosv1beta1.FeatureID) {
 	Eventually(func() bool {
 		currentClusterSummary := &configv1beta1.ClusterSummary{}
 		err := k8sClient.Get(context.TODO(),
@@ -181,7 +185,7 @@ func verifyFeatureStatusIsProvisioned(clusterSummaryNamespace, clusterSummaryNam
 		}
 		for i := range currentClusterSummary.Status.FeatureSummaries {
 			if currentClusterSummary.Status.FeatureSummaries[i].FeatureID == featureID &&
-				currentClusterSummary.Status.FeatureSummaries[i].Status == configv1beta1.FeatureStatusProvisioned {
+				currentClusterSummary.Status.FeatureSummaries[i].Status == libsveltosv1beta1.FeatureStatusProvisioned {
 
 				return true
 			}
@@ -211,15 +215,16 @@ func getClusterSummaryOwnerReference(clusterSummary *configv1beta1.ClusterSummar
 
 func verifyClusterProfileMatches(clusterProfile *configv1beta1.ClusterProfile) {
 	Byf("Verifying Cluster %s/%s is a match for ClusterProfile %s",
-		kindWorkloadCluster.Namespace, kindWorkloadCluster.Name, clusterProfile.Name)
+		kindWorkloadCluster.GetNamespace(), kindWorkloadCluster.GetName(), clusterProfile.Name)
+
 	Eventually(func() bool {
 		currentClusterProfile := &configv1beta1.ClusterProfile{}
 		err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: clusterProfile.Name}, currentClusterProfile)
 		return err == nil &&
 			len(currentClusterProfile.Status.MatchingClusterRefs) == 1 &&
-			currentClusterProfile.Status.MatchingClusterRefs[0].Namespace == kindWorkloadCluster.Namespace &&
-			currentClusterProfile.Status.MatchingClusterRefs[0].Name == kindWorkloadCluster.Name &&
-			currentClusterProfile.Status.MatchingClusterRefs[0].APIVersion == clusterv1.GroupVersion.String()
+			currentClusterProfile.Status.MatchingClusterRefs[0].Namespace == kindWorkloadCluster.GetNamespace() &&
+			currentClusterProfile.Status.MatchingClusterRefs[0].Name == kindWorkloadCluster.GetName() &&
+			currentClusterProfile.Status.MatchingClusterRefs[0].APIVersion == kindWorkloadCluster.GetAPIVersion()
 	}, timeout, pollingInterval).Should(BeTrue())
 }
 
