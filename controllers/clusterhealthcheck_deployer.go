@@ -1252,10 +1252,10 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client,
 		return remoteClient.Create(ctx, currentHealthCheck)
 	}
 
-	toDeployEventSource := getHealthCheckToDeploy(healthCheck)
-	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&toDeployEventSource)
+	toDeployHealthCheck := getHealthCheckToDeploy(healthCheck)
+	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&toDeployHealthCheck)
 	if err != nil {
-		logger.V(logsettings.LogDebug).Info(fmt.Sprintf("failed to convert eventSource instance to unstructured: %v", err))
+		logger.V(logsettings.LogDebug).Info(fmt.Sprintf("failed to convert HealthCheck instance to unstructured: %v", err))
 	}
 
 	u := &unstructured.Unstructured{}
