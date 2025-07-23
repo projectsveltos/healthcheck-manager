@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -275,7 +276,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (controller.Controller, error) {
 	c, err := ctrl.NewControllerManagedBy(mgr).
-		For(&libsveltosv1beta1.ClusterHealthCheck{}).
+		For(&libsveltosv1beta1.ClusterHealthCheck{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.ConcurrentReconciles,
 		}).

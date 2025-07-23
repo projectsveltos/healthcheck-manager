@@ -883,6 +883,7 @@ func updateConditionsForCluster(ctx context.Context, c client.Client,
 			if isClusterConditionForCluster(cc, clusterNamespace, clusterName, clusterType) {
 				updated = true
 				currentChc.Status.ClusterConditions[i].Conditions = conditions
+				break
 			}
 		}
 
