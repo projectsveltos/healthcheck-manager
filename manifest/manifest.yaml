@@ -235,5 +235,7 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: hc-manager
       terminationGracePeriodSeconds: 10
