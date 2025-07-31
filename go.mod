@@ -13,8 +13,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.38.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v0.57.2-0.20250723162129-236b297d759a
-	github.com/projectsveltos/libsveltos v0.57.3-0.20250721190813-905d5d400e56
+	github.com/projectsveltos/addon-controller v1.0.0-beta.0
+	github.com/projectsveltos/libsveltos v1.0.0-beta.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/slack-go/slack v0.17.3
 	github.com/spf13/pflag v1.0.7
@@ -35,7 +35,6 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
-	github.com/carapace-sh/carapace-shlex v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -114,11 +113,11 @@ require (
 	k8s.io/kubectl v0.33.3 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/kustomize/api v0.20.0 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.20.0 // indirect
+	sigs.k8s.io/kustomize/api v0.20.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
-	sigs.k8s.io/yaml v1.5.0 // indirect
+	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
 // Replace digest lib to master to gather access to BLAKE3.
