@@ -41,12 +41,12 @@ const (
 )
 
 // removeHealthCheckReports deletes all HealthCheckReport corresponding to HealthCheck instance
-func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheck *libsveltosv1beta1.HealthCheck,
+func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheckName string,
 	logger logr.Logger) error {
 
 	listOptions := []client.ListOption{
 		client.MatchingLabels{
-			libsveltosv1beta1.HealthCheckNameLabel: healthCheck.Name,
+			libsveltosv1beta1.HealthCheckNameLabel: healthCheckName,
 		},
 	}
 
