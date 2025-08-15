@@ -56,7 +56,7 @@ var _ = Describe("HealthCheck Deployer", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		Expect(controllers.RemoveHealthCheckReports(context.TODO(), c, healthCheck, logger)).To(Succeed())
+		Expect(controllers.RemoveHealthCheckReports(context.TODO(), c, healthCheck.Name, logger)).To(Succeed())
 
 		healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 		Expect(c.List(context.TODO(), healthCheckReportList)).To(Succeed())
