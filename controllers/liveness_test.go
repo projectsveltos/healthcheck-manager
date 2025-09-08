@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -237,15 +237,15 @@ var _ = Describe("Liveness", func() {
 // ClusterSummary has provisioned all add-ons
 // Cluster API cluster
 func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType) client.Client {
+	initialized := true
 	cluster := &clusterv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: clusterNamespace,
 			Name:      clusterName,
 		},
 		Status: clusterv1.ClusterStatus{
-			ControlPlaneReady: true,
-			Conditions: []clusterv1.Condition{
-				{Type: clusterv1.ControlPlaneInitializedCondition, Status: corev1.ConditionTrue},
+			Initialization: clusterv1.ClusterInitializationStatus{
+				ControlPlaneInitialized: &initialized,
 			},
 		},
 	}

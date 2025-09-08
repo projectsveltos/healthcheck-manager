@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -563,7 +563,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Add ClusterHealthCheck as owner of healthCheck. This indicates previously healthCheck was
 		// deployed because of this ClusterHealthCheck instance
 		k8s_utils.AddOwnerReference(healthCheck, chc)
-		Expect(testEnv.Client.Update(context.TODO(), healthCheck)).To(Succeed())
+		Expect(testEnv.Update(context.TODO(), healthCheck)).To(Succeed())
 
 		createSecretWithKubeconfig(clusterNamespace, clusterName)
 
