@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/klog/v2"
-	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +52,7 @@ import (
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/crd"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
-	"github.com/projectsveltos/libsveltos/lib/logsettings"
+	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
@@ -136,7 +136,7 @@ func main() {
 	// Setup the context that's going to be used in controllers and for the manager.
 	ctx := ctrl.SetupSignalHandler()
 
-	logsettings.RegisterForLogSettings(ctx,
+	logs.RegisterForLogSettings(ctx,
 		libsveltosv1beta1.ComponentHealthCheckManager, ctrl.Log.WithName("log-setter"),
 		ctrl.GetConfigOrDie())
 
@@ -293,10 +293,10 @@ func capiWatchers(ctx context.Context, mgr ctrl.Manager, clusterHealthCheckRecon
 			retries++
 		} else {
 			if !capiPresent {
-				setupLog.V(logsettings.LogInfo).Info("CAPI currently not present. Starting CRD watcher")
+				setupLog.V(logs.LogInfo).Info("CAPI currently not present. Starting CRD watcher")
 				go crd.WatchCustomResourceDefinition(ctx, mgr.GetConfig(), capiCRDHandler, setupLog)
 			} else {
-				setupLog.V(logsettings.LogInfo).Info("CAPI present.")
+				setupLog.V(logs.LogInfo).Info("CAPI present.")
 				err = clusterHealthCheckReconciler.WatchForCAPI(mgr, clusterHealthCheckController)
 				if err != nil {
 					continue
