@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck // SA1019: We are unable to update the dependency at this time.
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -224,7 +224,9 @@ func prepareCluster() *clusterv1.Cluster {
 
 	initialized := true
 	cluster.Status = clusterv1.ClusterStatus{
-		ControlPlaneReady: initialized,
+		Initialization: clusterv1.ClusterInitializationStatus{
+			ControlPlaneInitialized: &initialized,
+		},
 	}
 	Expect(testEnv.Status().Update(context.TODO(), cluster)).To(Succeed())
 
