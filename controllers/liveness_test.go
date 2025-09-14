@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog/v2/textlogger"
-	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta1" //nolint:staticcheck // SA1019: We are unable to update the dependency at this time.
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -244,9 +244,7 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 			Name:      clusterName,
 		},
 		Status: clusterv1.ClusterStatus{
-			Initialization: clusterv1.ClusterInitializationStatus{
-				ControlPlaneInitialized: &initialized,
-			},
+			ControlPlaneReady: initialized,
 		},
 	}
 
