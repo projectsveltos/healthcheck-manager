@@ -1,6 +1,6 @@
 module github.com/projectsveltos/healthcheck-manager
 
-go 1.25.2
+go 1.25.3
 
 require (
 	github.com/TwiN/go-color v1.4.1
@@ -10,11 +10,11 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/jbogarin/go-cisco-webex-teams v0.4.3
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v1.2.0
-	github.com/projectsveltos/libsveltos v1.2.0
+	github.com/projectsveltos/addon-controller v1.2.1
+	github.com/projectsveltos/libsveltos v1.2.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/slack-go/slack v0.17.3
 	github.com/spf13/pflag v1.0.10
@@ -89,7 +89,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
