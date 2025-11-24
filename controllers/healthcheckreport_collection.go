@@ -116,10 +116,10 @@ func collectHealthCheckReports(c client.Client, shardKey, capiOnboardAnnotation,
 
 		for i := range clusterList {
 			cluster := &clusterList[i]
-			err = collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, version, logger)
+			l := logger.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
+			err = collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, version, l)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect HealthCheckReports from cluster: %s %s/%s %v",
-					cluster.Kind, cluster.Namespace, cluster.Name, err))
+				l.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect HealthCheckReports: %v", err))
 			}
 		}
 
@@ -130,7 +130,6 @@ func collectHealthCheckReports(c client.Client, shardKey, capiOnboardAnnotation,
 func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c client.Client,
 	cluster *corev1.ObjectReference, version string, logger logr.Logger) error {
 
-	logger = logger.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 	clusterRef := &corev1.ObjectReference{
 		Namespace:  cluster.Namespace,
 		Name:       cluster.Name,
