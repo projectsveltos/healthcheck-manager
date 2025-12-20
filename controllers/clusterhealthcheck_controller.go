@@ -157,7 +157,7 @@ type ClusterHealthCheckReconciler struct {
 
 func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
-	logger.V(logs.LogInfo).Info("Reconciling")
+	logger.V(logs.LogDebug).Info("Reconciling")
 
 	// Fecth the ClusterHealthCheck instance
 	clusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{}
@@ -212,7 +212,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 ) reconcile.Result {
 
 	logger := clusterHealthCheckScope.Logger
-	logger.V(logs.LogInfo).Info("Reconciling ClusterHealthCheck delete")
+	logger.V(logs.LogDebug).Info("Reconciling ClusterHealthCheck delete")
 
 	clusterHealthCheckScope.SetMatchingClusterRefs(nil)
 
@@ -229,7 +229,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 		controllerutil.RemoveFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer)
 	}
 
-	logger.V(logs.LogInfo).Info("Reconcile delete success")
+	logger.V(logs.LogDebug).Info("Reconcile delete success")
 	return reconcile.Result{}
 }
 
@@ -239,7 +239,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 ) (reconcile.Result, error) {
 
 	logger := clusterHealthCheckScope.Logger
-	logger.V(logs.LogInfo).Info("Reconciling ClusterHealthCheck")
+	logger.V(logs.LogDebug).Info("Reconciling ClusterHealthCheck")
 
 	if !controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer) {
 		if err := r.addFinalizer(ctx, clusterHealthCheckScope); err != nil {
@@ -269,7 +269,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
 	}
 
-	logger.V(logs.LogInfo).Info("Reconcile success")
+	logger.V(logs.LogDebug).Info("Reconcile success")
 	return reconcile.Result{}, nil
 }
 
@@ -534,7 +534,7 @@ func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Conte
 				libsveltosv1beta1.ClusterCondition{
 					ClusterInfo: libsveltosv1beta1.ClusterInfo{
 						Cluster: c,
-						Hash:    nil,
+						Hash:    []byte(""),
 					},
 				})
 		}
