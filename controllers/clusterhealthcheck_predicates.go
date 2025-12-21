@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"reflect"
+	"sort"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -46,7 +47,31 @@ func ClusterSummaryPredicates(logger logr.Logger) predicate.Funcs {
 			}
 
 			// return true if ClusterSummary Status has changed
-			if !reflect.DeepEqual(oldClusterSummary.Status.FeatureSummaries, newClusterSummary.Status.FeatureSummaries) {
+			oldFeatures := make([]configv1beta1.FeatureSummary, len(oldClusterSummary.Status.FeatureSummaries))
+			for i := range oldClusterSummary.Status.FeatureSummaries {
+				oldFeatures[i] = configv1beta1.FeatureSummary{
+					Status:    oldClusterSummary.Status.FeatureSummaries[i].Status,
+					FeatureID: oldClusterSummary.Status.FeatureSummaries[i].FeatureID,
+				}
+			}
+			newFeatures := make([]configv1beta1.FeatureSummary, len(newClusterSummary.Status.FeatureSummaries))
+			for i := range newClusterSummary.Status.FeatureSummaries {
+				newFeatures[i] = configv1beta1.FeatureSummary{
+					Status:    newClusterSummary.Status.FeatureSummaries[i].Status,
+					FeatureID: newClusterSummary.Status.FeatureSummaries[i].FeatureID,
+				}
+			}
+
+			// Sort both slices by FeatureID for consistent comparison
+			sort.Slice(oldFeatures, func(i, j int) bool {
+				return oldFeatures[i].FeatureID < oldFeatures[j].FeatureID
+			})
+			sort.Slice(newFeatures, func(i, j int) bool {
+				return newFeatures[i].FeatureID < newFeatures[j].FeatureID
+			})
+
+			// return true if ClusterSummary Status has changed
+			if !reflect.DeepEqual(oldFeatures, newFeatures) {
 				log.V(logs.LogVerbose).Info(
 					"ClusterSummary Status.FeatureSummaries changed. Will attempt to reconcile associated ClusterHealthChecks.")
 				return true
@@ -202,4 +227,50 @@ func HealthCheckPredicates(logger logr.Logger) predicate.Funcs {
 			return false
 		},
 	}
+}
+
+// ClusterHealthCheckPredicate is a custom predicate that filters ClusterHealthCheckPredicate s events
+type ClusterHealthCheckPredicate struct {
+	Logger logr.Logger
+}
+
+func (p ClusterHealthCheckPredicate) Create(e event.CreateEvent) bool {
+	// Always reconcile on creation
+	return true
+}
+
+func (p ClusterHealthCheckPredicate) Update(e event.UpdateEvent) bool {
+	newCHC := e.ObjectNew.(*libsveltosv1beta1.ClusterHealthCheck)
+	oldCHC := e.ObjectOld.(*libsveltosv1beta1.ClusterHealthCheck)
+	log := p.Logger.WithValues("predicate", "updateClusterHealthCheck",
+		"clusterHealthCheck", newCHC.Name,
+	)
+
+	if oldCHC == nil {
+		log.V(logs.LogVerbose).Info("Old ClusterHealthCheck is nil. Reconcile ClusterHealthCheck.")
+		return true
+	}
+
+	if !reflect.DeepEqual(oldCHC.DeletionTimestamp, newCHC.DeletionTimestamp) {
+		return true
+	}
+
+	if !reflect.DeepEqual(oldCHC.Spec, newCHC.Spec) {
+		log.V(logs.LogVerbose).Info(
+			"ClusterHealthCheck Spec changed. Will attempt to reconcile ClusterHealthCheck.",
+		)
+		return true
+	}
+
+	return false
+}
+
+func (p ClusterHealthCheckPredicate) Delete(e event.DeleteEvent) bool {
+	// Always reconcile on deletion
+	return true
+}
+
+func (p ClusterHealthCheckPredicate) Generic(e event.GenericEvent) bool {
+	// Ignore generic
+	return false
 }

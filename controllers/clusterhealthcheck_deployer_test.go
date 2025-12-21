@@ -40,8 +40,6 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	"github.com/projectsveltos/libsveltos/lib/deployer"
-	fakedeployer "github.com/projectsveltos/libsveltos/lib/deployer/fake"
 	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
@@ -136,16 +134,14 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			notificationSummary,
 		}
 
-		Expect(controllers.UpdateNotificationSummariesForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
-			chc, summaries, logger)).To(Succeed())
+		controllers.UpdateNotificationSummariesForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
+			chc, summaries, logger)
 
-		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
-		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
-		Expect(len(currentChc.Status.ClusterConditions)).To(Equal(len(chc.Status.ClusterConditions)))
+		Expect(len(chc.Status.ClusterConditions)).To(Equal(len(chc.Status.ClusterConditions)))
 
 		var currentNotificationSummaries []libsveltosv1beta1.NotificationSummary
-		for i := range currentChc.Status.ClusterConditions {
-			cc := &currentChc.Status.ClusterConditions[i]
+		for i := range chc.Status.ClusterConditions {
+			cc := &chc.Status.ClusterConditions[i]
 			if cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
 				cc.ClusterInfo.Cluster.Name == clusterName &&
 				cc.ClusterInfo.Cluster.Kind == ClusterKind {
@@ -206,13 +202,9 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(controllers.UpdateConditionsForCluster(context.TODO(), c, clusterNamespace, clusterName, clusterType,
 			chc, conditions, logger)).To(Succeed())
 
-		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
-		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
-		Expect(len(currentChc.Status.ClusterConditions)).To(Equal(len(chc.Status.ClusterConditions)))
-
 		var currentConditions []libsveltosv1beta1.Condition
-		for i := range currentChc.Status.ClusterConditions {
-			cc := &currentChc.Status.ClusterConditions[i]
+		for i := range chc.Status.ClusterConditions {
+			cc := &chc.Status.ClusterConditions[i]
 			if cc.ClusterInfo.Cluster.Namespace == clusterNamespace &&
 				cc.ClusterInfo.Cluster.Name == clusterName &&
 				cc.ClusterInfo.Cluster.Kind == ClusterKind {
@@ -256,7 +248,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(conditions[0].Type).To(Equal(libsveltosv1beta1.ConditionType(controllers.GetConditionType(&livenessCheck))))
 	})
 
-	It("processClusterHealthCheck queues job", func() {
+	It("processClusterHealthCheck deploys HealthCheck", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()
 		clusterType := libsveltosv1beta1.ClusterTypeCapi
@@ -286,12 +278,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		chc := chcs.Items[0]
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, testEnv.Client)
-		controllers.RegisterFeatures(dep, logger)
-
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
@@ -313,17 +301,14 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(c.Get(context.TODO(), types.NamespacedName{Namespace: clusterNamespace, Name: clusterName}, currentCluster)).To(Succeed())
 		Expect(addTypeInformationToObject(c.Scheme(), currentCluster)).To(Succeed())
 
-		f := controllers.GetHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 		clusterInfo, err := controllers.ProcessClusterHealthCheck(&reconciler, context.TODO(), chcScope,
-			controllers.GetKeyFromObject(c.Scheme(), currentCluster), f, logger)
+			controllers.GetKeyFromObject(c.Scheme(), currentCluster), logger)
 		Expect(err).To(BeNil())
 
 		Expect(clusterInfo).ToNot(BeNil())
+		// Since the Secret with cluster Kubeconfig does not exist:
 		Expect(clusterInfo.Status).To(Equal(libsveltosv1beta1.SveltosStatusProvisioning))
-
-		// Expect job to be queued
-		Expect(dep.IsInProgress(clusterNamespace, clusterName, chc.Name, libsveltosv1beta1.FeatureClusterHealthCheck,
-			clusterType, false)).To(BeTrue())
+		Expect(clusterInfo.FailureMessage).ToNot(BeNil())
 	})
 
 	It("isClusterEntryRemoved returns true when there is no entry for a Cluster in ClusterHealthCheck status", func() {
@@ -334,12 +319,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Following creates a ClusterSummary and an empty ClusterHealthCheck
 		c := prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName, clusterType)
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, testEnv.Client)
-		controllers.RegisterFeatures(dep, logger)
-
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
@@ -461,7 +442,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		// Existence of healthCheck does not verify deployHealthChecks. But deployHealthCheck is also supposed
 		// to add ClusterHealthCheck as OwnerReference of HealthCheck and annotation. So test verifies that.
 		Expect(controllers.DeployHealthChecks(context.TODO(), testEnv.Client, clusterNamespace, clusterName,
-			clusterType, chc, deployer.Options{}, false, logger)).To(Succeed())
+			clusterType, chc, []byte(randomString()), false, logger)).To(Succeed())
 
 		Eventually(func() bool {
 			currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
