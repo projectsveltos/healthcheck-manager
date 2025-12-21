@@ -44,8 +44,7 @@ const (
 )
 
 var (
-	GetKeyFromObject      = getKeyFromObject
-	GetHandlersForFeature = getHandlersForFeature
+	GetKeyFromObject = getKeyFromObject
 
 	GetConditionStatus           = getConditionStatus
 	GetConditionType             = getConditionType

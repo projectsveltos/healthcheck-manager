@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -42,7 +42,6 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
-	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	predicates "github.com/projectsveltos/libsveltos/lib/predicates"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
@@ -71,8 +70,6 @@ const (
 	// normalRequeueAfter is how long to wait before checking again to see if the cluster can be moved
 	// to ready after or workload features (for instance ingress or reporter) have failed
 	normalRequeueAfter = 20 * time.Second
-
-	configurationHash = "configurationHash"
 )
 
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
@@ -80,7 +77,6 @@ type ClusterHealthCheckReconciler struct {
 	client.Client
 	Scheme                *runtime.Scheme
 	ConcurrentReconciles  int
-	Deployer              deployer.DeployerInterface
 	ShardKey              string     // when set, only clusters matching the ShardKey will be reconciled
 	CapiOnboardAnnotation string     // when set, only capi clusters with this annotation are considered
 	Mux                   sync.Mutex // use a Mutex to update Map as MaxConcurrentReconciles is higher than one
@@ -218,8 +214,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 
 	r.cleanMaps(clusterHealthCheckScope)
 
-	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
-	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
+	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to undeploy")
 		return reconcile.Result{Requeue: true, RequeueAfter: deleteRequeueAfter}
@@ -250,21 +245,16 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, clusterHealthCheckScope.GetSelector(),
 		"", r.CapiOnboardAnnotation, clusterHealthCheckScope.Logger)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
 	}
 
 	clusterHealthCheckScope.SetMatchingClusterRefs(matchingCluster)
 
-	err = r.updateClusterConditions(ctx, clusterHealthCheckScope)
-	if err != nil {
-		logger.V(logs.LogDebug).Info("failed to update clusterConditions")
-		return reconcile.Result{}, err
-	}
+	r.updateClusterConditions(ctx, clusterHealthCheckScope)
 
 	r.updateMaps(clusterHealthCheckScope)
 
-	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
-	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger); err != nil {
+	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, logger); err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to deploy")
 		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
 	}
@@ -274,9 +264,10 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (controller.Controller, error) {
+func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager, logger logr.Logger) (controller.Controller, error) {
 	c, err := ctrl.NewControllerManagedBy(mgr).
-		For(&libsveltosv1beta1.ClusterHealthCheck{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&libsveltosv1beta1.ClusterHealthCheck{},
+			builder.WithPredicates(ClusterHealthCheckPredicate{Logger: logger})).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.ConcurrentReconciles,
 		}).
@@ -511,7 +502,7 @@ func (r *ClusterHealthCheckReconciler) getClusterMapForEntry(entry *corev1.Objec
 // updateClusterConditions updates ClusterHealthCheck Status ClusterConditions by adding an entry for any
 // new cluster matching ClusterHealthCheck instance
 func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Context,
-	clusterHealthCheckScope *scope.ClusterHealthCheckScope) error {
+	clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
 
 	chc := clusterHealthCheckScope.ClusterHealthCheck
 
@@ -544,5 +535,4 @@ func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Conte
 	finalClusterInfo = append(finalClusterInfo, newClusterInfo...)
 
 	clusterHealthCheckScope.SetClusterConditions(finalClusterInfo)
-	return nil
 }

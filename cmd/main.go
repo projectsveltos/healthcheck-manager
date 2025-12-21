@@ -51,7 +51,6 @@ import (
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/crd"
-	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 
@@ -140,16 +139,13 @@ func main() {
 		libsveltosv1beta1.ComponentHealthCheckManager, ctrl.Log.WithName("log-setter"),
 		ctrl.GetConfigOrDie())
 
-	d := deployer.GetClient(ctx, ctrl.Log.WithName("deployer"), mgr.GetClient(), workers)
-	controllers.RegisterFeatures(d, setupLog)
-
 	controllers.SetManagementRecorder(mgr.GetEventRecorderFor("notification-recorder"))
 
 	var clusterHealthCheckController controller.Controller
 	clusterHealthCheckReconciler := getClusterHealthCheckReconciler(mgr)
-	clusterHealthCheckReconciler.Deployer = d
 
-	clusterHealthCheckController, err = clusterHealthCheckReconciler.SetupWithManager(mgr)
+	clusterHealthCheckController, err = clusterHealthCheckReconciler.SetupWithManager(mgr,
+		setupLog.WithName("clusterHealthCheckPredicate"))
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterHealthCheck")
 		os.Exit(1)

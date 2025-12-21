@@ -37,7 +37,6 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	fakedeployer "github.com/projectsveltos/libsveltos/lib/deployer/fake"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
@@ -83,12 +82,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		controllers.RegisterFeatures(dep, logger)
-
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
@@ -163,12 +158,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		Expect(c.Status().Update(context.TODO(), currentChc)).To(Succeed())
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
-
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
@@ -214,9 +205,6 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
-
 		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
 		currentChc.Status.MatchingClusterRefs = []corev1.ObjectReference{
@@ -238,7 +226,6 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
@@ -256,7 +243,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		})
 		Expect(err).To(BeNil())
 
-		Expect(controllers.UpdateClusterConditions(&reconciler, context.TODO(), chcScope)).To(Succeed())
+		controllers.UpdateClusterConditions(&reconciler, context.TODO(), chcScope)
 		Expect(chcScope.PatchObject(context.TODO())).To(Succeed())
 
 		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
@@ -274,12 +261,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 
 		Expect(addTypeInformationToObject(scheme, chc)).To(Succeed())
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
-
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
@@ -347,12 +330,8 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
 
-		dep := fakedeployer.GetClient(context.TODO(), logger, c)
-		Expect(dep.RegisterFeatureID(libsveltosv1beta1.FeatureClusterHealthCheck)).To(Succeed())
-
 		reconciler := controllers.ClusterHealthCheckReconciler{
 			Client:              c,
-			Deployer:            dep,
 			Scheme:              c.Scheme(),
 			Mux:                 sync.Mutex{},
 			ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
