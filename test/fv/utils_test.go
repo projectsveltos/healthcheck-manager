@@ -256,12 +256,10 @@ func verifyClusterHealthCheckStatus(clusterHealthCheckName, clusterNamespace, cl
 				clusterConditionFound = true
 
 				if !verifyLivenessChecks(cc) {
-					By("MGIANLUC liveness check failed")
 					return false
 				}
 
 				if !verifyNotifications(cc) {
-					By("MGIANLUC notification check failed")
 					return false
 				}
 			}
