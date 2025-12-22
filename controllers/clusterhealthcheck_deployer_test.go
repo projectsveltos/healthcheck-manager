@@ -83,13 +83,10 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 
 		length := len(chc.Status.ClusterConditions)
 
-		Expect(controllers.RemoveConditionEntry(context.TODO(), c, clusterNamespace, clusterName,
-			clusterType, chc, logger)).To(Succeed())
+		controllers.RemoveConditionEntry(context.TODO(), c, clusterNamespace, clusterName,
+			clusterType, chc, logger)
 
-		currentChc := &libsveltosv1beta1.ClusterHealthCheck{}
-		Expect(c.Get(context.TODO(), types.NamespacedName{Name: chc.Name}, currentChc)).To(Succeed())
-
-		Expect(len(currentChc.Status.ClusterConditions)).To(Equal(length - 1))
+		Expect(len(chc.Status.ClusterConditions)).To(Equal(length - 1))
 	})
 
 	It("updateNotificationSummariesForCluster updates entry for cluster", func() {

@@ -177,23 +177,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		err = c.Get(context.TODO(), chcName, currentChc)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(controllerutil.ContainsFinalizer(currentChc, libsveltosv1beta1.ClusterHealthCheckFinalizer)).To(BeTrue())
-
-		Expect(c.Get(context.TODO(), chcName, currentChc)).To(Succeed())
-
-		currentChc.Status.ClusterConditions = []libsveltosv1beta1.ClusterCondition{}
-		Expect(c.Status().Update(context.TODO(), currentChc)).To(Succeed())
-
-		// Because ClusterHealthCheck is currently deployed nowhere (Status.ClusterCondition is set
-		// indicating that) Reconcile will be removed Finalizer
-		_, err = reconciler.Reconcile(context.TODO(), ctrl.Request{
-			NamespacedName: chcName,
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		err = c.Get(context.TODO(), chcName, currentChc)
-		Expect(err).To(HaveOccurred())
+		Expect(err).ToNot(BeNil())
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
