@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +38,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckRe
 ) []reconcile.Request {
 
 	healthCheckReport := o.(*libsveltosv1beta1.HealthCheckReport)
-	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+	logger := r.Logger.WithValues(
 		"healthCheckReport", fmt.Sprintf("%s/%s", healthCheckReport.GetNamespace(), healthCheckReport.GetName()))
 
 	logger.V(logs.LogDebug).Info("reacting to healthCheckReport change")
@@ -73,7 +72,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheck(
 ) []reconcile.Request {
 
 	healthCheck := o.(*libsveltosv1beta1.HealthCheck)
-	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+	logger := r.Logger.WithValues(
 		"healthCheck", healthCheck.GetName())
 
 	logger.V(logs.LogDebug).Info("reacting to healthCheck change")
@@ -119,7 +118,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForACluster(
 	cluster client.Object,
 ) []reconcile.Request {
 
-	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+	logger := r.Logger.WithValues(
 		"cluster", fmt.Sprintf("%s/%s", cluster.GetNamespace(), cluster.GetName()))
 
 	logger.V(logs.LogDebug).Info("reacting to Cluster change")
@@ -181,7 +180,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 ) []reconcile.Request {
 
 	clusterSummary := o
-	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+	logger := r.Logger.WithValues(
 		"clusterSummary", fmt.Sprintf("%s/%s", clusterSummary.GetNamespace(), clusterSummary.GetName()))
 
 	logger.V(logs.LogDebug).Info("reacting to clusterSummary change")
@@ -232,6 +231,10 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 
 	for i := range consumers {
 		l := logger.WithValues("clusterHealthCheck", consumers[i].Name)
+		if !r.hasAddonLivenessCheck(&consumers[i]) {
+			continue
+		}
+
 		l.V(logs.LogDebug).Info("queuing ClusterHealthCheck")
 		requests[i] = ctrl.Request{
 			NamespacedName: client.ObjectKey{
@@ -272,7 +275,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
 	ctx context.Context, machine *clusterv1.Machine,
 ) []reconcile.Request {
 
-	logger := textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))).WithValues(
+	logger := r.Logger.WithValues(
 		"machine", fmt.Sprintf("%s/%s", machine.GetNamespace(), machine.GetName()))
 
 	addTypeInformationToObject(r.Scheme, machine)

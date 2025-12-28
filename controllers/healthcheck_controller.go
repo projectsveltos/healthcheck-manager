@@ -45,7 +45,7 @@ type HealthCheckReconciler struct {
 // +kubebuilder:rbac:groups=lib.projectsveltos.io,resources=healthchecks/finalizers,verbs=update
 func (r *HealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
-	logger.V(logs.LogDebug).Info("Reconciling HealthCheck")
+	logger.V(logs.LogInfo).Info("Reconciling HealthCheck")
 
 	// Fecth the HealthCheck instance
 	healthCheck := &libsveltosv1beta1.HealthCheck{}
