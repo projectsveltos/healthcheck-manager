@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -42,6 +43,7 @@ import (
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
+	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	predicates "github.com/projectsveltos/libsveltos/lib/predicates"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
@@ -70,6 +72,8 @@ const (
 	// normalRequeueAfter is how long to wait before checking again to see if the cluster can be moved
 	// to ready after or workload features (for instance ingress or reporter) have failed
 	normalRequeueAfter = 20 * time.Second
+
+	configurationHash = "configurationHash"
 )
 
 // ClusterHealthCheckReconciler reconciles a ClusterHealthCheck object
@@ -77,9 +81,14 @@ type ClusterHealthCheckReconciler struct {
 	client.Client
 	Scheme                *runtime.Scheme
 	ConcurrentReconciles  int
+	Deployer              deployer.DeployerInterface
 	ShardKey              string     // when set, only clusters matching the ShardKey will be reconciled
 	CapiOnboardAnnotation string     // when set, only capi clusters with this annotation are considered
 	Mux                   sync.Mutex // use a Mutex to update Map as MaxConcurrentReconciles is higher than one
+	Logger                logr.Logger
+
+	// ClusterHealthChecks with a LivenessCheck of type LivenessTypeAddons
+	AddonsLivenessCHC map[types.NamespacedName]struct{}
 
 	// key: Sveltos/CAPI Cluster: value: set of all ClusterHealthCheck instances matching the Cluster
 	ClusterMap map[corev1.ObjectReference]*libsveltosset.Set
@@ -214,7 +223,8 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 
 	r.cleanMaps(clusterHealthCheckScope)
 
-	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, logger)
+	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
+	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to undeploy")
 		return reconcile.Result{Requeue: true, RequeueAfter: deleteRequeueAfter}
@@ -245,16 +255,21 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	matchingCluster, err := clusterproxy.GetMatchingClusters(ctx, r.Client, clusterHealthCheckScope.GetSelector(),
 		"", r.CapiOnboardAnnotation, clusterHealthCheckScope.Logger)
 	if err != nil {
-		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
+		return reconcile.Result{}, err
 	}
 
 	clusterHealthCheckScope.SetMatchingClusterRefs(matchingCluster)
 
-	r.updateClusterConditions(ctx, clusterHealthCheckScope)
+	err = r.updateClusterConditions(ctx, clusterHealthCheckScope)
+	if err != nil {
+		logger.V(logs.LogDebug).Info("failed to update clusterConditions")
+		return reconcile.Result{}, err
+	}
 
 	r.updateMaps(clusterHealthCheckScope)
 
-	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, logger); err != nil {
+	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
+	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger); err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to deploy")
 		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
 	}
@@ -264,10 +279,9 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager, logger logr.Logger) (controller.Controller, error) {
+func (r *ClusterHealthCheckReconciler) SetupWithManager(mgr ctrl.Manager) (controller.Controller, error) {
 	c, err := ctrl.NewControllerManagedBy(mgr).
-		For(&libsveltosv1beta1.ClusterHealthCheck{},
-			builder.WithPredicates(ClusterHealthCheckPredicate{Logger: logger})).
+		For(&libsveltosv1beta1.ClusterHealthCheck{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.ConcurrentReconciles,
 		}).
@@ -373,6 +387,8 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 
 	delete(r.CHCToClusterMap, types.NamespacedName{Name: clusterHealthCheckScope.Name()})
 
+	delete(r.AddonsLivenessCHC, types.NamespacedName{Name: clusterHealthCheckScope.Name()})
+
 	for k, l := range r.HealthCheckMap {
 		l.Erase(
 			&corev1.ObjectReference{
@@ -392,12 +408,36 @@ func (r *ClusterHealthCheckReconciler) cleanMaps(clusterHealthCheckScope *scope.
 func (r *ClusterHealthCheckReconciler) updateMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
 	r.updateClusterMaps(clusterHealthCheckScope)
 	r.updateHealthCheckMaps(clusterHealthCheckScope)
+	r.updateAddonsLivenessCHCMaps(clusterHealthCheckScope)
 
 	clusterHealthCheckInfo := getKeyFromObject(r.Scheme, clusterHealthCheckScope.ClusterHealthCheck)
 
 	r.Mux.Lock()
 	defer r.Mux.Unlock()
 	r.ClusterHealthChecks[*clusterHealthCheckInfo] = clusterHealthCheckScope.ClusterHealthCheck.Spec.ClusterSelector
+}
+
+func (r *ClusterHealthCheckReconciler) updateAddonsLivenessCHCMaps(
+	clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+
+	hasAddonLiveness := false
+	for i := range clusterHealthCheckScope.ClusterHealthCheck.Spec.LivenessChecks {
+		if clusterHealthCheckScope.ClusterHealthCheck.Spec.LivenessChecks[i].Type ==
+			libsveltosv1beta1.LivenessTypeAddons {
+
+			hasAddonLiveness = true
+			break
+		}
+	}
+
+	r.Mux.Lock()
+	defer r.Mux.Unlock()
+
+	if hasAddonLiveness {
+		r.AddonsLivenessCHC[types.NamespacedName{Name: clusterHealthCheckScope.Name()}] = struct{}{}
+	} else {
+		delete(r.AddonsLivenessCHC, types.NamespacedName{Name: clusterHealthCheckScope.Name()})
+	}
 }
 
 func (r *ClusterHealthCheckReconciler) updateClusterMaps(clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
@@ -499,10 +539,16 @@ func (r *ClusterHealthCheckReconciler) getClusterMapForEntry(entry *corev1.Objec
 	return s
 }
 
+func (r *ClusterHealthCheckReconciler) hasAddonLivenessCheck(entry *corev1.ObjectReference) bool {
+	key := types.NamespacedName{Name: entry.Name}
+	_, ok := r.AddonsLivenessCHC[key]
+	return ok
+}
+
 // updateClusterConditions updates ClusterHealthCheck Status ClusterConditions by adding an entry for any
 // new cluster matching ClusterHealthCheck instance
 func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Context,
-	clusterHealthCheckScope *scope.ClusterHealthCheckScope) {
+	clusterHealthCheckScope *scope.ClusterHealthCheckScope) error {
 
 	chc := clusterHealthCheckScope.ClusterHealthCheck
 
@@ -535,4 +581,5 @@ func (r *ClusterHealthCheckReconciler) updateClusterConditions(ctx context.Conte
 	finalClusterInfo = append(finalClusterInfo, newClusterInfo...)
 
 	clusterHealthCheckScope.SetClusterConditions(finalClusterInfo)
+	return nil
 }

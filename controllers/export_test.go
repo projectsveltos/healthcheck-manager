@@ -26,7 +26,6 @@ var (
 	GetClusterMapForEntry   = (*ClusterHealthCheckReconciler).getClusterMapForEntry
 
 	ProcessClusterHealthCheck = (*ClusterHealthCheckReconciler).processClusterHealthCheck
-	IsClusterEntryRemoved     = (*ClusterHealthCheckReconciler).isClusterEntryRemoved
 	UpdateClusterConditions   = (*ClusterHealthCheckReconciler).updateClusterConditions
 )
 
@@ -44,7 +43,8 @@ const (
 )
 
 var (
-	GetKeyFromObject = getKeyFromObject
+	GetKeyFromObject      = getKeyFromObject
+	GetHandlersForFeature = getHandlersForFeature
 
 	GetConditionStatus           = getConditionStatus
 	GetConditionType             = getConditionType
@@ -57,14 +57,11 @@ var (
 	DoSendNotification         = doSendNotification
 	BuildNotificationStatusMap = buildNotificationStatusMap
 
-	RemoveConditionEntry                  = removeConditionEntry
-	UpdateConditionsForCluster            = updateConditionsForCluster
-	UpdateNotificationSummariesForCluster = updateNotificationSummariesForCluster
-	IsClusterConditionForCluster          = isClusterConditionForCluster
-	EvaluateClusterHealthCheckForCluster  = evaluateClusterHealthCheckForCluster
-	DeployHealthChecks                    = deployHealthChecks
-	RemoveStaleHealthChecks               = removeStaleHealthChecks
-	GetReferencedHealthChecks             = getReferencedHealthChecks
+	IsClusterConditionForCluster         = isClusterConditionForCluster
+	EvaluateClusterHealthCheckForCluster = evaluateClusterHealthCheckForCluster
+	DeployHealthChecks                   = deployHealthChecks
+	RemoveStaleHealthChecks              = removeStaleHealthChecks
+	GetReferencedHealthChecks            = getReferencedHealthChecks
 )
 
 var (
