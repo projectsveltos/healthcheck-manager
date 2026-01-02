@@ -324,6 +324,16 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 	if !isConfigSame {
 		logger.V(logs.LogDebug).Info(fmt.Sprintf("ClusterHealthCheck has changed. Current hash %x. Previous hash %x",
 			currentHash, hash))
+		// Reset HealthCheckReport Status in the management cluster. This will cause report to be re-evaluated.
+		// Since something has changed in the ClusterHealthCheck configuration, this make sures reports are re-evaluated.
+		// Without this, only HealthCheckReport update (in the HealthCheckReport collection code) will trigger a re-evaluation.
+		err := r.resetHealthCheckReportStatusInMgmtCluster(ctx, chc, cluster, logger)
+		if err != nil {
+			msg := err.Error()
+			clusterInfo.FailureMessage = &msg
+			logger.V(logs.LogDebug).Error(err, "failed resetting EventReport status")
+			return clusterInfo, err
+		}
 	} else {
 		logger.V(logs.LogDebug).Info("clusterhealthcheck has not changed")
 	}
@@ -905,11 +915,17 @@ func undeployClusterHealthCheckResourcesFromCluster(ctx context.Context, c clien
 	}
 
 	logger.V(logs.LogDebug).Info("Undeploy clusterHealthCheck. Removing HealthCheckReports")
-	// Remove all HealthCheckReports pulled from this managed cluster because of this HealthCheck
-	err = removeStaleHealthCheckReports(ctx, c, clusterNamespace, clusterName, "", clusterType, logger)
-	if err != nil {
-		logger.V(logs.LogInfo).Error(err, "failed to remove stale HealthCheckReports")
-		return err
+	for i := range chc.Spec.LivenessChecks {
+		if chc.Spec.LivenessChecks[i].Type != libsveltosv1beta1.LivenessTypeHealthCheck {
+			continue
+		}
+		// Remove all HealthCheckReports pulled from this managed cluster because of this HealthCheck
+		err = removeStaleHealthCheckReports(ctx, c, clusterNamespace, clusterName, chc.Spec.LivenessChecks[i].Name,
+			clusterType, logger)
+		if err != nil {
+			logger.V(logs.LogInfo).Error(err, "failed to remove stale HealthCheckReports")
+			return err
+		}
 	}
 
 	logger.V(logs.LogDebug).Info("Undeployed clusterHealthCheck")
@@ -1031,13 +1047,8 @@ func removeStaleHealthCheckReports(ctx context.Context, c client.Client,
 		client.MatchingLabels{
 			libsveltosv1beta1.HealthCheckReportClusterNameLabel: clusterName,
 			libsveltosv1beta1.HealthCheckReportClusterTypeLabel: strings.ToLower(string(clusterType)),
+			libsveltosv1beta1.HealthCheckNameLabel:              healthCheckName,
 		},
-	}
-
-	if healthCheckName != "" {
-		listOptions = append(listOptions,
-			client.MatchingLabels{libsveltosv1beta1.HealthCheckNameLabel: healthCheckName},
-		)
 	}
 
 	healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
@@ -1150,6 +1161,13 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 				return err
 			}
 			continue
+		}
+
+		// Since HealthCheck is about to be removed from the managed cluster, removes all
+		// HealthCheckReports pulled from this managed cluster because of this HealthCheck
+		err = removeStaleHealthCheckReports(ctx, c, clusterNamespace, clusterName, hc.Name, clusterType, logger)
+		if err != nil {
+			return nil
 		}
 
 		err = remoteClient.Delete(ctx, hc)
@@ -1428,4 +1446,42 @@ func (r *ClusterHealthCheckReconciler) isClusterPresent(ctx context.Context,
 	}
 
 	return true, !cluster.GetDeletionTimestamp().IsZero(), err
+}
+
+func (r *ClusterHealthCheckReconciler) resetHealthCheckReportStatusInMgmtCluster(ctx context.Context,
+	chc *libsveltosv1beta1.ClusterHealthCheck, clusterRef *corev1.ObjectReference, logger logr.Logger) error {
+
+	for i := range chc.Spec.LivenessChecks {
+		if chc.Spec.LivenessChecks[i].Type != libsveltosv1beta1.LivenessTypeHealthCheck {
+			continue
+		}
+
+		clusterType := clusterproxy.GetClusterType(clusterRef)
+		healthCheckReportName := libsveltosv1beta1.GetHealthCheckReportName(chc.Spec.LivenessChecks[i].Name,
+			clusterRef.Name, &clusterType)
+
+		currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
+		err := r.Get(ctx,
+			types.NamespacedName{Namespace: clusterRef.Namespace, Name: healthCheckReportName},
+			currentHealthCheckReport)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		if currentHealthCheckReport.Status.Phase == nil ||
+			*currentHealthCheckReport.Status.Phase != libsveltosv1beta1.ReportProcessed {
+
+			return nil
+		}
+		delivering := libsveltosv1beta1.ReportDelivering
+		currentHealthCheckReport.Status.Phase = &delivering
+		logger.V(logs.LogDebug).Info(fmt.Sprintf("Reset HealthCheckReport %s/%s Status.Phase",
+			currentHealthCheckReport.Namespace, currentHealthCheckReport.Name))
+		return r.Status().Update(ctx, currentHealthCheckReport)
+	}
+
+	return nil
 }

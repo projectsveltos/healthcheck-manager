@@ -141,7 +141,6 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		logger.V(logs.LogDebug).Info("cluster is not ready yet")
 		return err
 	}
-
 	if !ready {
 		return nil
 	}
@@ -160,7 +159,6 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	}
 
 	logger.V(logs.LogDebug).Info("collecting HealthCheckReports from cluster")
-
 	// HealthCheckReports location depends on sveltos-agent: management cluster if it's running there,
 	// otherwise managed cluster.
 	// For cluster in pull mode, the sveltos-applier copies the HealthCheckReports here
@@ -197,6 +195,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 			continue
 		}
 
+		reprocessing := false
 		l := logger.WithValues("healthCheckReport", hcr.Name)
 		var mgmtClusterHealthCheckReport *libsveltosv1beta1.HealthCheckReport
 		// First update/delete healthCheckReports in managemnent cluster
@@ -206,12 +205,17 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 			if err != nil {
 				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to delete HealthCheckReport in management cluster. Err: %v", err))
 			}
+			reprocessing = true
 		} else {
 			logger.V(logs.LogDebug).Info("updating in management cluster")
 			mgmtClusterHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
 			if err != nil {
 				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to update HealthCheckReport in management cluster. Err: %v", err))
 			}
+			reprocessing = true
+		}
+		if !reprocessing {
+			continue
 		}
 
 		if getAgentInMgmtCluster() {
