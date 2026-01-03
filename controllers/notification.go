@@ -148,7 +148,7 @@ func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespac
 	_, _, err = api.PostMessage(info.channelID, slack.MsgOptionText("ProjectSveltos Updates", false),
 		slack.MsgOptionAttachments(msgSlack))
 	if err != nil {
-		l.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
+		l.V(logs.LogInfo).Error(err, "Failed to send message")
 		return err
 	}
 
@@ -195,7 +195,7 @@ func sendWebexNotification(ctx context.Context, c client.Client, clusterNamespac
 
 	_, resp, err := webexClient.Messages.CreateMessage(webexMessage)
 	if err != nil {
-		l.V(logs.LogInfo).Info(fmt.Sprintf("Failed to send message. Error: %v", err))
+		l.V(logs.LogInfo).Error(err, "Failed to send message")
 		return err
 	}
 
@@ -310,7 +310,7 @@ func sendTelegramNotification(ctx context.Context, c client.Client, clusterNames
 
 	bot, err := tgbotapi.NewBotAPI(info.token)
 	if err != nil {
-		l.V(logs.LogInfo).Info(fmt.Sprintf("failed to get telegram bot: %v", err))
+		l.V(logs.LogInfo).Error(err, "failed to get telegram bot")
 		return err
 	}
 

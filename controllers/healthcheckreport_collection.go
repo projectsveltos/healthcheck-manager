@@ -53,7 +53,7 @@ func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheckN
 	healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 	err := c.List(ctx, healthCheckReportList, listOptions...)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to list HealthCheckReports. Err: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to list HealthCheckReports")
 		return err
 	}
 
@@ -82,7 +82,7 @@ func removeHealthCheckReportsFromCluster(ctx context.Context, c client.Client, c
 	healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
 	err := c.List(ctx, healthCheckReportList, listOptions...)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to list HealthCheckReports. Err: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to list HealthCheckReports")
 		return err
 	}
 
@@ -111,7 +111,7 @@ func collectHealthCheckReports(c client.Client, shardKey, capiOnboardAnnotation,
 		logger.V(logs.LogDebug).Info("collecting HealthCheckReports")
 		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, "", capiOnboardAnnotation, shardKey, logger)
 		if err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to get clusters")
 		}
 
 		for i := range clusterList {
@@ -119,7 +119,7 @@ func collectHealthCheckReports(c client.Client, shardKey, capiOnboardAnnotation,
 			l := logger.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name))
 			err = collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, version, l)
 			if err != nil {
-				l.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect HealthCheckReports: %v", err))
+				l.V(logs.LogInfo).Error(err, "failed to collect HealthCheckReports")
 			}
 		}
 
@@ -204,13 +204,13 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 			logger.V(logs.LogDebug).Info("deleting from management cluster")
 			err = deleteHealthCheckReport(ctx, c, cluster, hcr, l)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to delete HealthCheckReport in management cluster. Err: %v", err))
+				logger.V(logs.LogInfo).Error(err, "failed to delete HealthCheckReport in management cluster")
 			}
 		} else {
 			logger.V(logs.LogDebug).Info("updating in management cluster")
 			mgmtClusterHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to update HealthCheckReport in management cluster. Err: %v", err))
+				logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in management cluster")
 			}
 		}
 
@@ -228,7 +228,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		hcr.Status.Phase = &phase
 		err = clusterClient.Status().Update(ctx, hcr)
 		if err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to update HealthCheckReport in managed cluster. Err: %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in managed cluster")
 		}
 	}
 

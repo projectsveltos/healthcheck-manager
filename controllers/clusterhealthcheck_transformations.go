@@ -157,7 +157,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForACluster(
 		if err != nil {
 			// When clusterSelector is fixed, this ClusterHealthCheck instance
 			// will be reconciled
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to convert selector %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to convert selector")
 			continue
 		}
 
@@ -253,7 +253,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForClusterSummar
 			if err != nil {
 				// When clusterSelector is fixed, this ClusterHealthCheck instance
 				// will be reconciled
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to convert selector %v", err))
+				logger.V(logs.LogInfo).Error(err, "failed to convert selector")
 				continue
 			}
 			if clusterSelector.Matches(labels.Set(clusterLabels)) {
@@ -315,7 +315,7 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForMachine(
 			if err != nil {
 				// When clusterSelector is fixed, this ClusterHealthCheck instance
 				// will be reconciled
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to convert selector %v", err))
+				logger.V(logs.LogInfo).Error(err, "failed to convert selector")
 				continue
 			}
 

@@ -134,7 +134,7 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 		rr := &reloaderReport.Spec.ResourcesToReload[i]
 		err = r.triggerRollingUpgrade(ctx, remoteClient, rr, value, logger)
 		if err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("triggering rolling upgrade failed: %v", err))
+			logger.V(logs.LogInfo).Error(err, "triggering rolling upgrade failed")
 			failed = append(failed, *rr)
 		} else {
 			logger.V(logs.LogInfo).Info("rolling upgrade triggered")
