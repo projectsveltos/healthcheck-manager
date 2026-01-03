@@ -85,7 +85,7 @@ func evaluateLivenessCheckHealthCheck(ctx context.Context, c client.Client, clus
 	healthCheckReportList, err = fetchHealthCheckReports(ctx, c, clusterNamespace,
 		clusterName, livenessCheck.LivenessSourceRef.Name, clusterType)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch healthCheckReports: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to fetch healthCheckReports")
 		return false, "", err
 	}
 
@@ -118,7 +118,7 @@ func evaluateLivenessCheckAddOns(ctx context.Context, c client.Client, clusterNa
 
 	clusterSummaries, err := fetchClusterSummaries(ctx, c, clusterNamespace, clusterName, clusterType)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch clustersummmaries: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to fetch clustersummmaries")
 		return false, err
 	}
 

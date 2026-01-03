@@ -862,7 +862,7 @@ func evaluateHealthChecksAndSendNotificationsForCluster(ctx context.Context, c c
 	conditions, changed, err := evaluateClusterHealthCheckForCluster(ctx, c, clusterNamespace, clusterName,
 		clusterType, chc, logger)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to evaluate livenessChecks: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to evaluate livenessChecks")
 		return nil, nil, err
 	}
 
@@ -910,7 +910,7 @@ func undeployClusterHealthCheckResourcesFromCluster(ctx context.Context, c clien
 	logger.V(logs.LogDebug).Info("Undeploy clusterHealthCheck. Removing HealthChecks")
 	err = removeStaleHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType, chc, logger)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to remove health checks: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to remove health checks")
 		return err
 	}
 
@@ -996,8 +996,8 @@ func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, c
 		if doSendNotification(n, notificationStatus, resendAll) {
 			if err := sendNotification(ctx, c, clusterNamespace, clusterName, clusterType,
 				chc, n, conditions, logger); err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to deliver notification %s:%s. Err: %v",
-					n.Type, n.Name, err))
+				logger.V(logs.LogInfo).Error(err, fmt.Sprintf("failed to deliver notification %s:%s",
+					n.Type, n.Name))
 				sendNotificationError = err
 				failureMessage := err.Error()
 				notificationSummaries = append(notificationSummaries,
@@ -1117,14 +1117,14 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
 		"", "", clusterType, logger)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to get managed cluster client")
 		return err
 	}
 
 	healthCheckList := &libsveltosv1beta1.HealthCheckList{}
 	err = remoteClient.List(ctx, healthCheckList)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get list HealthChecks: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to get list HealthChecks")
 		return err
 	}
 
@@ -1157,7 +1157,7 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 			// Other ClusterHealthChecks are still deploying this very same policy
 			err = remoteClient.Update(ctx, hc)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get update HealthCheck: %v", err))
+				logger.V(logs.LogInfo).Error(err, "failed to get update HealthCheck")
 				return err
 			}
 			continue
@@ -1172,7 +1172,7 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 
 		err = remoteClient.Delete(ctx, hc)
 		if err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get delete HealthCheck: %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to get delete HealthCheck")
 			return err
 		}
 	}
@@ -1215,7 +1215,7 @@ func undeployClusterHealthCheckInPullMode(ctx context.Context, c client.Client,
 	err = pullmode.RemoveDeployedResources(ctx, c, clusterNamespace, clusterName, libsveltosv1beta1.ClusterHealthCheckKind, chc.Name,
 		libsveltosv1beta1.FeatureClusterHealthCheck, logger, setters...)
 	if err != nil {
-		logger.V(logs.LogDebug).Info(fmt.Sprintf("removeDeployedResources failed: %v", err))
+		logger.V(logs.LogDebug).Error(err, "removeDeployedResources failed")
 		return err
 	}
 
@@ -1254,7 +1254,7 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 		lc := chc.Spec.LivenessChecks[i]
 		err := deployHealthCheck(ctx, c, clusterNamespace, clusterName, clusterType, chc, &lc, isPullMode, logger)
 		if err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get deploy healthCheck: %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to get deploy healthCheck")
 			return err
 		}
 	}
@@ -1300,7 +1300,7 @@ func deployHealthCheck(ctx context.Context, c client.Client, clusterNamespace, c
 	healthCheck := &libsveltosv1beta1.HealthCheck{}
 	err := c.Get(ctx, types.NamespacedName{Name: lc.LivenessSourceRef.Name}, healthCheck)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to fetch HealthCheck: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to fetch HealthCheck")
 		return err
 	}
 
@@ -1312,14 +1312,14 @@ func deployHealthCheck(ctx context.Context, c client.Client, clusterNamespace, c
 	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
 		"", "", clusterType, logger)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get managed cluster client: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to get managed cluster client")
 		return err
 	}
 
 	err = createOrUpdateHealthCheck(ctx, remoteClient, chc, healthCheck, clusterNamespace, clusterName,
 		isPullMode, logger)
 	if err != nil {
-		logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to create/update HealthCheck: %v", err))
+		logger.V(logs.LogInfo).Error(err, "failed to create/update HealthCheck")
 		return err
 	}
 
@@ -1365,7 +1365,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client,
 	toDeployHealthCheck := getHealthCheckToDeploy(healthCheck)
 	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&toDeployHealthCheck)
 	if err != nil {
-		logger.V(logs.LogDebug).Info(fmt.Sprintf("failed to convert HealthCheck instance to unstructured: %v", err))
+		logger.V(logs.LogDebug).Error(err, "failed to convert HealthCheck instance to unstructured")
 	}
 
 	u := &unstructured.Unstructured{}

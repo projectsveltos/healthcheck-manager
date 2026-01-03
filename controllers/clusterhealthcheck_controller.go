@@ -197,7 +197,7 @@ func (r *ClusterHealthCheckReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// changes.
 	defer func() {
 		if err := clusterHealthCheckScope.Close(ctx); err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to update: %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to update")
 			reterr = err
 		}
 	}()

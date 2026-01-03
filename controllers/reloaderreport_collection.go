@@ -45,15 +45,16 @@ func collectReloaderReports(c client.Client, collectionInterval int, shardKey, c
 		logger.V(logs.LogDebug).Info("collecting ReloaderReports")
 		clusterList, err := clusterproxy.GetListOfClustersForShardKey(ctx, c, "", capiOnboardAnnotation, shardKey, logger)
 		if err != nil {
-			logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to get clusters: %v", err))
+			logger.V(logs.LogInfo).Error(err, "failed to get clusters")
 		}
 
 		for i := range clusterList {
 			cluster := &clusterList[i]
 			err = collectAndProcessReloaderReportsFromCluster(ctx, c, cluster, version, logger)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(fmt.Sprintf("failed to collect ReloaderReports from cluster: %s %s/%s %v",
-					cluster.Kind, cluster.Namespace, cluster.Name, err))
+				logger.V(logs.LogInfo).Error(err,
+					fmt.Sprintf("failed to collect ReloaderReports from cluster: %s %s/%s",
+						cluster.Kind, cluster.Namespace, cluster.Name))
 			}
 		}
 
@@ -160,8 +161,8 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 			logger.V(logs.LogDebug).Info("updating in management cluster")
 			err = updateReloaderReport(ctx, c, cluster, rr, l)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(
-					fmt.Sprintf("failed to update ReloaderReport in management cluster. Err: %v", err))
+				logger.V(logs.LogInfo).Error(err,
+					"failed to update ReloaderReport in management cluster")
 				continue
 			}
 			if isPullMode {
@@ -170,8 +171,8 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 			logger.V(logs.LogDebug).Info("delete ReloaderReport in managed cluster")
 			err = clusterClient.Delete(ctx, rr)
 			if err != nil {
-				logger.V(logs.LogInfo).Info(
-					fmt.Sprintf("failed to deletd ReloaderReport in managed cluster. Err: %v", err))
+				logger.V(logs.LogInfo).Error(err,
+					"failed to deletd ReloaderReport in managed cluster")
 				continue
 			}
 		}
