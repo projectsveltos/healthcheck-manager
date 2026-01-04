@@ -55,7 +55,7 @@ type ReloaderReportReconciler struct {
 
 func (r *ReloaderReportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
-	logger.V(logs.LogInfo).Info("Reconciling ReloaderReport")
+	logger.V(logs.LogDebug).Info("Reconciling ReloaderReport")
 
 	// Fecth the ReloaderReport instance
 	reloaderReport := &libsveltosv1beta1.ReloaderReport{}

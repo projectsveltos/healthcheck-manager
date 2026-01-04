@@ -38,7 +38,7 @@ import (
 func collectReloaderReports(c client.Client, collectionInterval int, shardKey, capiOnboardAnnotation, version string,
 	logger logr.Logger) {
 
-	logger.V(logs.LogInfo).Info(fmt.Sprintf("collection time is set to %d seconds", collectionInterval))
+	logger.V(logs.LogDebug).Info(fmt.Sprintf("collection time is set to %d seconds", collectionInterval))
 
 	ctx := context.TODO()
 	for {
