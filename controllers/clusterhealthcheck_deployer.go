@@ -318,6 +318,15 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		return clusterInfo, fmt.Errorf("cleanup of %s in cluster still in progress. Wait before redeploying", f.id)
 	}
 
+	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, r.Client, cluster.Namespace,
+		cluster.Name, clusterproxy.GetClusterType(cluster), logger)
+	if err != nil {
+		msg := fmt.Sprintf("failed to verify if Cluster is in pull mode: %v", err)
+		logger.V(logs.LogDebug).Info(msg)
+		clusterInfo.FailureMessage = &msg
+		return clusterInfo, err
+	}
+
 	// Get the ClusterHealthCheck hash when ClusterHealthCheck was last deployed/evaluated in this cluster (if ever)
 	hash, _ := r.getCHCInClusterHashAndStatus(chc, cluster)
 	isConfigSame := reflect.DeepEqual(hash, currentHash)
@@ -327,7 +336,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		// Reset HealthCheckReport Status in the management cluster. This will cause report to be re-evaluated.
 		// Since something has changed in the ClusterHealthCheck configuration, this make sures reports are re-evaluated.
 		// Without this, only HealthCheckReport update (in the HealthCheckReport collection code) will trigger a re-evaluation.
-		err := r.resetHealthCheckReportStatusInMgmtCluster(ctx, chc, cluster, logger)
+		err := r.resetHealthCheckReportStatus(ctx, chc, cluster, isPullMode, logger)
 		if err != nil {
 			msg := err.Error()
 			clusterInfo.FailureMessage = &msg
@@ -336,15 +345,6 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		}
 	} else {
 		logger.V(logs.LogDebug).Info("clusterhealthcheck has not changed")
-	}
-
-	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, r.Client, cluster.Namespace,
-		cluster.Name, clusterproxy.GetClusterType(cluster), logger)
-	if err != nil {
-		msg := fmt.Sprintf("failed to verify if Cluster is in pull mode: %v", err)
-		logger.V(logs.LogDebug).Info(msg)
-		clusterInfo.FailureMessage = &msg
-		return clusterInfo, err
 	}
 
 	return r.proceedProcessingClusterHealthCheck(ctx, chcScope, cluster, isPullMode, isConfigSame, currentHash, f, logger)
@@ -1448,21 +1448,39 @@ func (r *ClusterHealthCheckReconciler) isClusterPresent(ctx context.Context,
 	return true, !cluster.GetDeletionTimestamp().IsZero(), err
 }
 
-func (r *ClusterHealthCheckReconciler) resetHealthCheckReportStatusInMgmtCluster(ctx context.Context,
-	chc *libsveltosv1beta1.ClusterHealthCheck, clusterRef *corev1.ObjectReference, logger logr.Logger) error {
+func (r *ClusterHealthCheckReconciler) resetHealthCheckReportStatus(ctx context.Context,
+	chc *libsveltosv1beta1.ClusterHealthCheck, clusterRef *corev1.ObjectReference, isPullMode bool,
+	logger logr.Logger) error {
+
+	clusterType := clusterproxy.GetClusterType(clusterRef)
+	var kubernetesClient client.Client
+	var err error
+	var healthCheckReportNamespace, healthCheckReportName string
 
 	for i := range chc.Spec.LivenessChecks {
 		if chc.Spec.LivenessChecks[i].Type != libsveltosv1beta1.LivenessTypeHealthCheck {
 			continue
 		}
 
-		clusterType := clusterproxy.GetClusterType(clusterRef)
-		healthCheckReportName := libsveltosv1beta1.GetHealthCheckReportName(chc.Spec.LivenessChecks[i].Name,
-			clusterRef.Name, &clusterType)
+		if getAgentInMgmtCluster() || isPullMode {
+			healthCheckReportName = libsveltosv1beta1.GetHealthCheckReportName(chc.Spec.LivenessChecks[i].Name,
+				clusterRef.Name, &clusterType)
+			healthCheckReportNamespace = clusterRef.Namespace
+			kubernetesClient = r.Client
+		} else {
+			healthCheckReportName = chc.Spec.LivenessChecks[i].Name
+			healthCheckReportNamespace = "projectsveltos"
+			kubernetesClient, err = clusterproxy.GetKubernetesClient(ctx, r.Client, clusterRef.Namespace,
+				clusterRef.Name, "", "", clusterType, logger)
+			if err != nil {
+				logger.V(logs.LogInfo).Error(err, "failed to get client")
+				return err
+			}
+		}
 
 		currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
-		err := r.Get(ctx,
-			types.NamespacedName{Namespace: clusterRef.Namespace, Name: healthCheckReportName},
+		err := kubernetesClient.Get(ctx,
+			types.NamespacedName{Namespace: healthCheckReportNamespace, Name: healthCheckReportName},
 			currentHealthCheckReport)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -1480,7 +1498,7 @@ func (r *ClusterHealthCheckReconciler) resetHealthCheckReportStatusInMgmtCluster
 		currentHealthCheckReport.Status.Phase = &delivering
 		logger.V(logs.LogDebug).Info(fmt.Sprintf("Reset HealthCheckReport %s/%s Status.Phase",
 			currentHealthCheckReport.Namespace, currentHealthCheckReport.Name))
-		return r.Status().Update(ctx, currentHealthCheckReport)
+		return kubernetesClient.Status().Update(ctx, currentHealthCheckReport)
 	}
 
 	return nil
