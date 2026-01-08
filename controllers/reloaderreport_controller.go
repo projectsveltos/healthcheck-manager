@@ -209,10 +209,8 @@ func (r *ReloaderReportReconciler) fetchAndPrepareStatefulSet(ctx context.Contex
 	}
 
 	for i := range statefulSet.Spec.Template.Spec.Containers {
-		if statefulSet.Spec.Template.Spec.Containers[i].Env == nil {
-			statefulSet.Spec.Template.Spec.Containers[i].Env =
-				r.updateEnvs(statefulSet.Spec.Template.Spec.Containers[i].Env, value)
-		}
+		statefulSet.Spec.Template.Spec.Containers[i].Env =
+			r.updateEnvs(statefulSet.Spec.Template.Spec.Containers[i].Env, value)
 	}
 
 	return statefulSet, nil
@@ -228,10 +226,8 @@ func (r *ReloaderReportReconciler) fetchAndPrepareDaemonSet(ctx context.Context,
 	}
 
 	for i := range daemonSet.Spec.Template.Spec.Containers {
-		if daemonSet.Spec.Template.Spec.Containers[i].Env == nil {
-			daemonSet.Spec.Template.Spec.Containers[i].Env =
-				r.updateEnvs(daemonSet.Spec.Template.Spec.Containers[i].Env, value)
-		}
+		daemonSet.Spec.Template.Spec.Containers[i].Env =
+			r.updateEnvs(daemonSet.Spec.Template.Spec.Containers[i].Env, value)
 	}
 
 	return daemonSet, nil
