@@ -833,7 +833,24 @@ func fetchReferencedResources(ctx context.Context, c client.Client,
 				return "", err
 			}
 
+			// Sort the list of reports by Namespace, then Name
+			sort.Slice(list.Items, func(i, j int) bool {
+				if list.Items[i].Namespace != list.Items[j].Namespace {
+					return list.Items[i].Namespace < list.Items[j].Namespace
+				}
+				return list.Items[i].Name < list.Items[j].Name
+			})
 			for j := range list.Items {
+				sort.Slice(list.Items[j].Spec.ResourceStatuses, func(m, n int) bool {
+					refM := list.Items[j].Spec.ResourceStatuses[m].ObjectRef
+					refN := list.Items[j].Spec.ResourceStatuses[n].ObjectRef
+
+					if refM.Namespace != refN.Namespace {
+						return refM.Namespace < refN.Namespace
+					}
+					return refM.Name < refN.Name
+				})
+
 				config += render.AsCode(list.Items[j].Spec)
 			}
 		}

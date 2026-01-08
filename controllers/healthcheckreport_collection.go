@@ -197,7 +197,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 
 		reprocessing := false
 		l := logger.WithValues("healthCheckReport", hcr.Name)
-		var mgmtClusterHealthCheckReport *libsveltosv1beta1.HealthCheckReport
+		var mgmtHealthCheckReport *libsveltosv1beta1.HealthCheckReport
 		// First update/delete healthCheckReports in managemnent cluster
 		if !hcr.DeletionTimestamp.IsZero() {
 			logger.V(logs.LogDebug).Info("deleting from management cluster")
@@ -208,7 +208,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 			reprocessing = true
 		} else {
 			logger.V(logs.LogDebug).Info("updating in management cluster")
-			mgmtClusterHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
+			mgmtHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
 			if err != nil {
 				logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in management cluster")
 			}
@@ -219,10 +219,10 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		}
 
 		if getAgentInMgmtCluster() {
-			if mgmtClusterHealthCheckReport != nil {
-				// If in agentless mode, the Status of EventReport in the management cluster will be updated.
+			if mgmtHealthCheckReport != nil {
+				// If in agentless mode, the Status of HealthCheckReport in the management cluster will be updated.
 				// So set er to current version (update otherwise will fail with object has been modified)
-				hcr = mgmtClusterHealthCheckReport
+				hcr = mgmtHealthCheckReport
 			}
 		}
 
