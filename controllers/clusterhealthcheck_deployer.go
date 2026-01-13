@@ -841,22 +841,49 @@ func fetchReferencedResources(ctx context.Context, c client.Client,
 				return list.Items[i].Name < list.Items[j].Name
 			})
 			for j := range list.Items {
-				sort.Slice(list.Items[j].Spec.ResourceStatuses, func(m, n int) bool {
-					refM := list.Items[j].Spec.ResourceStatuses[m].ObjectRef
-					refN := list.Items[j].Spec.ResourceStatuses[n].ObjectRef
+				// Filter to include only ObjectRef and HealthStatus
+				filteredStatuses := filterResourceStatuses(list.Items[j].Spec.ResourceStatuses)
 
-					if refM.Namespace != refN.Namespace {
-						return refM.Namespace < refN.Namespace
+				// Sort by ObjectRef for consistent ordering
+				sort.Slice(filteredStatuses, func(i, j int) bool {
+					if filteredStatuses[i].ObjectRef.Namespace != filteredStatuses[j].ObjectRef.Namespace {
+						return filteredStatuses[i].ObjectRef.Namespace < filteredStatuses[j].ObjectRef.Namespace
 					}
-					return refM.Name < refN.Name
+					if filteredStatuses[i].ObjectRef.Name != filteredStatuses[j].ObjectRef.Name {
+						return filteredStatuses[i].ObjectRef.Name < filteredStatuses[j].ObjectRef.Name
+					}
+					if filteredStatuses[i].ObjectRef.Kind != filteredStatuses[j].ObjectRef.Kind {
+						return filteredStatuses[i].ObjectRef.Kind < filteredStatuses[j].ObjectRef.Kind
+					}
+					return filteredStatuses[i].ObjectRef.APIVersion < filteredStatuses[j].ObjectRef.APIVersion
 				})
 
-				config += render.AsCode(list.Items[j].Spec)
+				config += render.AsCode(filteredStatuses)
 			}
 		}
 	}
 
 	return config, nil
+}
+
+// filteredResourceStatus contains only the fields we want to include in the hash
+type filteredResourceStatus struct {
+	ObjectRef    corev1.ObjectReference         `json:"objectRef"`
+	HealthStatus libsveltosv1beta1.HealthStatus `json:"healthStatus"`
+}
+
+// filterResourceStatuses creates a filtered copy of resource statuses
+// containing only ObjectRef and HealthStatus fields (excludes Resource and Message)
+func filterResourceStatuses(statuses []libsveltosv1beta1.ResourceStatus) []filteredResourceStatus {
+	filtered := make([]filteredResourceStatus, len(statuses))
+	for i := range statuses {
+		rs := &statuses[i]
+		filtered[i] = filteredResourceStatus{
+			ObjectRef:    rs.ObjectRef,
+			HealthStatus: rs.HealthStatus,
+		}
+	}
+	return filtered
 }
 
 // fetchHealthCheck fetches referenced HealthCheck
