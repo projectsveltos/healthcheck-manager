@@ -18,7 +18,6 @@ package controllers
 
 var (
 	RequeueClusterHealthCheckForCluster = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
-	RequeueClusterHealthCheckForMachine = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForMachine
 
 	CleanMaps               = (*ClusterHealthCheckReconciler).cleanMaps
 	UpdateMaps              = (*ClusterHealthCheckReconciler).updateMaps

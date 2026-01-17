@@ -19,7 +19,6 @@ package controllers_test
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +30,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
@@ -41,7 +39,6 @@ import (
 	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
 var (
@@ -122,20 +119,6 @@ func addTypeInformationToObject(scheme *runtime.Scheme, obj client.Object) error
 	}
 
 	return nil
-}
-
-func getClusterHealthCheckReconciler(c client.Client) *controllers.ClusterHealthCheckReconciler {
-	return &controllers.ClusterHealthCheckReconciler{
-		Client:              c,
-		Scheme:              scheme,
-		ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
-		CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
-		ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
-		HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
-		CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
-		ClusterLabels:       make(map[corev1.ObjectReference]map[string]string),
-		Mux:                 sync.Mutex{},
-	}
 }
 
 func getHealthCheckInstance(name string) *libsveltosv1beta1.HealthCheck {
