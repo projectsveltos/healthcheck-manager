@@ -334,19 +334,6 @@ func (r *ClusterHealthCheckReconciler) WatchForCAPI(mgr ctrl.Manager, c controll
 		return err
 	}
 
-	sourceMachine := source.Kind[*clusterv1.Machine](
-		mgr.GetCache(),
-		&clusterv1.Machine{},
-		handler.TypedEnqueueRequestsFromMapFunc(r.requeueClusterHealthCheckForMachine),
-		predicates.MachinePredicate{Logger: mgr.GetLogger().WithValues("predicate", "machinepredicate")},
-	)
-
-	// When cluster-api machine changes, according to ClusterPredicates,
-	// one or more ClusterHealthChecks need to be reconciled.
-	if err := c.Watch(sourceMachine); err != nil {
-		return err
-	}
-
 	return nil
 }
 
