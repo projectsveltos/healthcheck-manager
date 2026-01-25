@@ -143,7 +143,7 @@ func main() {
 	d := deployer.GetClient(ctx, ctrl.Log.WithName("deployer"), mgr.GetClient(), workers)
 	controllers.RegisterFeatures(d, setupLog)
 
-	controllers.SetManagementRecorder(mgr.GetEventRecorderFor("notification-recorder"))
+	controllers.SetManagementRecorder(mgr.GetEventRecorder("notification-recorder"))
 
 	var clusterHealthCheckController controller.Controller
 	clusterHealthCheckReconciler := getClusterHealthCheckReconciler(mgr)
