@@ -113,9 +113,7 @@ func sendKubernetesNotification(clusterNamespace, clusterName string,
 	}
 
 	r := getManagementRecorder()
-	r.Eventf(chc, eventType, "ClusterHealthCheck", message)
-
-	r.Event(chc, eventType, "ClusterHealthCheck", message)
+	r.Eventf(chc, nil, eventType, "ClusterHealthCheck", "LivenessChecks", message)
 }
 
 func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,

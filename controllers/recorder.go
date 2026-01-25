@@ -17,17 +17,17 @@ limitations under the License.
 package controllers
 
 import (
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 )
 
 var (
-	managementRecorder record.EventRecorder
+	managementRecorder events.EventRecorder
 )
 
-func SetManagementRecorder(r record.EventRecorder) {
+func SetManagementRecorder(r events.EventRecorder) {
 	managementRecorder = r
 }
 
-func getManagementRecorder() record.EventRecorder {
+func getManagementRecorder() events.EventRecorder {
 	return managementRecorder
 }
