@@ -1,6 +1,6 @@
 module github.com/projectsveltos/healthcheck-manager
 
-go 1.25.6
+go 1.26.1
 
 require (
 	github.com/TwiN/go-color v1.4.1
@@ -13,20 +13,20 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v1.6.0
-	github.com/projectsveltos/libsveltos v1.6.0
+	github.com/projectsveltos/addon-controller v1.6.1-0.20260324202819-c92a2d31f085
+	github.com/projectsveltos/libsveltos v1.6.2-0.20260323171327-a0d7029ca880
 	github.com/prometheus/client_golang v1.23.2
-	github.com/slack-go/slack v0.19.0
+	github.com/slack-go/slack v0.20.0
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/text v0.35.0
-	k8s.io/api v0.35.2
-	k8s.io/apiextensions-apiserver v0.35.2
-	k8s.io/apimachinery v0.35.2
-	k8s.io/client-go v0.35.2
-	k8s.io/component-base v0.35.2
+	k8s.io/api v0.35.3
+	k8s.io/apiextensions-apiserver v0.35.3
+	k8s.io/apimachinery v0.35.3
+	k8s.io/client-go v0.35.3
+	k8s.io/component-base v0.35.3
 	k8s.io/klog/v2 v2.140.0
-	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	sigs.k8s.io/cluster-api v1.12.3
+	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
+	sigs.k8s.io/cluster-api v1.12.4
 	sigs.k8s.io/controller-runtime v0.23.3
 )
 
@@ -111,11 +111,11 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260203192932-546029d2fa20 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260203192932-546029d2fa20 // indirect
-	google.golang.org/grpc v1.78.0 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiserver v0.35.2 // indirect
+	k8s.io/apiserver v0.35.3 // indirect
 	k8s.io/cluster-bootstrap v0.35.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
