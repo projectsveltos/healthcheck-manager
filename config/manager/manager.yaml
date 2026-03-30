@@ -44,6 +44,8 @@ spec:
           capabilities:
             drop:
               - "ALL"
+          seccompProfile:
+            type: RuntimeDefault
         livenessProbe:
           failureThreshold: 3
           httpGet:
