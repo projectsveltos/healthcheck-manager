@@ -1404,7 +1404,7 @@ func deployHealthCheck(ctx context.Context, c client.Client, clusterNamespace, c
 		return err
 	}
 
-	if getAgentInMgmtCluster() {
+	if getAgentInMgmtCluster() && !isPullMode {
 		return addHealthCheckToConfigMap(ctx, c, clusterNamespace, clusterName, clusterType,
 			chc, healthCheck, logger)
 	}
