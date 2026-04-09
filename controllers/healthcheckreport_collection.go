@@ -163,7 +163,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	// otherwise managed cluster.
 	// For cluster in pull mode, the sveltos-applier copies the HealthCheckReports here
 	clusterClient, err := getHealthCheckReportClient(ctx, cluster.Namespace, cluster.Name,
-		clusterproxy.GetClusterType(clusterRef), logger)
+		clusterproxy.GetClusterType(clusterRef), isPullMode, logger)
 	if err != nil {
 		return err
 	}
