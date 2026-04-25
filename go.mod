@@ -16,7 +16,7 @@ require (
 	github.com/projectsveltos/addon-controller v1.8.0
 	github.com/projectsveltos/libsveltos v1.8.1-0.20260422193357-a670bbae8df8
 	github.com/prometheus/client_golang v1.23.2
-	github.com/slack-go/slack v0.22.0
+	github.com/slack-go/slack v0.23.0
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/text v0.36.0
 	k8s.io/api v0.35.4
