@@ -78,8 +78,10 @@ rules:
 - apiGroups:
   - config.projectsveltos.io
   resources:
+  - clusterprofiles
   - clustersummaries
   - clustersummaries/status
+  - profiles
   verbs:
   - get
   - list

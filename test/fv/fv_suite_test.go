@@ -112,6 +112,10 @@ var _ = BeforeSuite(func() {
 	} else {
 		verifySveltosCluster()
 	}
+
+	if isAgentLessMode() {
+		Expect(setAddonControllerInAgentlessMode()).To(Succeed())
+	}
 })
 
 func verifySveltosCluster() {
@@ -210,21 +214,37 @@ func verifyCAPICluster() {
 
 func isAgentLessMode() bool {
 	By("Getting health check manager deployment")
-	classfierDepl := &appsv1.Deployment{}
+	healthcheckDeployment := &appsv1.Deployment{}
 	Expect(k8sClient.Get(context.TODO(),
 		types.NamespacedName{Namespace: deplNamespace, Name: deplName},
-		classfierDepl)).To(Succeed())
+		healthcheckDeployment)).To(Succeed())
 
-	Expect(len(classfierDepl.Spec.Template.Spec.Containers)).To(Equal(1))
+	Expect(len(healthcheckDeployment.Spec.Template.Spec.Containers)).To(Equal(1))
 
-	for i := range classfierDepl.Spec.Template.Spec.Containers[0].Args {
-		if strings.Contains(classfierDepl.Spec.Template.Spec.Containers[0].Args[i], "agent-in-mgmt-cluster=true") {
+	for i := range healthcheckDeployment.Spec.Template.Spec.Containers[0].Args {
+		if strings.Contains(healthcheckDeployment.Spec.Template.Spec.Containers[0].Args[i], "agent-in-mgmt-cluster=true") {
 			By("healthcheck-manager in agentless mode")
 			return true
 		}
 	}
 
 	return false
+}
+
+func setAddonControllerInAgentlessMode() error {
+	By("Getting addon-controller deployment")
+	addonControllerDepl := &appsv1.Deployment{}
+	Expect(k8sClient.Get(context.TODO(),
+		types.NamespacedName{Namespace: deplNamespace, Name: "addon-controller"},
+		addonControllerDepl)).To(Succeed())
+
+	for i := range addonControllerDepl.Spec.Template.Spec.Containers[0].Args {
+		if strings.Contains(addonControllerDepl.Spec.Template.Spec.Containers[0].Args[i], "agent-in-mgmt-cluster") {
+			addonControllerDepl.Spec.Template.Spec.Containers[0].Args[i] = "--agent-in-mgmt-cluster=true"
+		}
+	}
+
+	return k8sClient.Update(context.TODO(), addonControllerDepl)
 }
 
 // isCAPIInstalled returns true if CAPI is installed, false otherwise

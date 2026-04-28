@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
 )
@@ -75,18 +76,77 @@ var _ = Describe("ReloaderReports processing", func() {
 		Expect(workloadClient).ToNot(BeNil())
 
 		nsName := namePrefix + randomString()
-		Byf("Creating namespace in the managed cluster %s", nsName)
-		ns := &corev1.Namespace{
+
+		deployment, err := k8s_utils.GetUnstructured([]byte(fmt.Sprintf(deploymentToReload, nsName)))
+		Expect(err).To(BeNil())
+
+		Byf("Creating namespace for ConfigMap in management cluster")
+		configMapNs := randomString()
+		configMapNamespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: nsName,
+				Name: configMapNs,
 			},
 		}
-		Expect(workloadClient.Create(context.TODO(), ns)).To(Succeed())
+		Expect(k8sClient.Create(context.TODO(), configMapNamespace)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(k8sClient.Delete(context.TODO(), configMapNamespace)).To(Succeed())
+		})
 
-		Byf("Create a deployment in namespace %s", nsName)
-		deployment, err := k8s_utils.GetUnstructured([]byte(fmt.Sprintf(deploymentToReload, ns.Name)))
-		Expect(err).To(BeNil())
-		Expect(workloadClient.Create(context.TODO(), deployment)).To(BeNil())
+		Byf("Creating ConfigMap with namespace and deployment resources for managed cluster")
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: configMapNs,
+				Name:      namePrefix + randomString(),
+			},
+			Data: map[string]string{
+				"namespace.yaml": fmt.Sprintf(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s`, nsName),
+				"deployment.yaml": fmt.Sprintf(deploymentToReload, nsName),
+			},
+		}
+		Expect(k8sClient.Create(context.TODO(), configMap)).To(Succeed())
+
+		Byf("Creating ClusterProfile with Reloader=true and PolicyRefs referencing the ConfigMap")
+		clusterProfile := &configv1beta1.ClusterProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namePrefix + randomString(),
+			},
+			Spec: configv1beta1.Spec{
+				ClusterSelector: libsveltosv1beta1.Selector{
+					LabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{key: value},
+					},
+				},
+				Reloader: true,
+				PolicyRefs: []configv1beta1.PolicyRef{
+					{
+						Kind:      string(libsveltosv1beta1.ConfigMapReferencedResourceKind),
+						Namespace: configMap.Namespace,
+						Name:      configMap.Name,
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Create(context.TODO(), clusterProfile)).To(Succeed())
+
+		verifyClusterProfileMatches(clusterProfile)
+		clusterSummary := verifyClusterSummary(clusterProfile,
+			kindWorkloadCluster.GetNamespace(), kindWorkloadCluster.GetName())
+
+		Byf("Verifying ClusterSummary %s resources are provisioned", clusterSummary.Name)
+		verifyFeatureStatusIsProvisioned(clusterSummary.Namespace, clusterSummary.Name,
+			libsveltosv1beta1.FeatureResources)
+
+		Byf("Waiting for deployment %s/%s to be deployed in the managed cluster",
+			deployment.GetNamespace(), deployment.GetName())
+		Eventually(func() bool {
+			currentDepl := &appsv1.Deployment{}
+			return workloadClient.Get(context.TODO(),
+				types.NamespacedName{Namespace: deployment.GetNamespace(), Name: deployment.GetName()},
+				currentDepl) == nil
+		}, timeout, pollingInterval).Should(BeTrue())
 
 		Byf("Create a reloaderReport listing deployoment %s/%s as resource to reload",
 			deployment.GetNamespace(), deployment.GetName())
@@ -111,13 +171,23 @@ var _ = Describe("ReloaderReports processing", func() {
 			},
 		}
 		if isAgentLessMode() {
+			// Those are only set in agentless mode. With agents in the managed clusters,
+			// Sveltos ignores reloaderReports collected with those fields set
+			clusterType := libsveltosv1beta1.ClusterTypeCapi
+			if kindWorkloadCluster.GetKind() == libsveltosv1beta1.SveltosClusterKind {
+				clusterType = libsveltosv1beta1.ClusterTypeSveltos
+			}
+			reloaderReport.Spec.ClusterNamespace = kindWorkloadCluster.GetNamespace()
+			reloaderReport.Spec.ClusterName = kindWorkloadCluster.GetName()
+			reloaderReport.Spec.ClusterType = clusterType
 			Expect(k8sClient.Create(context.TODO(), reloaderReport)).To(BeNil())
 		} else {
 			Expect(workloadClient.Create(context.TODO(), reloaderReport)).To(BeNil())
 		}
 
 		if isAgentLessMode() {
-			Byf("Verifying ReloaderReport is removed from management cluster")
+			Byf("Verifying ReloaderReport %s/%s is removed from management cluster",
+				reloaderReport.Namespace, reloaderReport.Name)
 			Eventually(func() bool {
 				currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 				err = k8sClient.Get(context.TODO(),
@@ -129,7 +199,8 @@ var _ = Describe("ReloaderReports processing", func() {
 				return false
 			}, timeout, pollingInterval).Should(BeTrue())
 		} else {
-			Byf("Verifying ReloaderReport is removed from managed cluster")
+			Byf("Verifying ReloaderReport %s/%s is removed from managed cluster",
+				reloaderReport.Namespace, reloaderReport.Name)
 			Eventually(func() bool {
 				currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 				err = workloadClient.Get(context.TODO(),
@@ -161,8 +232,7 @@ var _ = Describe("ReloaderReports processing", func() {
 			return true
 		}, timeout, pollingInterval).Should(BeTrue())
 
-		Byf("Deleting namespace %s", nsName)
-		Expect(workloadClient.Delete(context.TODO(), ns)).To(Succeed())
+		deleteClusterProfile(clusterProfile)
 	})
 })
 

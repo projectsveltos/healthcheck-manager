@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,11 +34,182 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2/textlogger"
 
+	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 )
 
 var _ = Describe("ReloaderReport Collection", func() {
+	var version string
+
+	BeforeEach(func() {
+		version = randomString()
+
+		By("Create the ConfigMap with sveltos-agent version")
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: controllers.ReportNamespace,
+				Name:      cmVersionName,
+			},
+			Data: map[string]string{
+				"version": version,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), cm)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, cm)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		By("Delete the ConfigMap with sveltos-agent version")
+		cm := &corev1.ConfigMap{}
+		Expect(testEnv.Get(context.TODO(),
+			types.NamespacedName{Namespace: controllers.ReportNamespace, Name: cmVersionName},
+			cm)).To(Succeed())
+		Expect(testEnv.Delete(context.TODO(), cm)).To(Succeed())
+
+		Eventually(func() bool {
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: controllers.ReportNamespace, Name: cmVersionName},
+				cm)
+			return err != nil && apierrors.IsNotFound(err)
+		}, timeout, pollingInterval).Should(BeTrue())
+	})
+
+	It("buildClustersWithReloader returns clusters matched by profiles with Reloader=true", func() {
+		cluster1 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "Cluster"}
+		cluster2 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "Cluster"}
+		cluster3 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "SveltosCluster"}
+		cluster4 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "Cluster"}
+
+		// ClusterProfile with Reloader=true matching cluster1 and cluster2.
+		cpWithReloader := &configv1beta1.ClusterProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: randomString()},
+			Spec:       configv1beta1.Spec{Reloader: true},
+		}
+		// Profile with Reloader=true matching cluster3.
+		profileWithReloader := &configv1beta1.Profile{
+			ObjectMeta: metav1.ObjectMeta{Name: randomString(), Namespace: randomString()},
+			Spec:       configv1beta1.Spec{Reloader: true},
+		}
+		// ClusterProfile with Reloader=false matching cluster4 — must not appear in result.
+		cpNoReloader := &configv1beta1.ClusterProfile{
+			ObjectMeta: metav1.ObjectMeta{Name: randomString()},
+			Spec:       configv1beta1.Spec{Reloader: false},
+		}
+
+		initObjects := []client.Object{cpWithReloader, profileWithReloader, cpNoReloader}
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).Build()
+
+		// Set Status.MatchingClusterRefs via update (fake client requires status subresource update).
+		cpWithReloader.Status.MatchingClusterRefs = []corev1.ObjectReference{cluster1, cluster2}
+		Expect(c.Status().Update(context.TODO(), cpWithReloader)).To(Succeed())
+
+		profileWithReloader.Status.MatchingClusterRefs = []corev1.ObjectReference{cluster3}
+		Expect(c.Status().Update(context.TODO(), profileWithReloader)).To(Succeed())
+
+		cpNoReloader.Status.MatchingClusterRefs = []corev1.ObjectReference{cluster4}
+		Expect(c.Status().Update(context.TODO(), cpNoReloader)).To(Succeed())
+
+		result, err := controllers.BuildClustersWithReloader(context.TODO(), c)
+		Expect(err).To(BeNil())
+		Expect(result).To(HaveLen(3))
+		Expect(result[cluster1]).To(BeTrue())
+		Expect(result[cluster2]).To(BeTrue())
+		Expect(result[cluster3]).To(BeTrue())
+		Expect(result).NotTo(HaveKey(cluster4))
+	})
+
+	It("collectAndProcessAllReloaderReports distinguishes CAPI and Sveltos clusters with same namespace and name", func() {
+		capiCluster := prepareCluster()
+
+		cmName := fmt.Sprintf("sa-%s-%s", strings.ToLower(string(libsveltosv1beta1.ClusterTypeCapi)), capiCluster.Name)
+		cmNamespace := capiCluster.Namespace
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cmNamespace,
+				Name:      cmName,
+			},
+			Data: map[string]string{
+				"version": version,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), cm)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, cm)).To(Succeed())
+
+		capiClusterType := libsveltosv1beta1.ClusterTypeCapi
+		sveltosClusterType := libsveltosv1beta1.ClusterTypeSveltos
+
+		// capiRR: in the CAPI cluster's namespace with proper cluster labels.
+		// Spec.ClusterName is empty so updateReloaderReport will process it.
+		capiRR := &libsveltosv1beta1.ReloaderReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      randomString(),
+				Namespace: capiCluster.Namespace,
+				Labels:    libsveltosv1beta1.GetReloaderReportLabels(capiCluster.Name, &capiClusterType),
+			},
+			Spec: libsveltosv1beta1.ReloaderReportSpec{
+				ClusterNamespace: capiCluster.Namespace,
+				ClusterType:      capiClusterType,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), capiRR)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, capiRR)).To(Succeed())
+
+		// sveltosRR: same namespace and cluster name as capiCluster but type=sveltos.
+		// It must NOT be processed since the sveltos cluster is not in clusterList.
+		sveltosRR := &libsveltosv1beta1.ReloaderReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      randomString(),
+				Namespace: capiCluster.Namespace,
+				Labels:    libsveltosv1beta1.GetReloaderReportLabels(capiCluster.Name, &sveltosClusterType),
+			},
+			Spec: libsveltosv1beta1.ReloaderReportSpec{
+				ClusterNamespace: capiCluster.Namespace,
+				ClusterType:      sveltosClusterType,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), sveltosRR)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, sveltosRR)).To(Succeed())
+
+		capiClusterRef := corev1.ObjectReference{
+			Namespace:  capiCluster.Namespace,
+			Name:       capiCluster.Name,
+			Kind:       capiCluster.Kind,
+			APIVersion: capiCluster.APIVersion,
+		}
+
+		// Only the CAPI cluster is in the cluster list.
+		clusterList := []corev1.ObjectReference{capiClusterRef}
+		logger := textlogger.NewLogger(textlogger.NewConfig())
+
+		Expect(controllers.CollectAndProcessAllReloaderReports(context.TODO(), testEnv.Client,
+			clusterList, version, logger)).To(Succeed())
+
+		// capi RR must eventually be deleted (processed and removed by the agentless path).
+		Eventually(func() bool {
+			current := &libsveltosv1beta1.ReloaderReport{}
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: capiRR.Namespace, Name: capiRR.Name}, current)
+			return apierrors.IsNotFound(err)
+		}, timeout, pollingInterval).Should(BeTrue())
+
+		// sveltos RR must consistently NOT be deleted (not processed).
+		Consistently(func() bool {
+			current := &libsveltosv1beta1.ReloaderReport{}
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: sveltosRR.Namespace, Name: sveltosRR.Name}, current)
+			return err == nil
+		}, timeout, pollingInterval).Should(BeTrue())
+
+		Expect(testEnv.Delete(context.TODO(), sveltosRR)).To(Succeed())
+		Eventually(func() bool {
+			current := &libsveltosv1beta1.ReloaderReport{}
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: sveltosRR.Namespace, Name: sveltosRR.Name}, current)
+			return apierrors.IsNotFound(err)
+		}, timeout, pollingInterval).Should(BeTrue())
+	})
 
 	It("collectAndProcessReloaderReportsFromCluster collects ReloaderReports from cluster", func() {
 		cluster := prepareCluster()
@@ -131,11 +304,27 @@ func validateReloaderReports(cluster *clusterv1.Cluster, expectedReloaderInfo []
 		if err != nil {
 			return false
 		}
-		if len(reloaderReports.Items) != 1 {
-			By(fmt.Sprintf("found %d reloaderReports", len(reloaderReports.Items)))
+
+		filtered := []libsveltosv1beta1.ReloaderReport{}
+		// filter reports that match the cluster
+		for i := range reloaderReports.Items {
+			if !reloaderReports.Items[i].DeletionTimestamp.IsZero() {
+				continue
+			}
+
+			if reloaderReports.Items[i].Spec.ClusterNamespace == cluster.Namespace &&
+				reloaderReports.Items[i].Spec.ClusterName == cluster.Name &&
+				reloaderReports.Items[i].Spec.ClusterType == libsveltosv1beta1.ClusterTypeCapi {
+
+				filtered = append(filtered, reloaderReports.Items[i])
+			}
+		}
+
+		if len(filtered) != 1 {
+			By(fmt.Sprintf("found %d reloaderReports", len(filtered)))
 			return false
 		}
-		if !reflect.DeepEqual(reloaderReports.Items[0].Spec.ResourcesToReload, expectedReloaderInfo) {
+		if !reflect.DeepEqual(filtered[0].Spec.ResourcesToReload, expectedReloaderInfo) {
 			By("ReloaderInfo does not match")
 			return false
 		}

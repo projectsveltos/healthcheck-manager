@@ -67,10 +67,14 @@ var (
 	RemoveHealthCheckReports                       = removeHealthCheckReports
 	RemoveHealthCheckReportsFromCluster            = removeHealthCheckReportsFromCluster
 	CollectAndProcessHealthCheckReportsFromCluster = collectAndProcessHealthCheckReportsFromCluster
+	CollectAndProcessAllHealthCheckReports         = collectAndProcessAllHealthCheckReports
+	BuildClustersWithHealthCheck                   = buildClustersWithHealthCheck
 )
 
 var (
 	CollectAndProcessReloaderReportsFromCluster = collectAndProcessReloaderReportsFromCluster
+	CollectAndProcessAllReloaderReports         = collectAndProcessAllReloaderReports
+	BuildClustersWithReloader                   = buildClustersWithReloader
 )
 
 var (
