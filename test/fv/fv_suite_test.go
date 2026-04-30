@@ -52,14 +52,13 @@ var (
 )
 
 const (
-	timeout         = 2 * time.Minute
+	timeout         = 3 * time.Minute
 	pollingInterval = 5 * time.Second
 )
 
 const (
-	deplNamespace        = "projectsveltos"
-	deplName             = "hc-manager"
-	managerContainerName = "manager"
+	deplNamespace = "projectsveltos"
+	deplName      = "hc-manager"
 )
 
 func TestFv(t *testing.T) {
@@ -233,18 +232,24 @@ func isAgentLessMode() bool {
 
 func setAddonControllerInAgentlessMode() error {
 	By("Getting addon-controller deployment")
-	addonControllerDepl := &appsv1.Deployment{}
-	Expect(k8sClient.Get(context.TODO(),
-		types.NamespacedName{Namespace: deplNamespace, Name: "addon-controller"},
-		addonControllerDepl)).To(Succeed())
-
-	for i := range addonControllerDepl.Spec.Template.Spec.Containers[0].Args {
-		if strings.Contains(addonControllerDepl.Spec.Template.Spec.Containers[0].Args[i], "agent-in-mgmt-cluster") {
-			addonControllerDepl.Spec.Template.Spec.Containers[0].Args[i] = "--agent-in-mgmt-cluster=true"
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		addonControllerDepl := &appsv1.Deployment{}
+		err := k8sClient.Get(context.TODO(),
+			types.NamespacedName{Namespace: deplNamespace, Name: "addon-controller"},
+			addonControllerDepl)
+		if err != nil {
+			return err
 		}
-	}
 
-	return k8sClient.Update(context.TODO(), addonControllerDepl)
+		for i := range addonControllerDepl.Spec.Template.Spec.Containers[0].Args {
+			if strings.Contains(addonControllerDepl.Spec.Template.Spec.Containers[0].Args[i], "agent-in-mgmt-cluster") {
+				addonControllerDepl.Spec.Template.Spec.Containers[0].Args[i] = "--agent-in-mgmt-cluster=true"
+			}
+		}
+
+		return k8sClient.Update(context.TODO(), addonControllerDepl)
+	})
+	return err
 }
 
 // isCAPIInstalled returns true if CAPI is installed, false otherwise

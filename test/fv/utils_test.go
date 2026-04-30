@@ -341,7 +341,7 @@ func getClusterProfile(namePrefix string, clusterLabels map[string]string) *conf
 					RepositoryURL:    "https://kyverno.github.io/kyverno/",
 					RepositoryName:   "kyverno",
 					ChartName:        "kyverno/kyverno",
-					ChartVersion:     "v2.6.5",
+					ChartVersion:     "v3.7.2",
 					ReleaseName:      "kyverno-latest",
 					ReleaseNamespace: "kyverno",
 					HelmChartAction:  configv1beta1.HelmChartActionInstall,
