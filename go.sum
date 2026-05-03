@@ -1,7 +1,7 @@
 cel.dev/expr v0.25.1 h1:1KrZg61W6TWSxuNZ37Xy49ps13NUovb66QLprthtwi4=
 cel.dev/expr v0.25.1/go.mod h1:hrXvqGP6G6gyx8UAHSHJ5RGk//1Oj5nXQ2NI02Nrsg4=
-github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
-github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
+github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAwZ/2OOE=
+github.com/Masterminds/semver/v3 v3.5.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/TwiN/go-color v1.4.1 h1:mqG0P/KBgHKVqmtL5ye7K0/Gr4l6hTksPgTgMk3mUzc=
 github.com/TwiN/go-color v1.4.1/go.mod h1:WcPf/jtiW95WBIsEeY1Lc/b8aaWoiqQpu5cf8WFxu+s=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
@@ -170,10 +170,10 @@ github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/projectsveltos/addon-controller v1.8.0 h1:1iZsvnLFhmABwV+1Y2sO40nWAt5J+6wtr/RjROc4k6c=
-github.com/projectsveltos/addon-controller v1.8.0/go.mod h1:O5y2ByYXQYblRu4wEbMQk8tIsBSGDAga/Ww8uriC7DM=
-github.com/projectsveltos/libsveltos v1.8.1-0.20260430141146-b84cd584e5f2 h1:GCC25qLsQQrfsuedrI8yl3EBO1DMS/tP8f/71AYfgVY=
-github.com/projectsveltos/libsveltos v1.8.1-0.20260430141146-b84cd584e5f2/go.mod h1:CLKZ+yNQY6x+IzFn5ms9CKms9DzvbuxYwrnzTKYDCWI=
+github.com/projectsveltos/addon-controller v1.8.1-0.20260503201839-a7d2f7755fe7 h1:ZZXSx3yABr6GJ5Jg+A7hU2Rnv9y1hFDPIhRtNFaBMFc=
+github.com/projectsveltos/addon-controller v1.8.1-0.20260503201839-a7d2f7755fe7/go.mod h1:p6/0natlekNFU5DTAewrjVLAtSoGm7B9IO9KU+j1v/w=
+github.com/projectsveltos/libsveltos v1.8.1-0.20260503183018-cf85218400d7 h1:4n1Cx2Y/hVblvTmM/UPALV8q8jgVhDkRdCHgDepsM5A=
+github.com/projectsveltos/libsveltos v1.8.1-0.20260503183018-cf85218400d7/go.mod h1:CLKZ+yNQY6x+IzFn5ms9CKms9DzvbuxYwrnzTKYDCWI=
 github.com/prometheus/client_golang v1.23.2 h1:Je96obch5RDVy3FDMndoUsjAhG5Edi49h0RJWRi/o0o=
 github.com/prometheus/client_golang v1.23.2/go.mod h1:Tb1a6LWHB3/SPIzCoaDXI4I8UHKeFTEQ1YCr+0Gyqmg=
 github.com/prometheus/client_model v0.6.2 h1:oBsgwpGs7iVziMvrGhE53c/GrLUsZdHnqNwqPLxwZyk=
