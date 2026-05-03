@@ -27,7 +27,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/cluster-api/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -35,6 +34,7 @@ import (
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
+	"github.com/projectsveltos/libsveltos/lib/randutils"
 )
 
 const (
@@ -125,7 +125,8 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 		return err
 	}
 
-	value := randomString()
+	const length = 10
+	value := randutils.RandomString(length)
 
 	// Save resources listed in ReloaderReport that reconciliation failed to update
 	failed := make([]libsveltosv1beta1.ReloaderInfo, 0)
@@ -252,9 +253,4 @@ func (r *ReloaderReportReconciler) updateEnvs(envs []corev1.EnvVar, value string
 	})
 
 	return envs
-}
-
-func randomString() string {
-	const length = 10
-	return util.RandomString(length)
 }
