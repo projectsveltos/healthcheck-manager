@@ -1,6 +1,6 @@
 module github.com/projectsveltos/healthcheck-manager
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/TwiN/go-color v1.4.1
@@ -13,12 +13,12 @@ require (
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v1.9.0
-	github.com/projectsveltos/libsveltos v1.9.0
+	github.com/projectsveltos/addon-controller v1.9.1-0.20260512164425-41601094377c
+	github.com/projectsveltos/libsveltos v1.9.1-0.20260512144132-3d4679d95b46
 	github.com/prometheus/client_golang v1.23.2
-	github.com/slack-go/slack v0.23.0
+	github.com/slack-go/slack v0.23.1
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/text v0.36.0
+	golang.org/x/text v0.37.0
 	k8s.io/api v0.36.0
 	k8s.io/apiextensions-apiserver v0.36.0
 	k8s.io/apimachinery v0.36.0
@@ -27,7 +27,7 @@ require (
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2
 	sigs.k8s.io/cluster-api v1.13.1
-	sigs.k8s.io/controller-runtime v0.24.0
+	sigs.k8s.io/controller-runtime v0.24.1
 )
 
 require (
