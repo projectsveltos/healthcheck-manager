@@ -48,7 +48,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		By("Create the ConfigMap with sveltos-agent version")
 		cm := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controllers.ReportNamespace,
+				Namespace: sveltosNamespace,
 				Name:      cmVersionName,
 			},
 			Data: map[string]string{
@@ -63,13 +63,13 @@ var _ = Describe("ReloaderReport Collection", func() {
 		By("Delete the ConfigMap with sveltos-agent version")
 		cm := &corev1.ConfigMap{}
 		Expect(testEnv.Get(context.TODO(),
-			types.NamespacedName{Namespace: controllers.ReportNamespace, Name: cmVersionName},
+			types.NamespacedName{Namespace: sveltosNamespace, Name: cmVersionName},
 			cm)).To(Succeed())
 		Expect(testEnv.Delete(context.TODO(), cm)).To(Succeed())
 
 		Eventually(func() bool {
 			err := testEnv.Get(context.TODO(),
-				types.NamespacedName{Namespace: controllers.ReportNamespace, Name: cmVersionName},
+				types.NamespacedName{Namespace: sveltosNamespace, Name: cmVersionName},
 				cm)
 			return err != nil && apierrors.IsNotFound(err)
 		}, timeout, pollingInterval).Should(BeTrue())
@@ -216,10 +216,9 @@ var _ = Describe("ReloaderReport Collection", func() {
 
 		// In managed cluster this is the namespace where ReloaderReports
 		// are created
-		const reloaderReportNamespace = "projectsveltos"
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: reloaderReportNamespace,
+				Name: sveltosNamespace,
 			},
 		}
 		err := testEnv.Create(context.TODO(), ns)
@@ -231,7 +230,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		By("Creating reloaderReport in the managed cluster")
 		clusterType := libsveltosv1beta1.ClusterTypeCapi
 		reloaderReport := getReloaderReport("", "", &clusterType)
-		reloaderReport.Namespace = reloaderReportNamespace
+		reloaderReport.Namespace = sveltosNamespace
 		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
 
 		Expect(waitForObject(context.TODO(), testEnv.Client, reloaderReport)).To(Succeed())
@@ -241,19 +240,20 @@ var _ = Describe("ReloaderReport Collection", func() {
 			textlogger.NewLogger(textlogger.NewConfig(textlogger.Verbosity(1))))).To(Succeed())
 
 		By("Verify ReloaderReport is created in the management cluster")
-		// ReloaderReport is fetched from managed cluster (testEnv, projectsveltos namespace)
+		// ReloaderReport is fetched from managed cluster (testEnv, namespace where projectsveltos is running)
 		// and created in the management cluster (testEnv, cluster namespace)
 		validateReloaderReports(cluster, reloaderReport.Spec.ResourcesToReload)
 
 		By("Verify ReloaderReport is deleted from managed cluster")
 		// Verify ReloaderReport has been deleted in the managed cluster
 		// TestEnv is used for both managed and management cluster. ReloaderReport is in the
-		// projectsveltos namespace in the managed cluster. CollectAndProcessReloaderReportsFromCluster
-		// removes ReloaderReport from managed cluster after fetching it to management cluster
+		// namespace where projectsveltos is running in the managed cluster.
+		// CollectAndProcessReloaderReportsFromCluster removes ReloaderReport from managed cluster
+		// after fetching it to management cluster
 		Eventually(func() bool {
 			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 			err = testEnv.Get(context.TODO(),
-				types.NamespacedName{Namespace: reloaderReportNamespace, Name: reloaderReport.Name},
+				types.NamespacedName{Namespace: sveltosNamespace, Name: reloaderReport.Name},
 				currentReloaderReport)
 			if err == nil {
 				return false
@@ -264,7 +264,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		By("Recreating reloaderReport in the managed cluster")
 		// Recreate reloaderReport in the managed cluster
 		reloaderReport = getReloaderReport("", "", &clusterType)
-		reloaderReport.Namespace = reloaderReportNamespace
+		reloaderReport.Namespace = sveltosNamespace
 		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
 
 		Expect(controllers.CollectAndProcessReloaderReportsFromCluster(context.TODO(), testEnv.Client,
@@ -281,7 +281,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 		Eventually(func() bool {
 			currentReloaderReport := &libsveltosv1beta1.ReloaderReport{}
 			err = testEnv.Get(context.TODO(),
-				types.NamespacedName{Namespace: reloaderReportNamespace, Name: reloaderReport.Name},
+				types.NamespacedName{Namespace: sveltosNamespace, Name: reloaderReport.Name},
 				currentReloaderReport)
 			if err == nil {
 				return false

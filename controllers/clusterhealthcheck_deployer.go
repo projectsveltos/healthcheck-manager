@@ -51,11 +51,6 @@ import (
 	"github.com/projectsveltos/libsveltos/lib/sharding"
 )
 
-const (
-	// Namespace where reports will be generated
-	ReportNamespace = "projectsveltos"
-)
-
 type getCurrentHash func(tx context.Context, c client.Client,
 	chc *libsveltosv1beta1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error)
 
@@ -1569,7 +1564,7 @@ func (r *ClusterHealthCheckReconciler) resetHealthCheckReportStatus(ctx context.
 			kubernetesClient = r.Client
 		} else {
 			healthCheckReportName = chc.Spec.LivenessChecks[i].Name
-			healthCheckReportNamespace = "projectsveltos"
+			healthCheckReportNamespace = getSveltosNamespace()
 			kubernetesClient, err = clusterproxy.GetKubernetesClient(ctx, r.Client, clusterRef.Namespace,
 				clusterRef.Name, "", "", clusterType, logger)
 			if err != nil {

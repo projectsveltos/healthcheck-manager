@@ -329,8 +329,8 @@ func processHealthCheckReportsForClusterInAgentlessMode(ctx context.Context, c c
 		return nil
 	}
 
-	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, ref.Namespace, ref.Name,
-		clusterproxy.GetClusterType(ref), true, logger) {
+	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, getSveltosNamespace(), version,
+		ref.Namespace, ref.Name, clusterproxy.GetClusterType(ref), true, logger) {
 
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
 		return errors.New(compatibilityErrorMsg)
@@ -454,8 +454,8 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 		return err
 	}
 
-	if !isPullMode && !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, cluster.Namespace, cluster.Name,
-		clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
+	if !isPullMode && !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, getSveltosNamespace(), version,
+		cluster.Namespace, cluster.Name, clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
 
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
 		return errors.New(compatibilityErrorMsg)
