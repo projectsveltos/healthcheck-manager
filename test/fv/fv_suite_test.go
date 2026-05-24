@@ -19,6 +19,7 @@ package fv_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,7 @@ var (
 	k8sClient           client.Client
 	scheme              *runtime.Scheme
 	kindWorkloadCluster *unstructured.Unstructured // This is the name of the kind workload cluster, in the form namespace/name
+	sveltosNamespace    string
 )
 
 const (
@@ -57,9 +59,15 @@ const (
 )
 
 const (
-	deplNamespace = "projectsveltos"
-	deplName      = "hc-manager"
+	deplName = "hc-manager"
 )
+
+func init() {
+	sveltosNamespace = os.Getenv("SVELTOS_NAMESPACE")
+	if sveltosNamespace == "" {
+		sveltosNamespace = "projectsveltos"
+	}
+}
 
 func TestFv(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -87,6 +95,7 @@ func TestFv(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	By(fmt.Sprintf("Running with Sveltos namespace: %s", sveltosNamespace))
 	ctrl.SetLogger(klog.Background())
 
 	restConfig := ctrl.GetConfigOrDie()
@@ -215,7 +224,7 @@ func isAgentLessMode() bool {
 	By("Getting health check manager deployment")
 	healthcheckDeployment := &appsv1.Deployment{}
 	Expect(k8sClient.Get(context.TODO(),
-		types.NamespacedName{Namespace: deplNamespace, Name: deplName},
+		types.NamespacedName{Namespace: sveltosNamespace, Name: deplName},
 		healthcheckDeployment)).To(Succeed())
 
 	Expect(len(healthcheckDeployment.Spec.Template.Spec.Containers)).To(Equal(1))
@@ -235,7 +244,7 @@ func setAddonControllerInAgentlessMode() error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		addonControllerDepl := &appsv1.Deployment{}
 		err := k8sClient.Get(context.TODO(),
-			types.NamespacedName{Namespace: deplNamespace, Name: "addon-controller"},
+			types.NamespacedName{Namespace: sveltosNamespace, Name: "addon-controller"},
 			addonControllerDepl)
 		if err != nil {
 			return err

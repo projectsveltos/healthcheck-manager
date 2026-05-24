@@ -143,8 +143,8 @@ func processReloaderReportsForClusterInAgentlessMode(ctx context.Context, c clie
 		return nil
 	}
 
-	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, ref.Namespace, ref.Name,
-		clusterproxy.GetClusterType(ref), true, logger) {
+	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, getSveltosNamespace(), version, ref.Namespace,
+		ref.Name, clusterproxy.GetClusterType(ref), true, logger) {
 
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
 		return errors.New(compatibilityErrorMsg)
@@ -275,8 +275,8 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 		return nil
 	}
 
-	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, version, cluster.Namespace, cluster.Name,
-		clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
+	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, getSveltosNamespace(), version, cluster.Namespace,
+		cluster.Name, clusterproxy.GetClusterType(clusterRef), getAgentInMgmtCluster(), logger) {
 
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
 		return errors.New(compatibilityErrorMsg)

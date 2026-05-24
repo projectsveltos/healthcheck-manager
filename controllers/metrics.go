@@ -31,7 +31,7 @@ import (
 var (
 	programClusterHealthCheckDurationHistogram = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
-			Namespace: "projectsveltos",
+			Namespace: getSveltosNamespace(),
 			Name:      "program_clusterHealthCheck_time_seconds",
 			Help:      "Program ClusterHealthCheck on a workload cluster duration distribution",
 			Buckets:   []float64{0.1, 0.5, 1, 5, 10, 20, 30},

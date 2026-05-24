@@ -153,7 +153,7 @@ metadata:
 		reloaderReport := &libsveltosv1beta1.ReloaderReport{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      randomString(),
-				Namespace: "projectsveltos",
+				Namespace: sveltosNamespace,
 				Annotations: map[string]string{
 					libsveltosv1beta1.ReloaderReportResourceKindAnnotation:      "configMap",
 					libsveltosv1beta1.ReloaderReportResourceNamespaceAnnotation: randomString(),

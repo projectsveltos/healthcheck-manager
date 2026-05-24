@@ -100,7 +100,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 			Eventually(func() bool {
 				healthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
 				err = workloadClient.Get(context.TODO(),
-					types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
+					types.NamespacedName{Namespace: sveltosNamespace, Name: healthCheck.Name},
 					healthCheckReport)
 				return err != nil && meta.IsNoMatchError(err) // CRD never installed
 			}, timeout, pollingInterval).Should(BeTrue())
@@ -112,11 +112,11 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 					currentHealthCheck)
 			}, timeout, pollingInterval).Should(BeNil())
 
-			Byf("Verifying healthCheckReport projectsveltos/%s exists", healthCheck.Name)
+			Byf("Verifying healthCheckReport %s/%s exists", sveltosNamespace, healthCheck.Name)
 			Eventually(func() error {
 				healthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
 				return workloadClient.Get(context.TODO(),
-					types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
+					types.NamespacedName{Namespace: sveltosNamespace, Name: healthCheck.Name},
 					healthCheckReport)
 			}, timeout, pollingInterval).Should(BeNil())
 		}
@@ -149,7 +149,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 			Eventually(func() bool {
 				currentHealthCheckReport := &libsveltosv1beta1.HealthCheckReport{}
 				err = workloadClient.Get(context.TODO(),
-					types.NamespacedName{Namespace: "projectsveltos", Name: healthCheck.Name},
+					types.NamespacedName{Namespace: sveltosNamespace, Name: healthCheck.Name},
 					currentHealthCheckReport)
 				if err != nil {
 					return apierrors.IsNotFound(err)
