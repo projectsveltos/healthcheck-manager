@@ -225,7 +225,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			{
 				Namespace:  randomString(),
 				Name:       randomString(),
-				Kind:       "Cluster",
+				Kind:       ClusterKind,
 				APIVersion: clusterv1.GroupVersion.String(),
 			},
 			{
@@ -255,7 +255,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Client:             c,
 			Logger:             logger,
 			ClusterHealthCheck: currentChc,
-			ControllerName:     "classifier",
+			ControllerName:     controllerName,
 		})
 		Expect(err).To(BeNil())
 
@@ -296,7 +296,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Client:             c,
 			Logger:             logger,
 			ClusterHealthCheck: chc,
-			ControllerName:     "classifier",
+			ControllerName:     controllerName,
 		})
 		Expect(err).To(BeNil())
 
@@ -370,7 +370,7 @@ var _ = Describe("ClusterHealthCheck: Reconciler", func() {
 			Client:             c,
 			Logger:             logger,
 			ClusterHealthCheck: chc,
-			ControllerName:     "classifier",
+			ControllerName:     controllerName,
 		})
 		Expect(err).To(BeNil())
 

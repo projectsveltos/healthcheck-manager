@@ -13,10 +13,10 @@ require (
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectsveltos/addon-controller v1.10.1-0.20260523193958-dfd5360438e8
-	github.com/projectsveltos/libsveltos v1.10.1-0.20260521153750-a1f348424b3f
+	github.com/projectsveltos/addon-controller v1.10.1-0.20260607134513-fa510616ae64
+	github.com/projectsveltos/libsveltos v1.10.1-0.20260601130048-ace88648a3f5
 	github.com/prometheus/client_golang v1.23.2
-	github.com/slack-go/slack v0.23.1
+	github.com/slack-go/slack v0.25.0
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/text v0.37.0
 	k8s.io/api v0.36.1

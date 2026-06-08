@@ -100,7 +100,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 				Name:      randomString(),
 				Labels: map[string]string{
 					clusterv1.ClusterNameLabel:         clusterName,
-					clusterv1.MachineControlPlaneLabel: "ok",
+					clusterv1.MachineControlPlaneLabel: machineControlPlaneLabelValue,
 				},
 			},
 		}
@@ -134,7 +134,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			Client:             c,
 			Logger:             logger,
 			ClusterHealthCheck: &chc,
-			ControllerName:     "classifier",
+			ControllerName:     controllerName,
 		})
 		Expect(err).To(BeNil())
 

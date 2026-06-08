@@ -36,6 +36,12 @@ import (
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
 )
 
+const (
+	envLabelKey          = "env"
+	qaLabelValue         = "qa"
+	productionLabelValue = "production"
+)
+
 var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 	var namespace string
 
@@ -51,7 +57,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 				Name:      upstreamClusterNamePrefix + randomString(),
 				Namespace: namespace,
 				Labels: map[string]string{
-					"env": "production",
+					envLabelKey: productionLabelValue,
 				},
 			},
 		}
@@ -64,7 +70,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 				ClusterSelector: libsveltosv1beta1.Selector{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							"env": "production",
+							envLabelKey: productionLabelValue,
 						},
 					},
 				},
@@ -79,7 +85,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 				ClusterSelector: libsveltosv1beta1.Selector{
 					LabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							"env": "qa",
+							envLabelKey: qaLabelValue,
 						},
 					},
 				},
@@ -157,7 +163,7 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		matchingClusterHealthCheck.Spec.ClusterSelector = libsveltosv1beta1.Selector{
 			LabelSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"env": "qa",
+					envLabelKey: qaLabelValue,
 				},
 			},
 		}

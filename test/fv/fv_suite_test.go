@@ -59,7 +59,9 @@ const (
 )
 
 const (
-	deplName = "hc-manager"
+	deplName           = "hc-manager"
+	managedClusterName = "clusterapi-workload"
+	deploymentKind     = "Deployment"
 )
 
 func init() {
@@ -130,7 +132,7 @@ func verifySveltosCluster() {
 	clusterList := &libsveltosv1beta1.SveltosClusterList{}
 	listOptions := []client.ListOption{
 		client.MatchingLabels(
-			map[string]string{"cluster-name": "clusterapi-workload"}, // This label is added by Makefile
+			map[string]string{"cluster-name": managedClusterName}, // This label is added by Makefile
 		),
 	}
 
@@ -166,7 +168,7 @@ func verifyCAPICluster() {
 	clusterList := &clusterv1.ClusterList{}
 	listOptions := []client.ListOption{
 		client.MatchingLabels(
-			map[string]string{clusterv1.ClusterNameLabel: "clusterapi-workload"},
+			map[string]string{clusterv1.ClusterNameLabel: managedClusterName},
 		),
 	}
 

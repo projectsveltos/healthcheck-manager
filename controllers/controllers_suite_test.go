@@ -51,6 +51,16 @@ const (
 	pollingInterval = 5 * time.Second
 )
 
+const (
+	controllerName                = "classifier"
+	machineControlPlaneLabelValue = "ok"
+	cmVersionKey                  = "version"
+	kubeconfigSecretKey           = "value"
+	secretKind                    = "Secret"
+	coreAPIVersion                = "v1"
+	deploymentKind                = "Deployment"
+)
+
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Controllers Suite")

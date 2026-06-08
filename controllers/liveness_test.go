@@ -288,7 +288,7 @@ func prepareClientWithClusterSummaryAndCHC(clusterNamespace, clusterName string,
 		Status: libsveltosv1beta1.ClusterHealthCheckStatus{
 			MatchingClusterRefs: []corev1.ObjectReference{
 				{
-					Kind: "Cluster", APIVersion: clusterv1.GroupVersion.String(), Namespace: clusterNamespace, Name: clusterName,
+					Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String(), Namespace: clusterNamespace, Name: clusterName,
 				},
 			},
 			ClusterConditions: []libsveltosv1beta1.ClusterCondition{},
@@ -315,7 +315,7 @@ func createSecretWithKubeconfig(clusterNamespace, clusterName string) {
 			Name:      clusterName + sveltosKubeconfigPostfix,
 		},
 		Data: map[string][]byte{
-			"value": testEnv.Kubeconfig,
+			kubeconfigSecretKey: testEnv.Kubeconfig,
 		},
 	}
 
