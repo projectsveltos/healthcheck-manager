@@ -75,7 +75,7 @@ var _ = Describe("Notification", func() {
 							Cluster: corev1.ObjectReference{
 								Namespace:  clusterNamespace,
 								Name:       clusterName,
-								Kind:       "Cluster",
+								Kind:       ClusterKind,
 								APIVersion: clusterv1.GroupVersion.String(),
 							},
 						},
@@ -116,8 +116,8 @@ var _ = Describe("Notification", func() {
 			Name: randomString(),
 			Type: libsveltosv1beta1.NotificationTypeWebex,
 			NotificationRef: &corev1.ObjectReference{
-				Kind:       "Secret",
-				APIVersion: "v1",
+				Kind:       secretKind,
+				APIVersion: coreAPIVersion,
 				Namespace:  secret.Namespace,
 				Name:       secret.Name,
 			},
@@ -156,8 +156,8 @@ var _ = Describe("Notification", func() {
 			Name: randomString(),
 			Type: libsveltosv1beta1.NotificationTypeWebex,
 			NotificationRef: &corev1.ObjectReference{
-				Kind:       "Secret",
-				APIVersion: "v1",
+				Kind:       secretKind,
+				APIVersion: coreAPIVersion,
 				Namespace:  secret.Namespace,
 				Name:       secret.Name,
 			},

@@ -51,6 +51,10 @@ import (
 	"github.com/projectsveltos/libsveltos/lib/sharding"
 )
 
+const (
+	deployedBySveltos = "true"
+)
+
 type getCurrentHash func(tx context.Context, c client.Client,
 	chc *libsveltosv1beta1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error)
 
@@ -1437,7 +1441,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client,
 			// ServiceAccount representing the tenant admin when fetching resources
 			currentHealthCheck.Labels = healthCheck.Labels
 			currentHealthCheck.Annotations = map[string]string{
-				libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
+				libsveltosv1beta1.DeployedBySveltosAnnotation: deployedBySveltos,
 			}
 			k8s_utils.AddOwnerReference(currentHealthCheck, chc)
 			return remoteClient.Update(ctx, currentHealthCheck)
@@ -1449,7 +1453,7 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client,
 		// ServiceAccount representing the tenant admin when fetching resources
 		currentHealthCheck.Labels = healthCheck.Labels
 		currentHealthCheck.Annotations = map[string]string{
-			libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
+			libsveltosv1beta1.DeployedBySveltosAnnotation: deployedBySveltos,
 		}
 		k8s_utils.AddOwnerReference(currentHealthCheck, chc)
 
@@ -1478,7 +1482,7 @@ func getHealthCheckToDeploy(healthCheck *libsveltosv1beta1.HealthCheck) *libsvel
 		ObjectMeta: metav1.ObjectMeta{
 			Name: healthCheck.Name,
 			Annotations: map[string]string{
-				libsveltosv1beta1.DeployedBySveltosAnnotation: "true",
+				libsveltosv1beta1.DeployedBySveltosAnnotation: deployedBySveltos,
 			},
 		},
 		Spec: healthCheck.Spec,

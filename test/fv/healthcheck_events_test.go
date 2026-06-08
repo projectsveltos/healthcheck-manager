@@ -52,7 +52,7 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 					{
 						Group:   "apps",
 						Version: "v1",
-						Kind:    "Deployment",
+						Kind:    deploymentKind,
 						LabelFilters: []libsveltosv1beta1.LabelFilter{
 							{Key: "control-plane", Operation: libsveltosv1beta1.OperationEqual, Value: "sveltos-agent"},
 						},

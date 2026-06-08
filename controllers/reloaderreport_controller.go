@@ -113,8 +113,8 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 	if reloaderReport.Annotations != nil {
 		// Resource (ConfigMap or Secret) causing this rolling upgrade to be triggered
 		kind := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceKindAnnotation]
-		namespace := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceKindAnnotation]
-		name := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceKindAnnotation]
+		namespace := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceNamespaceAnnotation]
+		name := reloaderReport.Annotations[libsveltosv1beta1.ReloaderReportResourceNameAnnotation]
 		logger = logger.WithValues("mountedResource", fmt.Sprintf("%s:%s/%s",
 			kind, namespace, name))
 	}

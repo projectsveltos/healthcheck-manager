@@ -163,7 +163,7 @@ metadata:
 			Spec: libsveltosv1beta1.ReloaderReportSpec{
 				ResourcesToReload: []libsveltosv1beta1.ReloaderInfo{
 					{
-						Kind:      "Deployment",
+						Kind:      deploymentKind,
 						Namespace: deployment.GetNamespace(),
 						Name:      deployment.GetName(),
 					},

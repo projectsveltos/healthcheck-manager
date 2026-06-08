@@ -28,12 +28,17 @@ import (
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
 
+const (
+	clusterHealthCheckMetricName = "program_clusterHealthCheck_time_seconds"
+	clusterHealthCheckMetricHelp = "Program ClusterHealthCheck on a workload cluster duration distribution"
+)
+
 var (
 	programClusterHealthCheckDurationHistogram = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: getSveltosNamespace(),
-			Name:      "program_clusterHealthCheck_time_seconds",
-			Help:      "Program ClusterHealthCheck on a workload cluster duration distribution",
+			Name:      clusterHealthCheckMetricName,
+			Help:      clusterHealthCheckMetricHelp,
 			Buckets:   []float64{0.1, 0.5, 1, 5, 10, 20, 30},
 		},
 	)
@@ -52,8 +57,8 @@ func newClusterHealthCheckHistogram(clusterNamespace, clusterName string, cluste
 	histogram := prometheus.NewHistogram(
 		prometheus.HistogramOpts{
 			Namespace: clusterInfo,
-			Name:      "program_clusterHealthCheck_time_seconds",
-			Help:      "Program ClusterHealthCheck on a workload cluster duration distribution",
+			Name:      clusterHealthCheckMetricName,
+			Help:      clusterHealthCheckMetricHelp,
 			Buckets:   []float64{0.1, 0.5, 1, 5, 10, 20, 30},
 		},
 	)

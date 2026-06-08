@@ -52,7 +52,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 				Name:      cmVersionName,
 			},
 			Data: map[string]string{
-				"version": version,
+				cmVersionKey: version,
 			},
 		}
 		Expect(testEnv.Create(context.TODO(), cm)).To(Succeed())
@@ -76,10 +76,10 @@ var _ = Describe("ReloaderReport Collection", func() {
 	})
 
 	It("buildClustersWithReloader returns clusters matched by profiles with Reloader=true", func() {
-		cluster1 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "Cluster"}
-		cluster2 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "Cluster"}
-		cluster3 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "SveltosCluster"}
-		cluster4 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: "Cluster"}
+		cluster1 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: ClusterKind}
+		cluster2 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: ClusterKind}
+		cluster3 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: libsveltosv1beta1.SveltosClusterKind}
+		cluster4 := corev1.ObjectReference{Namespace: randomString(), Name: randomString(), Kind: ClusterKind}
 
 		// ClusterProfile with Reloader=true matching cluster1 and cluster2.
 		cpWithReloader := &configv1beta1.ClusterProfile{
@@ -131,7 +131,7 @@ var _ = Describe("ReloaderReport Collection", func() {
 				Name:      cmName,
 			},
 			Data: map[string]string{
-				"version": version,
+				cmVersionKey: version,
 			},
 		}
 		Expect(testEnv.Create(context.TODO(), cm)).To(Succeed())

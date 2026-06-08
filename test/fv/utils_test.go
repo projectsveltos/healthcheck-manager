@@ -39,8 +39,10 @@ import (
 )
 
 const (
-	key   = "env"
-	value = "fv"
+	key                     = "env"
+	value                   = "fv"
+	clusterProfileNameLabel = "projectsveltos.io/cluster-profile-name"
+	kyvernoName             = "kyverno"
 )
 
 var (
@@ -92,9 +94,9 @@ func getClusterSummary(ctx context.Context,
 	listOptions := []client.ListOption{
 		client.InNamespace(clusterNamespace),
 		client.MatchingLabels{
-			"projectsveltos.io/cluster-profile-name": clusterProfileName,
-			configv1beta1.ClusterNameLabel:           clusterName,
-			configv1beta1.ClusterTypeLabel:           string(clusterType),
+			clusterProfileNameLabel:        clusterProfileName,
+			configv1beta1.ClusterNameLabel: clusterName,
+			configv1beta1.ClusterTypeLabel: string(clusterType),
 		},
 	}
 
@@ -339,11 +341,11 @@ func getClusterProfile(namePrefix string, clusterLabels map[string]string) *conf
 			HelmCharts: []configv1beta1.HelmChart{
 				{
 					RepositoryURL:    "https://kyverno.github.io/kyverno/",
-					RepositoryName:   "kyverno",
+					RepositoryName:   kyvernoName,
 					ChartName:        "kyverno/kyverno",
 					ChartVersion:     "v3.7.2",
 					ReleaseName:      "kyverno-latest",
-					ReleaseNamespace: "kyverno",
+					ReleaseNamespace: kyvernoName,
 					HelmChartAction:  configv1beta1.HelmChartActionInstall,
 				},
 			},
@@ -384,7 +386,7 @@ func deleteClusterHealthCheck(clusterHealthCheckName string) {
 func deleteClusterProfile(clusterProfile *configv1beta1.ClusterProfile) {
 	listOptions := []client.ListOption{
 		client.MatchingLabels{
-			"projectsveltos.io/cluster-profile-name": clusterProfile.Name,
+			clusterProfileNameLabel: clusterProfile.Name,
 		},
 	}
 	clusterSummaryList := &configv1beta1.ClusterSummaryList{}

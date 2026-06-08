@@ -241,7 +241,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 
 		value := randomString()
 		resourceToReload := &libsveltosv1beta1.ReloaderInfo{
-			Kind:      "Deployment",
+			Kind:      deploymentKind,
 			Namespace: randomString(),
 			Name:      randomString(),
 		}
@@ -275,7 +275,7 @@ var _ = Describe("ReloaderReport Controller", func() {
 
 		value := randomString()
 		resourceToReload := &libsveltosv1beta1.ReloaderInfo{
-			Kind:      "Deployment",
+			Kind:      deploymentKind,
 			Namespace: obj.GetNamespace(),
 			Name:      obj.GetName(),
 		}
