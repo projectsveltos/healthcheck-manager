@@ -219,6 +219,7 @@ fv-sharding: $(KUBECTL) $(GINKGO) ## Run Sveltos Controller tests using existing
 
 .PHONY: fv-agentless
 fv-agentless: $(KUBECTL) $(GINKGO)
+	$(KUBECTL) apply -f https://raw.githubusercontent.com/projectsveltos/addon-controller/$(TAG)/manifest/extra-role-agentless.yaml
 	cp test/sveltos-agent.yaml test/sveltos-agent.yaml.m
 	sed -e "s/--cluster-namespace=/--cluster-namespace=default/g" test/sveltos-agent.yaml.m > test/sveltos-agent.yaml.tmp
 	mv test/sveltos-agent.yaml.tmp test/sveltos-agent.yaml.m
