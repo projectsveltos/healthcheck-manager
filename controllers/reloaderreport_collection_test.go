@@ -186,12 +186,20 @@ var _ = Describe("ReloaderReport Collection", func() {
 		Expect(controllers.CollectAndProcessAllReloaderReports(context.TODO(), testEnv.Client,
 			clusterList, version, logger)).To(Succeed())
 
-		// capi RR must eventually be deleted (processed and removed by the agentless path).
+		// capi RR must be updated with the cluster info (ClusterNamespace/ClusterName/ClusterType)
+		// so ReloaderReportReconciler's watch can process it and trigger the rolling upgrade.
+		// It must NOT be deleted here: only ReloaderReportReconciler deletes a ReloaderReport,
+		// and only after successfully triggering the rolling upgrade for every listed resource.
 		Eventually(func() bool {
 			current := &libsveltosv1beta1.ReloaderReport{}
 			err := testEnv.Get(context.TODO(),
 				types.NamespacedName{Namespace: capiRR.Namespace, Name: capiRR.Name}, current)
-			return apierrors.IsNotFound(err)
+			if err != nil {
+				return false
+			}
+			return current.Spec.ClusterNamespace == capiCluster.Namespace &&
+				current.Spec.ClusterName == capiCluster.Name &&
+				current.Spec.ClusterType == capiClusterType
 		}, timeout, pollingInterval).Should(BeTrue())
 
 		// sveltos RR must consistently NOT be deleted (not processed).
@@ -207,6 +215,14 @@ var _ = Describe("ReloaderReport Collection", func() {
 			current := &libsveltosv1beta1.ReloaderReport{}
 			err := testEnv.Get(context.TODO(),
 				types.NamespacedName{Namespace: sveltosRR.Namespace, Name: sveltosRR.Name}, current)
+			return apierrors.IsNotFound(err)
+		}, timeout, pollingInterval).Should(BeTrue())
+
+		Expect(testEnv.Delete(context.TODO(), capiRR)).To(Succeed())
+		Eventually(func() bool {
+			current := &libsveltosv1beta1.ReloaderReport{}
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: capiRR.Namespace, Name: capiRR.Name}, current)
 			return apierrors.IsNotFound(err)
 		}, timeout, pollingInterval).Should(BeTrue())
 	})
