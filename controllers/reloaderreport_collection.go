@@ -158,15 +158,15 @@ func processReloaderReportsForClusterInAgentlessMode(ctx context.Context, c clie
 		}
 		l := logger.WithValues("reloaderReport", rr.Name)
 		logger.V(logs.LogDebug).Info("updating in management cluster")
+		// Only update the ReloaderReport with the cluster info it needs (ClusterNamespace/
+		// ClusterName/ClusterType). ReloaderReportReconciler's watch picks up this update and
+		// deletes the report itself once it has successfully triggered the rolling upgrade for
+		// every listed resource (see processReloaderReport). Deleting it here as well would race
+		// that reconcile and could discard the update before it is ever processed.
 		if err := updateReloaderReport(ctx, c, ref, rr, l); err != nil {
 			l.V(logs.LogInfo).Error(err, "failed to update ReloaderReport in management cluster")
 			retErr = err
 			continue
-		}
-		logger.V(logs.LogDebug).Info("delete ReloaderReport in management cluster")
-		if err := c.Delete(ctx, rr); err != nil && !apierrors.IsNotFound(err) {
-			l.V(logs.LogInfo).Error(err, "failed to delete ReloaderReport")
-			retErr = err
 		}
 	}
 
