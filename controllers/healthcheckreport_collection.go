@@ -322,6 +322,10 @@ func processHealthCheckReportsForClusterInAgentlessMode(ctx context.Context, c c
 	}
 	ready, err := clusterproxy.IsClusterReadyToBeConfigured(ctx, c, clusterRef, logger)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.V(logs.LogDebug).Info("cluster no longer exists, skipping")
+			return nil
+		}
 		logger.V(logs.LogDebug).Info("cluster is not ready yet")
 		return err
 	}
@@ -441,6 +445,10 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	}
 	ready, err := clusterproxy.IsClusterReadyToBeConfigured(ctx, c, clusterRef, logger)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.V(logs.LogDebug).Info("cluster no longer exists, skipping")
+			return nil
+		}
 		logger.V(logs.LogDebug).Info("cluster is not ready yet")
 		return err
 	}
@@ -451,6 +459,10 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, c, cluster.Namespace, cluster.Name,
 		clusterproxy.GetClusterType(cluster), logger)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.V(logs.LogDebug).Info("cluster no longer exists, skipping")
+			return nil
+		}
 		return err
 	}
 
@@ -498,48 +510,49 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 			continue
 		}
 
-		reprocessing := false
-		l := logger.WithValues("healthCheckReport", hcr.Name)
-		var mgmtHealthCheckReport *libsveltosv1beta1.HealthCheckReport
-		// First update/delete healthCheckReports in managemnent cluster
-		if !hcr.DeletionTimestamp.IsZero() {
-			logger.V(logs.LogDebug).Info("deleting from management cluster")
-			err = deleteHealthCheckReport(ctx, c, cluster, hcr, l)
-			if err != nil {
-				logger.V(logs.LogInfo).Error(err, "failed to delete HealthCheckReport in management cluster")
-			}
-			reprocessing = true
-		} else {
-			logger.V(logs.LogDebug).Info("updating in management cluster")
-			mgmtHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
-			if err != nil {
-				logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in management cluster")
-			}
-			reprocessing = true
-		}
-		if !reprocessing {
-			continue
-		}
-
-		if getAgentInMgmtCluster() {
-			if mgmtHealthCheckReport != nil {
-				// If in agentless mode, the Status of HealthCheckReport in the management cluster will be updated.
-				// So set er to current version (update otherwise will fail with object has been modified)
-				hcr = mgmtHealthCheckReport
-			}
-		}
-
-		logger.V(logs.LogDebug).Info("updating in managed cluster")
-		// Update HealthCheckReport Status in managed cluster
-		phase := libsveltosv1beta1.ReportProcessed
-		hcr.Status.Phase = &phase
-		err = clusterClient.Status().Update(ctx, hcr)
-		if err != nil {
-			logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in managed cluster")
-		}
+		processOneHealthCheckReport(ctx, c, clusterClient, cluster, hcr, logger)
 	}
 
 	return nil
+}
+
+// processOneHealthCheckReport updates or deletes hcr's management-cluster copy, then marks it
+// Processed in the managed cluster. Split out of collectAndProcessHealthCheckReportsFromCluster
+// to keep that function's cyclomatic complexity down.
+func processOneHealthCheckReport(ctx context.Context, c, clusterClient client.Client,
+	cluster *corev1.ObjectReference, hcr *libsveltosv1beta1.HealthCheckReport, logger logr.Logger) {
+
+	l := logger.WithValues("healthCheckReport", hcr.Name)
+	var mgmtHealthCheckReport *libsveltosv1beta1.HealthCheckReport
+	var err error
+	// First update/delete healthCheckReports in managemnent cluster
+	if !hcr.DeletionTimestamp.IsZero() {
+		logger.V(logs.LogDebug).Info("deleting from management cluster")
+		err = deleteHealthCheckReport(ctx, c, cluster, hcr, l)
+		if err != nil {
+			logger.V(logs.LogInfo).Error(err, "failed to delete HealthCheckReport in management cluster")
+		}
+	} else {
+		logger.V(logs.LogDebug).Info("updating in management cluster")
+		mgmtHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
+		if err != nil {
+			logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in management cluster")
+		}
+	}
+
+	if getAgentInMgmtCluster() && mgmtHealthCheckReport != nil {
+		// If in agentless mode, the Status of HealthCheckReport in the management cluster will be updated.
+		// So set hcr to current version (update otherwise will fail with object has been modified)
+		hcr = mgmtHealthCheckReport
+	}
+
+	logger.V(logs.LogDebug).Info("updating in managed cluster")
+	// Update HealthCheckReport Status in managed cluster
+	phase := libsveltosv1beta1.ReportProcessed
+	hcr.Status.Phase = &phase
+	if err := clusterClient.Status().Update(ctx, hcr); err != nil {
+		logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in managed cluster")
+	}
 }
 
 func deleteHealthCheckReport(ctx context.Context, c client.Client, cluster *corev1.ObjectReference,
