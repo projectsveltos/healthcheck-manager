@@ -173,6 +173,20 @@ var _ = Describe("HealthCheck Deployer", func() {
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 	})
+
+	It("CollectAndProcessHealthCheckReportsFromCluster skips without error when cluster no longer exists", func() {
+		clusterRef := &corev1.ObjectReference{
+			Namespace:  randomString(),
+			Name:       randomString(),
+			Kind:       libsveltosv1beta1.SveltosClusterKind,
+			APIVersion: libsveltosv1beta1.GroupVersion.String(),
+		}
+
+		c := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
+			c, clusterRef, version, logger)).To(Succeed())
+	})
 })
 
 var _ = Describe("HealthCheckReport Collection", func() {
