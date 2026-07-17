@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
-	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
+	"github.com/projectsveltos/libsveltos/lib/clustercache"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	"github.com/projectsveltos/libsveltos/lib/mgmtagent"
 	libsveltosset "github.com/projectsveltos/libsveltos/lib/set"
@@ -52,7 +52,7 @@ func getHealthCheckReportClient(ctx context.Context, clusterNamespace, clusterNa
 
 	// Sveltos resources are always created using cluster-admin so that admin does not need to be
 	// given such permissions.
-	return clusterproxy.GetKubernetesClient(ctx, getManagementClusterClient(),
+	return clustercache.GetManager().GetKubernetesClient(ctx, getManagementClusterClient(),
 		clusterNamespace, clusterName, "", "", clusterType, logger)
 }
 

@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/clustercache"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	"github.com/projectsveltos/libsveltos/lib/randutils"
@@ -119,9 +120,22 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 			kind, namespace, name))
 	}
 
-	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, r.Client, reloaderReport.Spec.ClusterNamespace,
+	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, r.Client, reloaderReport.Spec.ClusterNamespace,
+		reloaderReport.Spec.ClusterName, reloaderReport.Spec.ClusterType, logger)
+	if err != nil {
+		return err
+	}
+	if isPullMode {
+		// In pull mode there is no direct connection to the managed cluster from here;
+		// Sveltos-applier triggers the rolling upgrade directly.
+		return nil
+	}
+
+	remoteClient, err := clustercache.GetManager().GetKubernetesClient(ctx, r.Client, reloaderReport.Spec.ClusterNamespace,
 		reloaderReport.Spec.ClusterName, "", "", reloaderReport.Spec.ClusterType, logger)
 	if err != nil {
+		clustercache.GetManager().InvalidateOnAuthError(reloaderReport.Spec.ClusterNamespace,
+			reloaderReport.Spec.ClusterName, reloaderReport.Spec.ClusterType, err)
 		return err
 	}
 

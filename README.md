@@ -1,5 +1,6 @@
 [![CI](https://github.com/projectsveltos/healthcheck-manager/actions/workflows/main.yaml/badge.svg)](https://github.com/projectsveltos/healthcheck-manager/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/projectsveltos/healthcheck-manager)](https://goreportcard.com/report/github.com/projectsveltos/healthcheck-manager)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/projectsveltos/healthcheck-manager/badge)](https://scorecard.dev/viewer/?uri=github.com/projectsveltos/healthcheck-manager)
+[![CodeQL](https://github.com/projectsveltos/healthcheck-manager/actions/workflows/codeql.yaml/badge.svg)](https://github.com/projectsveltos/healthcheck-manager/actions/workflows/codeql.yaml)
 [![Release](https://img.shields.io/github/v/release/projectsveltos/healthcheck-manager)](https://github.com/projectsveltos/healthcheck-manager/releases)
 [![License](https://img.shields.io/badge/license-Apache-blue.svg)](LICENSE)
 [![Slack](https://img.shields.io/badge/join%20slack-%23projectsveltos-brighteen)](https://join.slack.com/t/projectsveltos/shared_invite/zt-1hraownbr-W8NTs6LTimxLPB8Erj8Q6Q)
@@ -23,11 +24,11 @@
 
 Please refere to sveltos [documentation](https://projectsveltos.github.io/sveltos/).
 
-## Contributing 
+## Contributing
 
 ❤️ Your contributions are always welcome! If you want to contribute, have questions, noticed any bug or want to get the latest project news, you can connect with us in the following ways:
 
-1. Open a bug/feature enhancement on github [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/projectsveltos/addon-controller/issues)
+1. Open a bug/feature enhancement on github [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/projectsveltos/healthcheck-manager/issues)
 2. Chat with us on the Slack in the #projectsveltos channel [![Slack](https://img.shields.io/badge/join%20slack-%23projectsveltos-brighteen)](https://join.slack.com/t/projectsveltos/shared_invite/zt-1hraownbr-W8NTs6LTimxLPB8Erj8Q6Q)
 3. [Contact Us](mailto:support@projectsveltos.io)
 

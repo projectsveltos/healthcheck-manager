@@ -42,6 +42,7 @@ import (
 
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/clustercache"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	"github.com/projectsveltos/libsveltos/lib/k8s_utils"
@@ -395,6 +396,9 @@ func (r *ClusterHealthCheckReconciler) proceedProcessingClusterHealthCheck(ctx c
 		if result.Err != nil {
 			errorMessage := result.Err.Error()
 			clusterInfo.FailureMessage = &errorMessage
+
+			clustercache.GetManager().InvalidateOnAuthError(cluster.Namespace, cluster.Name,
+				clusterproxy.GetClusterType(cluster), result.Err)
 		}
 
 		if *deployerStatus == libsveltosv1beta1.SveltosStatusProvisioned {
@@ -602,6 +606,9 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		if result.Err != nil {
 			failureMessage := result.Err.Error()
 			clusterInfo.FailureMessage = &failureMessage
+
+			clustercache.GetManager().InvalidateOnAuthError(cluster.Namespace, cluster.Name,
+				clusterproxy.GetClusterType(cluster), result.Err)
 		}
 	} else {
 		logger.V(logs.LogDebug).Info("no result is available. mark status as removing")
@@ -1213,7 +1220,7 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
 	chc *libsveltosv1beta1.ClusterHealthCheck, currentReferenced *libsveltosset.Set, logger logr.Logger) error {
 
-	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
+	remoteClient, err := clustercache.GetManager().GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
 		"", "", clusterType, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to get managed cluster client")
@@ -1408,11 +1415,14 @@ func deployHealthCheck(ctx context.Context, c client.Client, clusterNamespace, c
 			chc, healthCheck, logger)
 	}
 
-	remoteClient, err := clusterproxy.GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
-		"", "", clusterType, logger)
-	if err != nil {
-		logger.V(logs.LogInfo).Error(err, "failed to get managed cluster client")
-		return err
+	var remoteClient client.Client
+	if !isPullMode {
+		remoteClient, err = clustercache.GetManager().GetKubernetesClient(ctx, c, clusterNamespace, clusterName,
+			"", "", clusterType, logger)
+		if err != nil {
+			logger.V(logs.LogInfo).Error(err, "failed to get managed cluster client")
+			return err
+		}
 	}
 
 	err = createOrUpdateHealthCheck(ctx, remoteClient, chc, healthCheck, clusterNamespace, clusterName,
@@ -1569,7 +1579,7 @@ func (r *ClusterHealthCheckReconciler) resetHealthCheckReportStatus(ctx context.
 		} else {
 			healthCheckReportName = chc.Spec.LivenessChecks[i].Name
 			healthCheckReportNamespace = getSveltosNamespace()
-			kubernetesClient, err = clusterproxy.GetKubernetesClient(ctx, r.Client, clusterRef.Namespace,
+			kubernetesClient, err = clustercache.GetManager().GetKubernetesClient(ctx, r.Client, clusterRef.Namespace,
 				clusterRef.Name, "", "", clusterType, logger)
 			if err != nil {
 				logger.V(logs.LogInfo).Error(err, "failed to get client")
