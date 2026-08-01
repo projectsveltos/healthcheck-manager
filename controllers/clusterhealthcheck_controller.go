@@ -147,7 +147,7 @@ type ClusterHealthCheckReconciler struct {
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationgroups/status,verbs=get;list;watch
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationbundles,verbs=get;list;watch;create;delete;update;patch
 //+kubebuilder:rbac:groups=lib.projectsveltos.io,resources=configurationbundles/status,verbs=get;list;watch;update
-//+kubebuilder:rbac:groups="",resources=events,verbs=get;watch;list;create;update;patch
+//+kubebuilder:rbac:groups="events.k8s.io",resources=events,verbs=get;watch;list;create;update;patch
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;watch;list
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;watch;list;create;update;delete
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters,verbs=get;watch;list
