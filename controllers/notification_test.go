@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -175,5 +176,49 @@ var _ = Describe("Notification", func() {
 		Expect(slackInfo).ToNot(BeNil())
 		Expect(controllers.GetSlackChannelID(slackInfo)).To(Equal(slackChannelID))
 		Expect(controllers.GetSlackToken(slackInfo)).To(Equal(slackToken))
+	})
+
+	It("composeDiscordMessage never sends a field with an empty Name when all checks pass", func() {
+		message, passing := controllers.GetNotificationMessage(randomString(), randomString(),
+			libsveltosv1beta1.ClusterTypeCapi, nil, textlogger.NewLogger(textlogger.NewConfig()))
+		Expect(passing).To(BeTrue())
+
+		embed, err := controllers.ComposeDiscordMessage(message, passing)
+		Expect(err).To(BeNil())
+		Expect(embed).To(HaveLen(1))
+		for _, field := range embed[0].Fields {
+			Expect(field.Name).ToNot(BeEmpty())
+		}
+	})
+
+	It("composeDiscordMessage pairs each failing check with its own named field", func() {
+		conditions := []libsveltosv1beta1.Condition{
+			{Type: "check1", Status: corev1.ConditionFalse, Message: randomString()},
+			{Type: "check2", Status: corev1.ConditionFalse, Message: randomString()},
+		}
+		message, passing := controllers.GetNotificationMessage(randomString(), randomString(),
+			libsveltosv1beta1.ClusterTypeCapi, conditions, textlogger.NewLogger(textlogger.NewConfig()))
+		Expect(passing).To(BeFalse())
+
+		embed, err := controllers.ComposeDiscordMessage(message, passing)
+		Expect(err).To(BeNil())
+		Expect(embed).To(HaveLen(1))
+		Expect(embed[0].Fields).To(HaveLen(2))
+		for _, field := range embed[0].Fields {
+			Expect(field.Name).ToNot(BeEmpty())
+			Expect(field.Name).To(ContainSubstring("failing"))
+		}
+	})
+
+	It("composeSlackMessage code-formats the resource reference in a status line", func() {
+		message := "Cluster Capi:default/workload  \n" +
+			`Liveness check "HealthCheck:deployment-replicas" failing  ` + "\n" +
+			"Deployment: kube-system/metrics-server status is Degraded  \n" +
+			"Message: deployments have unavailable replicas  \n"
+
+		attachment, err := controllers.ComposeSlackMessage(message, false)
+		Expect(err).To(BeNil())
+		Expect(attachment.Text).To(ContainSubstring("`kube-system/metrics-server`"))
+		Expect(attachment.Text).To(ContainSubstring("*Deployment*"))
 	})
 })

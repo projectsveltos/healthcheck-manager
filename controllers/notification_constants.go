@@ -26,4 +26,10 @@ const (
 	discordRed               = 15598624
 	discordGreen             = 8311585
 	failedTestRegexp         = `Liveness\s+check\s+["']([^\"']*)["']\s+failing\s`
+
+	// resourceStatusRegexp matches the "<Kind>: <namespace>/<name> status is
+	// <Status>" lines produced by isStatusHealthy (liveness.go), so the
+	// resource reference can be set apart visually (e.g. code-formatted in
+	// Slack) from the surrounding text.
+	resourceStatusRegexp = `^(\S+): (\S+) status is (\S+)\s*$`
 )

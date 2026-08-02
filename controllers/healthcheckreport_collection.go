@@ -635,6 +635,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 			currentHealthCheckReport.Spec.ClusterNamespace = cluster.Namespace
 			currentHealthCheckReport.Spec.ClusterName = cluster.Name
 			currentHealthCheckReport.Spec.ClusterType = clusterType
+			currentHealthCheckReport.Spec.HealthCheckName = healthCheckName
 			err = c.Create(ctx, currentHealthCheckReport)
 			if err == nil {
 				return currentHealthCheckReport, nil
@@ -648,6 +649,7 @@ func updateHealthCheckReport(ctx context.Context, c client.Client, cluster *core
 	currentHealthCheckReport.Spec.ClusterNamespace = cluster.Namespace
 	currentHealthCheckReport.Spec.ClusterName = cluster.Name
 	currentHealthCheckReport.Spec.ClusterType = clusterType
+	currentHealthCheckReport.Spec.HealthCheckName = healthCheckName
 	currentHealthCheckReport.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
 		healthCheckName, cluster.Name, &clusterType)
 	err = c.Update(ctx, currentHealthCheckReport)

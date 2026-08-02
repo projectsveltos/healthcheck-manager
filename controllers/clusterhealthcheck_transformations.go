@@ -46,9 +46,13 @@ func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckRe
 	r.Mux.Lock()
 	defer r.Mux.Unlock()
 
-	// Use the HealthCheck this HealthCheckReport is about
+	// Use the HealthCheck this HealthCheckReport is about. Spec.HealthCheckName is not reliably
+	// populated (it comes from the managed cluster's HealthCheckReport as-is); the
+	// HealthCheckNameLabel is what every other correlation in this codebase relies on
+	// (see healthcheckreport_collection.go, evaluateLivenessCheckHealthCheck's use of
+	// GetHealthCheckReportLabels), so use that here too.
 	healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1beta1.GroupVersion.String(),
-		Kind: libsveltosv1beta1.HealthCheckKind, Name: healthCheckReport.Spec.HealthCheckName}
+		Kind: libsveltosv1beta1.HealthCheckKind, Name: healthCheckReport.Labels[libsveltosv1beta1.HealthCheckNameLabel]}
 
 	// Get all ClusterHealthChecks referencing this HealthCheck
 	requests := make([]ctrl.Request, r.getReferenceMapForEntry(&healthCheckInfo).Len())

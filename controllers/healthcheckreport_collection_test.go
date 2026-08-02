@@ -381,6 +381,10 @@ func validateHealthCheckReports(healthCheckName string, cluster *clusterv1.Clust
 			By("Spec ClusterNamespace and ClusterName not set")
 			return false
 		}
+		if currentHealthCheckReport.Spec.HealthCheckName != healthCheckName {
+			By("Spec HealthCheckName not set")
+			return false
+		}
 		v, ok := currentHealthCheckReport.Labels[libsveltosv1beta1.HealthCheckNameLabel]
 		return ok && v == healthCheckName
 	}, timeout, pollingInterval).Should(BeTrue())
