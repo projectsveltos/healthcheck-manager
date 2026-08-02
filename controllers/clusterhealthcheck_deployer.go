@@ -180,7 +180,8 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 // every provisioned cluster, not just ones newly transitioning to Provisioned: a cluster's liveness
 // state (backed by HealthCheckReport) can keep changing long after it was first provisioned, and
 // Status.Conditions needs to track that, not freeze at whatever it was on first provisioning.
-// Returns an error if any notification delivery fails.
+// Returns an error if liveness checks could not be evaluated, or if any notification failed to
+// deliver.
 func (r *ClusterHealthCheckReconciler) evaluateAndNotifyProvisionedClusters(ctx context.Context,
 	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) ([]libsveltosv1beta1.ClusterCondition, error) {
 
@@ -196,14 +197,27 @@ func (r *ClusterHealthCheckReconciler) evaluateAndNotifyProvisionedClusters(ctx 
 				getManagementClusterClient(), cluster.Namespace, cluster.Name,
 				clusterproxy.GetClusterType(cluster), chc, logger)
 
-			if err != nil {
-				failureMessage := fmt.Sprintf("failed to evaluate and deliver notifications: %v", err)
+			if conditions == nil {
+				// Liveness checks could not even be evaluated (e.g. failed to fetch the
+				// HealthCheckReport/ClusterSummary). This is a genuine "cluster health is
+				// unknown" problem, distinct from a notification failing to deliver, so
+				// demote status to get this cluster looked at again.
+				failureMessage := fmt.Sprintf("failed to evaluate liveness checks: %v", err)
 				condition.ClusterInfo.Status = libsveltosv1beta1.SveltosStatusProvisioning
 				condition.ClusterInfo.FailureMessage = &failureMessage
 				errorSeen = err
-			} else {
-				condition.NotificationSummaries = notSummary
-				condition.Conditions = conditions
+				continue
+			}
+
+			// Liveness checks were evaluated successfully: persist that regardless of whether
+			// every notification was delivered. A notification failure is not a deployment
+			// failure: leave ClusterInfo.Status/FailureMessage alone (a flaky webhook must not
+			// trigger a pointless redeploy of the HealthCheck on the next reconcile) and let
+			// NotificationSummaries carry the per-channel detail instead.
+			condition.Conditions = conditions
+			condition.NotificationSummaries = notSummary
+			if err != nil {
+				errorSeen = err
 			}
 		}
 	}

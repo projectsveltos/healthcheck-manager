@@ -50,11 +50,11 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 			Spec: libsveltosv1beta1.HealthCheckSpec{
 				ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
 					{
-						Group:   "apps",
-						Version: "v1",
+						Group:   groupApps,
+						Version: apiVersionV1,
 						Kind:    deploymentKind,
 						LabelFilters: []libsveltosv1beta1.LabelFilter{
-							{Key: "control-plane", Operation: libsveltosv1beta1.OperationEqual, Value: "sveltos-agent"},
+							{Key: controlPlaneLabelKey, Operation: libsveltosv1beta1.OperationEqual, Value: sveltosAgentLabelValue},
 						},
 					},
 				},

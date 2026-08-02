@@ -43,6 +43,10 @@ const (
 	value                   = "fv"
 	clusterProfileNameLabel = "projectsveltos.io/cluster-profile-name"
 	kyvernoName             = "kyverno"
+	groupApps               = "apps"
+	apiVersionV1            = "v1"
+	controlPlaneLabelKey    = "control-plane"
+	sveltosAgentLabelValue  = "sveltos-agent"
 )
 
 var (
