@@ -17,15 +17,17 @@ limitations under the License.
 package controllers
 
 var (
-	RequeueClusterHealthCheckForCluster = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
+	RequeueClusterHealthCheckForCluster           = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
+	RequeueClusterHealthCheckForHealthCheckReport = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForHealthCheckReport
 
 	CleanMaps               = (*ClusterHealthCheckReconciler).cleanMaps
 	UpdateMaps              = (*ClusterHealthCheckReconciler).updateMaps
 	GetReferenceMapForEntry = (*ClusterHealthCheckReconciler).getReferenceMapForEntry
 	GetClusterMapForEntry   = (*ClusterHealthCheckReconciler).getClusterMapForEntry
 
-	ProcessClusterHealthCheck = (*ClusterHealthCheckReconciler).processClusterHealthCheck
-	UpdateClusterConditions   = (*ClusterHealthCheckReconciler).updateClusterConditions
+	ProcessClusterHealthCheck            = (*ClusterHealthCheckReconciler).processClusterHealthCheck
+	UpdateClusterConditions              = (*ClusterHealthCheckReconciler).updateClusterConditions
+	EvaluateAndNotifyProvisionedClusters = (*ClusterHealthCheckReconciler).evaluateAndNotifyProvisionedClusters
 )
 
 var (
@@ -80,6 +82,10 @@ var (
 var (
 	GetSlackInfo = getSlackInfo
 	GetWebexInfo = getWebexInfo
+
+	ComposeDiscordMessage  = composeDiscordMessage
+	ComposeSlackMessage    = composeSlackMessage
+	GetNotificationMessage = getNotificationMessage
 )
 
 func GetWebexRoom(info *webexInfo) string {

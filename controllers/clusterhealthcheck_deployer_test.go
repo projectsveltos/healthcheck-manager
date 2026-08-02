@@ -85,6 +85,75 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(conditions[0].Type).To(Equal(libsveltosv1beta1.ConditionType(controllers.GetConditionType(&livenessCheck))))
 	})
 
+	It("evaluateAndNotifyProvisionedClusters re-evaluates a cluster already Provisioned", func() {
+		// Regression test: conditions used to only be (re-)evaluated for clusters that had *just*
+		// transitioned to Provisioned in the current reconcile. A cluster that was already
+		// Provisioned before this reconcile started never got its liveness conditions refreshed
+		// again, so ClusterHealthCheck.Status.Conditions froze at whatever it was on first
+		// provisioning, no matter how the underlying HealthCheckReport/ClusterSummary changed later.
+		clusterNamespace := randomString()
+		clusterName := randomString()
+
+		// evaluateAndNotifyProvisionedClusters evaluates against the management cluster client
+		// (testEnv), not a fake client, so the HealthCheckReport must exist there. An empty
+		// ResourceStatuses means healthy (isStatusHealthy, liveness.go).
+		healthCheckReportClusterType := libsveltosv1beta1.ClusterTypeCapi
+		healthCheckName := randomString()
+		healthCheckReport := getHealthCheckReport(healthCheckName, clusterNamespace, clusterName)
+		healthCheckReport.Namespace = clusterNamespace
+		// fetchHealthCheckReports (liveness.go) matches on the full label set, not just
+		// HealthCheckNameLabel (which is all getHealthCheckReport sets by default).
+		healthCheckReport.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
+			healthCheckName, clusterName, &healthCheckReportClusterType)
+
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterNamespace}}
+		Expect(testEnv.Create(context.TODO(), ns)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+		Expect(testEnv.Create(context.TODO(), healthCheckReport)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
+
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: randomString(),
+			},
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				LivenessChecks: []libsveltosv1beta1.LivenessCheck{
+					{
+						Name: randomString(),
+						Type: libsveltosv1beta1.LivenessTypeHealthCheck,
+						LivenessSourceRef: &corev1.ObjectReference{
+							Name:       healthCheckName,
+							Kind:       libsveltosv1beta1.HealthCheckKind,
+							APIVersion: libsveltosv1beta1.GroupVersion.String(),
+						},
+					},
+				},
+			},
+			Status: libsveltosv1beta1.ClusterHealthCheckStatus{
+				ClusterConditions: []libsveltosv1beta1.ClusterCondition{
+					{
+						ClusterInfo: libsveltosv1beta1.ClusterInfo{
+							Cluster: corev1.ObjectReference{
+								Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String(),
+								Namespace: clusterNamespace, Name: clusterName,
+							},
+							// Already Provisioned *before* this call: this is the case that was
+							// previously skipped.
+							Status: libsveltosv1beta1.SveltosStatusProvisioned,
+						},
+					},
+				},
+			},
+		}
+
+		clusterConditions, err := controllers.EvaluateAndNotifyProvisionedClusters(
+			&controllers.ClusterHealthCheckReconciler{}, context.TODO(), chc, logger)
+		Expect(err).To(BeNil())
+		Expect(clusterConditions).To(HaveLen(1))
+		Expect(clusterConditions[0].Conditions).ToNot(BeEmpty())
+		Expect(clusterConditions[0].Conditions[0].Status).To(Equal(corev1.ConditionTrue))
+	})
+
 	It("processClusterHealthCheck queues job", func() {
 		clusterNamespace := randomString()
 		clusterName := randomString()

@@ -182,4 +182,50 @@ var _ = Describe("ClusterHealthCheckReconciler map functions", func() {
 		requests = controllers.RequeueClusterHealthCheckForCluster(reconciler, context.TODO(), cluster)
 		Expect(requests).To(HaveLen(0))
 	})
+
+	It("requeueClusterHealthCheckForHealthCheckReport resolves the HealthCheck from the label, not Spec.HealthCheckName",
+		func() {
+			// Regression test: Spec.HealthCheckName on a HealthCheckReport pulled from a managed
+			// cluster is not reliably set (every other correlation in this codebase uses the
+			// HealthCheckNameLabel instead). Using Spec.HealthCheckName here used to resolve to an
+			// empty HealthCheck reference, matching zero ClusterHealthChecks, so a HealthCheckReport
+			// change never actually queued a reconcile.
+			healthCheckName := randomString()
+			chcName := randomString()
+
+			reconciler := &controllers.ClusterHealthCheckReconciler{
+				Scheme:              scheme,
+				ClusterMap:          make(map[corev1.ObjectReference]*libsveltosset.Set),
+				CHCToClusterMap:     make(map[types.NamespacedName]*libsveltosset.Set),
+				ClusterHealthChecks: make(map[corev1.ObjectReference]libsveltosv1beta1.Selector),
+				HealthCheckMap:      make(map[corev1.ObjectReference]*libsveltosset.Set),
+				CHCToHealthCheckMap: make(map[types.NamespacedName]*libsveltosset.Set),
+				ClusterLabels:       make(map[corev1.ObjectReference]map[string]string),
+				Mux:                 sync.Mutex{},
+			}
+
+			healthCheckInfo := corev1.ObjectReference{APIVersion: libsveltosv1beta1.GroupVersion.String(),
+				Kind: libsveltosv1beta1.HealthCheckKind, Name: healthCheckName}
+			chcRef := &corev1.ObjectReference{APIVersion: libsveltosv1beta1.GroupVersion.String(),
+				Kind: libsveltosv1beta1.ClusterHealthCheckKind, Name: chcName}
+
+			healthCheckSet := &libsveltosset.Set{}
+			healthCheckSet.Insert(chcRef)
+			reconciler.HealthCheckMap[healthCheckInfo] = healthCheckSet
+
+			// As pulled from a managed cluster: Spec.HealthCheckName is empty, only the label is set.
+			healthCheckReport := &libsveltosv1beta1.HealthCheckReport{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: randomString(),
+					Name:      randomString(),
+					Labels: map[string]string{
+						libsveltosv1beta1.HealthCheckNameLabel: healthCheckName,
+					},
+				},
+			}
+
+			requests := controllers.RequeueClusterHealthCheckForHealthCheckReport(reconciler, context.TODO(), healthCheckReport)
+			expected := reconcile.Request{NamespacedName: types.NamespacedName{Name: chcName}}
+			Expect(requests).To(ContainElement(expected))
+		})
 })

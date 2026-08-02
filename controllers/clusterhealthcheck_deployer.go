@@ -95,15 +95,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	var errorSeen error
 	allProcessed := true
 
-	// 1. Snapshot the clusters that are NOT yet provisioned at the start of this reconcile
-	nonProvisioned := map[corev1.ObjectReference]struct{}{}
-	for i := range chc.Status.ClusterConditions {
-		if chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1beta1.SveltosStatusProvisioned {
-			nonProvisioned[chc.Status.ClusterConditions[i].ClusterInfo.Cluster] = struct{}{}
-		}
-	}
-
-	// 2. Process each cluster (deployment and status updates)
+	// 1. Process each cluster (deployment and status updates)
 	for i := range chc.Status.ClusterConditions {
 		c := &chc.Status.ClusterConditions[i]
 
@@ -150,7 +142,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 		}
 	}
 
-	// 3. Filter out entries with Status Removed
+	// 2. Filter out entries with Status Removed
 	n := 0
 	for i := range chc.Status.ClusterConditions {
 		if chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1beta1.SveltosStatusRemoved {
@@ -160,9 +152,9 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	}
 	chc.Status.ClusterConditions = chc.Status.ClusterConditions[:n]
 
-	// 4. Send notifications for clusters that transitioned to Provisioned
+	// 3. Evaluate liveness checks and send notifications for every provisioned cluster
 	var err error
-	chc.Status.ClusterConditions, err = r.sendNotificationsForNewlyProvisionedClusters(ctx, chc, nonProvisioned, logger)
+	chc.Status.ClusterConditions, err = r.evaluateAndNotifyProvisionedClusters(ctx, chc, logger)
 	if err != nil {
 		errorSeen = err
 	}
@@ -181,11 +173,16 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	return nil
 }
 
-// sendNotificationsForNewlyProvisionedClusters identifies clusters that were just provisioned and triggers notifications.
+// evaluateAndNotifyProvisionedClusters re-evaluates liveness checks and delivers notifications for
+// every currently provisioned cluster. evaluateHealthChecksAndSendNotificationsForCluster only
+// resends a notification when its liveness status actually changed (or all notifications are
+// explicitly requested to be resent), so calling it on every reconcile is safe. This must run for
+// every provisioned cluster, not just ones newly transitioning to Provisioned: a cluster's liveness
+// state (backed by HealthCheckReport) can keep changing long after it was first provisioned, and
+// Status.Conditions needs to track that, not freeze at whatever it was on first provisioning.
 // Returns an error if any notification delivery fails.
-func (r *ClusterHealthCheckReconciler) sendNotificationsForNewlyProvisionedClusters(ctx context.Context,
-	chc *libsveltosv1beta1.ClusterHealthCheck, nonProvisioned map[corev1.ObjectReference]struct{},
-	logger logr.Logger) ([]libsveltosv1beta1.ClusterCondition, error) {
+func (r *ClusterHealthCheckReconciler) evaluateAndNotifyProvisionedClusters(ctx context.Context,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) ([]libsveltosv1beta1.ClusterCondition, error) {
 
 	var errorSeen error
 
@@ -195,21 +192,18 @@ func (r *ClusterHealthCheckReconciler) sendNotificationsForNewlyProvisionedClust
 		if condition.ClusterInfo.Status == libsveltosv1beta1.SveltosStatusProvisioned {
 			cluster := &condition.ClusterInfo.Cluster
 
-			// Check if this cluster was in the non-provisioned list at the start of the reconcile
-			if _, ok := nonProvisioned[*cluster]; ok {
-				notSummary, conditions, err := evaluateHealthChecksAndSendNotificationsForCluster(ctx,
-					getManagementClusterClient(), cluster.Namespace, cluster.Name,
-					clusterproxy.GetClusterType(cluster), chc, logger)
+			notSummary, conditions, err := evaluateHealthChecksAndSendNotificationsForCluster(ctx,
+				getManagementClusterClient(), cluster.Namespace, cluster.Name,
+				clusterproxy.GetClusterType(cluster), chc, logger)
 
-				if err != nil {
-					failureMessage := fmt.Sprintf("failed to evaluate and deliver notifications: %v", err)
-					condition.ClusterInfo.Status = libsveltosv1beta1.SveltosStatusProvisioning
-					condition.ClusterInfo.FailureMessage = &failureMessage
-					errorSeen = err
-				} else {
-					condition.NotificationSummaries = notSummary
-					condition.Conditions = conditions
-				}
+			if err != nil {
+				failureMessage := fmt.Sprintf("failed to evaluate and deliver notifications: %v", err)
+				condition.ClusterInfo.Status = libsveltosv1beta1.SveltosStatusProvisioning
+				condition.ClusterInfo.FailureMessage = &failureMessage
+				errorSeen = err
+			} else {
+				condition.NotificationSummaries = notSummary
+				condition.Conditions = conditions
 			}
 		}
 	}

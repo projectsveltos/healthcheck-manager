@@ -571,7 +571,17 @@ func composeDiscordMessage(message string, passing bool) ([]*discordgo.MessageEm
 			val += "\n" + line
 		}
 	}
-	content = append(content, &discordgo.MessageEmbedField{Name: name, Value: val})
+
+	// Discord rejects embed fields with an empty Name. When every liveness
+	// check is passing, no "Liveness check ... failing" line ever sets name,
+	// so there is nothing valid to pair val with as a field; fall back to a
+	// generic "Status" field instead of sending an invalid one.
+	switch {
+	case name != "":
+		content = append(content, &discordgo.MessageEmbedField{Name: name, Value: val})
+	case val != "":
+		content = append(content, &discordgo.MessageEmbedField{Name: "Status", Value: val})
+	}
 
 	embed := []*discordgo.MessageEmbed{{
 		Type:        discordgo.EmbedTypeRich,
@@ -689,11 +699,18 @@ func composeSlackMessage(message string, passing bool) (slack.Attachment, error)
 	// adding the remaining msg
 	markdownText := strings.Builder{}
 	fail_reg := regexp.MustCompile(failedTestRegexp)
+	resource_reg := regexp.MustCompile(resourceStatusRegexp)
 
 	for _, line := range lines[1:] {
-		if fail_reg.MatchString(line) {
+		switch {
+		case fail_reg.MatchString(line):
 			markdownText.WriteString("*" + line + "*\n")
-		} else {
+		case resource_reg.MatchString(line):
+			// Set the resource reference apart with code formatting, the
+			// same treatment k8s-cleaner gives resource names in Slack.
+			m := resource_reg.FindStringSubmatch(line)
+			fmt.Fprintf(&markdownText, "*%s* `%s` status is %s\n", m[1], m[2], m[3])
+		default:
 			markdownText.WriteString(line + "\n")
 		}
 	}
