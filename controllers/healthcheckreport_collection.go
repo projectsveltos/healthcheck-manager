@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/clustercache"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	"github.com/projectsveltos/libsveltos/lib/sveltos_upgrade"
@@ -500,6 +501,13 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 	healthCheckReportList := libsveltosv1beta1.HealthCheckReportList{}
 	err = clusterClient.List(ctx, &healthCheckReportList, listOptions...)
 	if err != nil {
+		// getHealthCheckReportClient succeeding only means the cached rest.Config was non-nil -
+		// it does not verify the credentials still work, since client.New performs no network
+		// call. A token that expired since the config was cached surfaces here, on first actual
+		// use, not there. Evict so the next collection cycle rebuilds the client from a
+		// freshly-read kubeconfig Secret instead of retrying the same stale credentials forever.
+		clustercache.GetManager().InvalidateOnAuthError(cluster.Namespace, cluster.Name,
+			clusterproxy.GetClusterType(clusterRef), err)
 		return err
 	}
 

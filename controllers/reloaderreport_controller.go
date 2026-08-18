@@ -150,6 +150,11 @@ func (r *ReloaderReportReconciler) processReloaderReport(ctx context.Context,
 		err = r.triggerRollingUpgrade(ctx, remoteClient, rr, value, logger)
 		if err != nil {
 			logger.V(logs.LogInfo).Error(err, "triggering rolling upgrade failed")
+			// remoteClient was built from a cached rest.Config whose credentials were never
+			// actually exercised until this Get/Update - a token that expired since the config
+			// was cached surfaces here, on first real use, not at GetKubernetesClient above.
+			clustercache.GetManager().InvalidateOnAuthError(reloaderReport.Spec.ClusterNamespace,
+				reloaderReport.Spec.ClusterName, reloaderReport.Spec.ClusterType, err)
 			failed = append(failed, *rr)
 		} else {
 			logger.V(logs.LogInfo).Info("rolling upgrade triggered")

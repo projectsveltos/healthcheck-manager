@@ -1239,6 +1239,10 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 	err = remoteClient.List(ctx, healthCheckList)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to get list HealthChecks")
+		// GetKubernetesClient succeeding only means the cached rest.Config was non-nil - it does
+		// not verify the credentials still work, since client.New performs no network call. A
+		// token that expired since the config was cached surfaces here, on first actual use.
+		clustercache.GetManager().InvalidateOnAuthError(clusterNamespace, clusterName, clusterType, err)
 		return err
 	}
 
@@ -1272,6 +1276,7 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 			err = remoteClient.Update(ctx, hc)
 			if err != nil {
 				logger.V(logs.LogInfo).Error(err, "failed to get update HealthCheck")
+				clustercache.GetManager().InvalidateOnAuthError(clusterNamespace, clusterName, clusterType, err)
 				return err
 			}
 			continue
@@ -1287,6 +1292,7 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 		err = remoteClient.Delete(ctx, hc)
 		if err != nil {
 			logger.V(logs.LogInfo).Error(err, "failed to get delete HealthCheck")
+			clustercache.GetManager().InvalidateOnAuthError(clusterNamespace, clusterName, clusterType, err)
 			return err
 		}
 	}
@@ -1437,6 +1443,10 @@ func deployHealthCheck(ctx context.Context, c client.Client, clusterNamespace, c
 		isPullMode, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to create/update HealthCheck")
+		// remoteClient was built from a cached rest.Config whose credentials were never
+		// actually exercised until this Get/Update/Create - a token that expired since the
+		// config was cached surfaces here, on first real use.
+		clustercache.GetManager().InvalidateOnAuthError(clusterNamespace, clusterName, clusterType, err)
 		return err
 	}
 
