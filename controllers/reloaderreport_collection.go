@@ -30,6 +30,7 @@ import (
 
 	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/clustercache"
 	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 	"github.com/projectsveltos/libsveltos/lib/sveltos_upgrade"
@@ -295,6 +296,13 @@ func collectAndProcessReloaderReportsFromCluster(ctx context.Context, c client.C
 	reloaderReportList := libsveltosv1beta1.ReloaderReportList{}
 	err = clusterClient.List(ctx, &reloaderReportList)
 	if err != nil {
+		// getReloaderReportClient succeeding only means the cached rest.Config was non-nil - it
+		// does not verify the credentials still work, since client.New performs no network
+		// call. A token that expired since the config was cached surfaces here, on first
+		// actual use, not there. Evict so the next collection cycle rebuilds the client from a
+		// freshly-read kubeconfig Secret instead of retrying the same stale credentials forever.
+		clustercache.GetManager().InvalidateOnAuthError(cluster.Namespace, cluster.Name,
+			clusterproxy.GetClusterType(clusterRef), err)
 		return err
 	}
 
