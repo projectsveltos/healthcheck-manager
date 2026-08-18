@@ -18,6 +18,8 @@ package controllers_test
 
 import (
 	"context"
+	"strings"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -176,6 +178,27 @@ var _ = Describe("Notification", func() {
 		Expect(slackInfo).ToNot(BeNil())
 		Expect(controllers.GetSlackChannelID(slackInfo)).To(Equal(slackChannelID))
 		Expect(controllers.GetSlackToken(slackInfo)).To(Equal(slackToken))
+	})
+
+	It("truncateForEvent leaves a message under the limit untouched", func() {
+		message := "all liveness checks are passing"
+		Expect(controllers.TruncateForEvent(message)).To(Equal(message))
+	})
+
+	It("truncateForEvent caps an oversized message to the Kubernetes Event.note length limit", func() {
+		message := strings.Repeat("a", 2000)
+		truncated := controllers.TruncateForEvent(message)
+		Expect(len(truncated)).To(Equal(1024))
+		Expect(strings.HasSuffix(truncated, "...(truncated)")).To(BeTrue())
+	})
+
+	It("truncateForEvent never splits a multi-byte rune when truncating", func() {
+		// "é" is 2 bytes; repeating it so the cut point (byte 1024-len(suffix)) can land
+		// mid-rune verifies the result is still valid UTF-8.
+		message := strings.Repeat("é", 1000)
+		truncated := controllers.TruncateForEvent(message)
+		Expect(utf8.ValidString(truncated)).To(BeTrue())
+		Expect(len(truncated) <= 1024).To(BeTrue())
 	})
 
 	It("composeDiscordMessage never sends a field with an empty Name when all checks pass", func() {
