@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
 	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
@@ -101,6 +102,15 @@ func sendNotification(ctx context.Context, c client.Client, clusterNamespace, cl
 	return nil
 }
 
+const (
+	// eventNoteLengthLimit matches the Kubernetes API server's validation limit on
+	// events.k8s.io/v1 Event.note: an Event over this length is rejected outright ("Server
+	// rejected event (will not retry!)"), not just truncated server-side. A ClusterHealthCheck
+	// with many failing liveness checks at once - one paragraph of detail per failing Pod -
+	// easily produces a message longer than this.
+	eventNoteLengthLimit = 1024
+)
+
 func sendKubernetesNotification(clusterNamespace, clusterName string,
 	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
 	conditions []libsveltosv1beta1.Condition, logger logr.Logger) {
@@ -113,7 +123,26 @@ func sendKubernetesNotification(clusterNamespace, clusterName string,
 	}
 
 	r := getManagementRecorder()
-	r.Eventf(chc, nil, eventType, "ClusterHealthCheck", "LivenessChecks", message)
+	r.Eventf(chc, nil, eventType, "ClusterHealthCheck", "LivenessChecks", truncateForEvent(message))
+}
+
+// truncateForEvent caps message to eventNoteLengthLimit, so an oversized notification is
+// recorded (truncated, with the cut called out) instead of being dropped by the apiserver.
+func truncateForEvent(message string) string {
+	if len(message) <= eventNoteLengthLimit {
+		return message
+	}
+
+	const truncatedSuffix = "...(truncated)"
+	truncated := message[:eventNoteLengthLimit-len(truncatedSuffix)]
+	// A byte-index slice can land mid-rune for non-ASCII content - Pod/container names are
+	// ASCII-only by Kubernetes naming rules, but status messages surfaced from the container
+	// runtime are free text and could contain other UTF-8. Back up to the last full rune so
+	// this never emits invalid UTF-8.
+	for truncated != "" && !utf8.ValidString(truncated) {
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated + truncatedSuffix
 }
 
 func sendSlackNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
