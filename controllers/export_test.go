@@ -75,6 +75,7 @@ var (
 	CollectAndProcessHealthCheckReportsFromCluster = collectAndProcessHealthCheckReportsFromCluster
 	CollectAndProcessAllHealthCheckReports         = collectAndProcessAllHealthCheckReports
 	BuildClustersWithHealthCheck                   = buildClustersWithHealthCheck
+	IsAgentHeartbeatCurrent                        = isAgentHeartbeatCurrent
 )
 
 var (
