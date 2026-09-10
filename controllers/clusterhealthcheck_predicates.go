@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -199,6 +200,43 @@ func HealthCheckPredicates(logger logr.Logger) predicate.Funcs {
 			)
 			log.V(logs.LogVerbose).Info(
 				"HealthCheck did not match expected conditions.  Will not attempt to reconcile associated ClusterHealthChecks.")
+			return false
+		},
+	}
+}
+
+// SecretPredicates predicates for Secrets. ClusterHealthCheckReconciler watches Secret events
+// so it can evict a stale clustercache entry when a managed cluster's kubeconfig changes; it
+// never requeues a ClusterHealthCheck for a Secret change.
+func SecretPredicates(logger logr.Logger) predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newSecret := e.ObjectNew.(*corev1.Secret)
+			oldSecret := e.ObjectOld.(*corev1.Secret)
+			log := logger.WithValues("predicate", "updateEvent",
+				"secret", newSecret.Name,
+			)
+
+			if oldSecret == nil {
+				log.V(logs.LogVerbose).Info("Old Secret is nil.")
+				return true
+			}
+
+			if !reflect.DeepEqual(oldSecret.Data, newSecret.Data) {
+				log.V(logs.LogVerbose).Info("Secret Data changed.")
+				return true
+			}
+
+			log.V(logs.LogVerbose).Info("Secret did not match expected conditions.")
+			return false
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return true
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
 			return false
 		},
 	}

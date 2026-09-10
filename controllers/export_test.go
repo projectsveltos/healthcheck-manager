@@ -19,6 +19,7 @@ package controllers
 var (
 	RequeueClusterHealthCheckForCluster           = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
 	RequeueClusterHealthCheckForHealthCheckReport = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForHealthCheckReport
+	RequeueClusterHealthCheckForSecret            = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForSecret
 
 	CleanMaps               = (*ClusterHealthCheckReconciler).cleanMaps
 	UpdateMaps              = (*ClusterHealthCheckReconciler).updateMaps
@@ -28,6 +29,8 @@ var (
 	ProcessClusterHealthCheck            = (*ClusterHealthCheckReconciler).processClusterHealthCheck
 	UpdateClusterConditions              = (*ClusterHealthCheckReconciler).updateClusterConditions
 	EvaluateAndNotifyProvisionedClusters = (*ClusterHealthCheckReconciler).evaluateAndNotifyProvisionedClusters
+
+	ProcessCluster = processCluster
 )
 
 var (

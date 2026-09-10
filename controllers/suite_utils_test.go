@@ -51,6 +51,7 @@ var (
 
 const (
 	sveltosKubeconfigPostfix = "-kubeconfig"
+	value                    = "value"
 )
 
 func randomString() string {

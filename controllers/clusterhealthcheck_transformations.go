@@ -30,8 +30,32 @@ import (
 
 	configv1beta1 "github.com/projectsveltos/addon-controller/api/v1beta1"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/clustercache"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
 )
+
+// requeueClusterHealthCheckForSecret reacts to a Secret change solely to evict clustercache:
+// a managed cluster's kubeconfig Secret can change endpoint/credentials with no auth error and
+// no cluster deletion, which are clustercache's only other eviction paths (see #1954). It does
+// not requeue any ClusterHealthCheck - unlike EventTrigger/ClusterProfile, ClusterHealthCheck's
+// NotificationRef Secrets are not tracked by a reference map yet, so a notification credential
+// rotation is not picked up until the next unrelated reconcile. That gap is pre-existing and
+// separate from this fix.
+func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForSecret(
+	ctx context.Context, o client.Object,
+) []reconcile.Request {
+
+	secret := o.(*corev1.Secret)
+	key := corev1.ObjectReference{
+		APIVersion: corev1.SchemeGroupVersion.String(),
+		Kind:       string(libsveltosv1beta1.SecretReferencedResourceKind),
+		Namespace:  secret.Namespace,
+		Name:       secret.Name,
+	}
+	clustercache.GetManager().RemoveSecret(&key)
+
+	return nil
+}
 
 func (r *ClusterHealthCheckReconciler) requeueClusterHealthCheckForHealthCheckReport(
 	ctx context.Context, o client.Object,
