@@ -227,7 +227,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to undeploy")
-		return reconcile.Result{Requeue: true, RequeueAfter: deleteRequeueAfter}
+		return reconcile.Result{RequeueAfter: deleteRequeueAfter}
 	}
 
 	if controllerutil.ContainsFinalizer(clusterHealthCheckScope.ClusterHealthCheck, libsveltosv1beta1.ClusterHealthCheckFinalizer) {
@@ -271,7 +271,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger); err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to deploy")
-		return reconcile.Result{Requeue: true, RequeueAfter: normalRequeueAfter}, nil
+		return reconcile.Result{RequeueAfter: normalRequeueAfter}, nil
 	}
 
 	logger.V(logs.LogDebug).Info("Reconcile success")

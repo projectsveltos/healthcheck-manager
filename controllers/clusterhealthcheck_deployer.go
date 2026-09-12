@@ -512,6 +512,12 @@ func (r *ClusterHealthCheckReconciler) proceedDeployingCHCnPullMode(ctx context.
 		case libsveltosv1beta1.FeatureStatusFailedNonRetriable, libsveltosv1beta1.FeatureStatusRemoving,
 			libsveltosv1beta1.FeatureStatusAgentRemoving, libsveltosv1beta1.FeatureStatusRemoved:
 			logger.V(logs.LogDebug).Info("proceed deploying")
+		case libsveltosv1beta1.FeatureStatusBlocked:
+			// Blocked is set by addon-controller while a predecessor ClusterSummary waits on a
+			// successor (TransitionFrom) or dependency (DependsOn). ClusterHealthCheck has
+			// neither concept and the agent never reports it in a ConfigurationGroup, so this
+			// case is unreachable in practice. Listed only to satisfy exhaustive.
+			logger.V(logs.LogDebug).Info("proceed deploying")
 		}
 	} else {
 		clusterInfo.Status = libsveltosv1beta1.SveltosStatusProvisioning
