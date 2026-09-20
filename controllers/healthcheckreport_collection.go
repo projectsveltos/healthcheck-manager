@@ -362,6 +362,15 @@ func processHealthCheckReportsForClusterInAgentlessMode(ctx context.Context, c c
 			}
 		}
 
+		// AgentFailureMessage is set by sveltos-agent itself when it cannot refresh
+		// Spec.ResourceStatuses. If updateHealthCheckReport above fetched a distinct object
+		// (rather than returning hcr unchanged), carry it over explicitly: the Status().Update
+		// below only ever sets Phase, so an untouched Status field would otherwise be silently
+		// dropped by the eventual switch to mgmtHealthCheckReport just below.
+		if mgmtHealthCheckReport != nil && mgmtHealthCheckReport != hcr {
+			mgmtHealthCheckReport.Status.AgentFailureMessage = hcr.Status.AgentFailureMessage
+		}
+
 		// In agentless mode, the Status of HealthCheckReport in the management cluster will be updated.
 		// So set hcr to current version (update otherwise will fail with object has been modified).
 		if mgmtHealthCheckReport != nil {
@@ -577,6 +586,23 @@ func processOneHealthCheckReport(ctx context.Context, c, clusterClient client.Cl
 		mgmtHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)
 		if err != nil {
 			logger.V(logs.LogInfo).Error(err, "failed to update HealthCheckReport in management cluster")
+		}
+	}
+
+	// AgentFailureMessage is set by sveltos-agent itself, in the managed cluster, when it cannot
+	// refresh Spec.ResourceStatuses. In agentless/pull mode mgmtHealthCheckReport already is hcr
+	// (updateHealthCheckReport returns its input unchanged once Spec.ClusterName is already set),
+	// so this only does real work in the default (clusterproxy-pull) mode, where
+	// mgmtHealthCheckReport is a distinct object whose Status is not otherwise written here.
+	if mgmtHealthCheckReport != nil && mgmtHealthCheckReport != hcr {
+		agentFailureMessage := hcr.Status.AgentFailureMessage
+		unchanged := (mgmtHealthCheckReport.Status.AgentFailureMessage == nil) == (agentFailureMessage == nil) &&
+			(agentFailureMessage == nil || *mgmtHealthCheckReport.Status.AgentFailureMessage == *agentFailureMessage)
+		if !unchanged {
+			mgmtHealthCheckReport.Status.AgentFailureMessage = agentFailureMessage
+			if err := c.Status().Update(ctx, mgmtHealthCheckReport); err != nil {
+				l.V(logs.LogInfo).Error(err, "failed to update AgentFailureMessage on HealthCheckReport in management cluster")
+			}
 		}
 	}
 
