@@ -1,0 +1,51 @@
+# Reports Degraded once a Job's Failed condition is True, and Progressing until its
+# Complete condition is set. Useful for gating a rollout stage on a one-shot Job actually
+# finishing, not just being created.
+---
+apiVersion: lib.projectsveltos.io/v1beta1
+kind: HealthCheck
+metadata:
+  name: job-completed
+spec:
+  resourceSelectors:
+  - group: "batch"
+    version: "v1"
+    kind: "Job"
+  evaluateHealth: |
+    function evaluate()
+      local hs = {}
+      hs.status = "Healthy"
+      hs.message = ""
+      local unhealthy = {}
+
+      for _, resource in ipairs(resources) do
+        local metadata = resource.metadata or {}
+        local conditions = (resource.status or {}).conditions or {}
+        local failed = nil
+        local complete = nil
+
+        for _, condition in ipairs(conditions) do
+          if condition.type == "Failed" and condition.status == "True" then
+            failed = condition
+          end
+          if condition.type == "Complete" and condition.status == "True" then
+            complete = condition
+          end
+        end
+
+        if failed ~= nil then
+          local msg = string.format("Job %s/%s failed: %s", metadata.namespace, metadata.name,
+                      failed.reason or failed.message or "unknown reason")
+          table.insert(unhealthy, {resource = resource, message = msg, status = "Degraded"})
+        elseif complete == nil then
+          local msg = string.format("Job %s/%s has not completed yet", metadata.namespace, metadata.name)
+          table.insert(unhealthy, {resource = resource, message = msg, status = "Progressing"})
+        end
+      end
+
+      if #unhealthy > 0 then
+        hs.resources = unhealthy
+      end
+
+      return hs
+    end

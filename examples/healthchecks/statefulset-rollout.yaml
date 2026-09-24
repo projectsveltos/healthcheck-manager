@@ -1,0 +1,52 @@
+# Reports Progressing while a StatefulSet's rolling update is still in flight
+# (status.currentRevision differs from status.updateRevision) or not all replicas are
+# ready yet. StatefulSet has no Deployment-style conditions array, so this compares the
+# revision and replica fields directly.
+---
+apiVersion: lib.projectsveltos.io/v1beta1
+kind: HealthCheck
+metadata:
+  name: statefulset-rollout-complete
+spec:
+  resourceSelectors:
+  - group: "apps"
+    version: "v1"
+    kind: "StatefulSet"
+  evaluateHealth: |
+    function evaluate()
+      local hs = {}
+      hs.status = "Healthy"
+      hs.message = ""
+      local unhealthy = {}
+
+      for _, resource in ipairs(resources) do
+        local metadata = resource.metadata or {}
+        local spec = resource.spec or {}
+        local status = resource.status or {}
+
+        local desired = spec.replicas or 0
+        local ready = status.readyReplicas or 0
+        local currentRevision = status.currentRevision
+        local updateRevision = status.updateRevision
+
+        local issue = nil
+
+        if updateRevision ~= nil and currentRevision ~= nil and updateRevision ~= currentRevision then
+          issue = string.format("StatefulSet %s/%s is rolling out (revision %s -> %s)",
+                  metadata.namespace, metadata.name, currentRevision, updateRevision)
+        elseif ready < desired then
+          issue = string.format("StatefulSet %s/%s has %d/%d ready replicas",
+                  metadata.namespace, metadata.name, ready, desired)
+        end
+
+        if issue then
+          table.insert(unhealthy, {resource = resource, message = issue, status = "Progressing"})
+        end
+      end
+
+      if #unhealthy > 0 then
+        hs.resources = unhealthy
+      end
+
+      return hs
+    end

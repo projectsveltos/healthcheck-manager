@@ -18,6 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/slack-go/slack v0.29.0
 	github.com/spf13/pflag v1.0.10
+	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/text v0.42.0
 	k8s.io/api v0.37.0
 	k8s.io/apiextensions-apiserver v0.37.0
@@ -29,16 +30,20 @@ require (
 	sigs.k8s.io/cluster-api v1.14.2
 	sigs.k8s.io/cluster-api/api v1.14.2
 	sigs.k8s.io/controller-runtime v0.25.1
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
 	cel.dev/expr v0.25.2 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
+	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.33.4 // indirect
@@ -93,9 +98,12 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
+	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
@@ -103,9 +111,15 @@ require (
 	github.com/peterhellberg/link v1.2.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/projectsveltos/lua-utils/glua-json v0.0.0-20251212200258-2b3cdcb7c0f5 // indirect
+	github.com/projectsveltos/lua-utils/glua-runes v0.0.0-20251212200258-2b3cdcb7c0f5 // indirect
+	github.com/projectsveltos/lua-utils/glua-sprig v0.0.0-20251212200258-2b3cdcb7c0f5 // indirect
+	github.com/projectsveltos/lua-utils/glua-strings v0.0.0-20251212200258-2b3cdcb7c0f5 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
@@ -147,7 +161,6 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
-	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
 // Replace digest lib to master to gather access to BLAKE3.
