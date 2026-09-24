@@ -1,0 +1,45 @@
+# Reports Degraded when Contour's Valid condition on an HTTPProxy is False, for example a
+# routing conflict or a bad backend reference. Contour keeps serving the last-known-good
+# configuration in that case, so this is otherwise easy to miss.
+---
+apiVersion: lib.projectsveltos.io/v1beta1
+kind: HealthCheck
+metadata:
+  name: contour-httpproxy-valid
+spec:
+  resourceSelectors:
+  - group: "projectcontour.io"
+    version: "v1"
+    kind: "HTTPProxy"
+  evaluateHealth: |
+    function evaluate()
+      local hs = {}
+      hs.status = "Healthy"
+      hs.message = ""
+      local unhealthy = {}
+
+      for _, resource in ipairs(resources) do
+        local metadata = resource.metadata or {}
+        local conditions = (resource.status or {}).conditions or {}
+        local valid = nil
+
+        for _, condition in ipairs(conditions) do
+          if condition.type == "Valid" then
+            valid = condition
+          end
+        end
+
+        if valid == nil or valid.status ~= "True" then
+          local reason = valid and valid.reason or "Unknown"
+          local msg = string.format("HTTPProxy %s/%s is not Valid (%s)",
+                      metadata.namespace, metadata.name, reason)
+          table.insert(unhealthy, {resource = resource, message = msg, status = "Degraded"})
+        end
+      end
+
+      if #unhealthy > 0 then
+        hs.resources = unhealthy
+      end
+
+      return hs
+    end

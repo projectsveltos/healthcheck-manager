@@ -1,0 +1,47 @@
+# Reports Progressing while a Knative Service's Ready condition is Unknown (still
+# deploying), and Degraded when it is False (the revision actually failed).
+---
+apiVersion: lib.projectsveltos.io/v1beta1
+kind: HealthCheck
+metadata:
+  name: knative-service-ready
+spec:
+  resourceSelectors:
+  - group: "serving.knative.dev"
+    version: "v1"
+    kind: "Service"
+  evaluateHealth: |
+    function evaluate()
+      local hs = {}
+      hs.status = "Healthy"
+      hs.message = ""
+      local unhealthy = {}
+
+      for _, resource in ipairs(resources) do
+        local metadata = resource.metadata or {}
+        local conditions = (resource.status or {}).conditions or {}
+        local ready = nil
+
+        for _, condition in ipairs(conditions) do
+          if condition.type == "Ready" then
+            ready = condition
+          end
+        end
+
+        if ready == nil or ready.status == "Unknown" then
+          local msg = string.format("Service %s/%s is not Ready yet", metadata.namespace, metadata.name)
+          table.insert(unhealthy, {resource = resource, message = msg, status = "Progressing"})
+        elseif ready.status ~= "True" then
+          local reason = ready.reason or "Unknown"
+          local msg = string.format("Service %s/%s is not Ready (%s)",
+                      metadata.namespace, metadata.name, reason)
+          table.insert(unhealthy, {resource = resource, message = msg, status = "Degraded"})
+        end
+      end
+
+      if #unhealthy > 0 then
+        hs.resources = unhealthy
+      end
+
+      return hs
+    end
