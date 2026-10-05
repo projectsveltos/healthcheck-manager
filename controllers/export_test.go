@@ -106,3 +106,8 @@ func GetSlackChannelID(info *slackInfo) string {
 func GetSlackToken(info *slackInfo) string {
 	return info.token
 }
+
+var (
+	NewClusterHealthCheckHistogram = newClusterHealthCheckHistogram
+	ProgramDuration                = programDuration
+)
