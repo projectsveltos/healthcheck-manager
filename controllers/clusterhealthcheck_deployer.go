@@ -180,6 +180,10 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 // every provisioned cluster, not just ones newly transitioning to Provisioned: a cluster's liveness
 // state (backed by HealthCheckReport) can keep changing long after it was first provisioned, and
 // Status.Conditions needs to track that, not freeze at whatever it was on first provisioning.
+// Only the clusters this instance is a shard match for are processed: the instance owning the shard
+// of a cluster is the only one evaluating its liveness checks and delivering its notifications.
+// Otherwise two instances would take decisions (notification policy included) from their own,
+// possibly stale, copy of what was delivered.
 // Returns an error if liveness checks could not be evaluated, or if any notification failed to
 // deliver.
 func (r *ClusterHealthCheckReconciler) evaluateAndNotifyProvisionedClusters(ctx context.Context,
@@ -190,35 +194,47 @@ func (r *ClusterHealthCheckReconciler) evaluateAndNotifyProvisionedClusters(ctx 
 	for i := range chc.Status.ClusterConditions {
 		condition := &chc.Status.ClusterConditions[i]
 
-		if condition.ClusterInfo.Status == libsveltosv1beta1.SveltosStatusProvisioned {
-			cluster := &condition.ClusterInfo.Cluster
+		if condition.ClusterInfo.Status != libsveltosv1beta1.SveltosStatusProvisioned {
+			continue
+		}
 
-			notSummary, conditions, err := evaluateHealthChecksAndSendNotificationsForCluster(ctx,
-				getManagementClusterClient(), cluster.Namespace, cluster.Name,
-				clusterproxy.GetClusterType(cluster), chc, logger)
+		shardMatch, err := r.isClusterAShardMatch(ctx, &condition.ClusterInfo)
+		if err != nil {
+			errorSeen = err
+			continue
+		}
+		if !shardMatch {
+			// Another instance evaluates this cluster and delivers its notifications
+			continue
+		}
 
-			if conditions == nil {
-				// Liveness checks could not even be evaluated (e.g. failed to fetch the
-				// HealthCheckReport/ClusterSummary). This is a genuine "cluster health is
-				// unknown" problem, distinct from a notification failing to deliver, so
-				// demote status to get this cluster looked at again.
-				failureMessage := fmt.Sprintf("failed to evaluate liveness checks: %v", err)
-				condition.ClusterInfo.Status = libsveltosv1beta1.SveltosStatusProvisioning
-				condition.ClusterInfo.FailureMessage = &failureMessage
-				errorSeen = err
-				continue
-			}
+		cluster := &condition.ClusterInfo.Cluster
 
-			// Liveness checks were evaluated successfully: persist that regardless of whether
-			// every notification was delivered. A notification failure is not a deployment
-			// failure: leave ClusterInfo.Status/FailureMessage alone (a flaky webhook must not
-			// trigger a pointless redeploy of the HealthCheck on the next reconcile) and let
-			// NotificationSummaries carry the per-channel detail instead.
-			condition.Conditions = conditions
-			condition.NotificationSummaries = notSummary
-			if err != nil {
-				errorSeen = err
-			}
+		notSummary, conditions, err := evaluateHealthChecksAndSendNotificationsForCluster(ctx,
+			getManagementClusterClient(), cluster.Namespace, cluster.Name,
+			clusterproxy.GetClusterType(cluster), chc, logger)
+
+		if conditions == nil {
+			// Liveness checks could not even be evaluated (e.g. failed to fetch the
+			// HealthCheckReport/ClusterSummary). This is a genuine "cluster health is
+			// unknown" problem, distinct from a notification failing to deliver, so
+			// demote status to get this cluster looked at again.
+			failureMessage := fmt.Sprintf("failed to evaluate liveness checks: %v", err)
+			condition.ClusterInfo.Status = libsveltosv1beta1.SveltosStatusProvisioning
+			condition.ClusterInfo.FailureMessage = &failureMessage
+			errorSeen = err
+			continue
+		}
+
+		// Liveness checks were evaluated successfully: persist that regardless of whether
+		// every notification was delivered. A notification failure is not a deployment
+		// failure: leave ClusterInfo.Status/FailureMessage alone (a flaky webhook must not
+		// trigger a pointless redeploy of the HealthCheck on the next reconcile) and let
+		// NotificationSummaries carry the per-channel detail instead.
+		condition.Conditions = conditions
+		condition.NotificationSummaries = notSummary
+		if err != nil {
+			errorSeen = err
 		}
 	}
 	return chc.Status.ClusterConditions, errorSeen
@@ -1089,6 +1105,13 @@ func evaluateClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 			conditions[i].Severity = libsveltosv1beta1.ConditionSeverityWarning
 			conditions[i].Message = message
 		}
+
+		// LastTransitionTime is the time of the last status change: do not move it forward
+		// when the status is the same as in the previous evaluation
+		previous := getPreviousCondition(chc, clusterNamespace, clusterName, clusterType, &livenessCheck)
+		if previous != nil && previous.Status == conditions[i].Status {
+			conditions[i].LastTransitionTime = previous.LastTransitionTime
+		}
 	}
 
 	return conditions, statusChanged, nil
@@ -1107,42 +1130,100 @@ func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, c
 	if !resendAll {
 		notificationStatus = buildNotificationStatusMap(clusterNamespace, clusterName, clusterType, chc)
 	}
+	previousSummaries := buildNotificationSummaryMap(clusterNamespace, clusterName, clusterType, chc)
+	state := getClusterState(conditions)
+	now := time.Now()
 
 	notificationSummaries := make([]libsveltosv1beta1.NotificationSummary, 0)
 
 	var sendNotificationError error
 	for i := range chc.Spec.Notifications {
 		n := &chc.Spec.Notifications[i]
-		if doSendNotification(n, notificationStatus, resendAll) {
-			if err := sendNotification(ctx, c, clusterNamespace, clusterName, clusterType,
-				chc, n, conditions, logger); err != nil {
-				logger.V(logs.LogInfo).Error(err, fmt.Sprintf("failed to deliver notification %s:%s",
-					n.Type, n.Name))
-				sendNotificationError = err
-				failureMessage := err.Error()
-				notificationSummaries = append(notificationSummaries,
-					libsveltosv1beta1.NotificationSummary{
-						Name:           n.Name,
-						Status:         libsveltosv1beta1.NotificationStatusFailedToDeliver,
-						FailureMessage: &failureMessage,
-					})
-			} else {
-				notificationSummaries = append(notificationSummaries,
-					libsveltosv1beta1.NotificationSummary{
-						Name:   n.Name,
-						Status: libsveltosv1beta1.NotificationStatusDelivered,
-					})
-			}
+
+		var summary libsveltosv1beta1.NotificationSummary
+		var err error
+		if hasNotificationPolicy(n) {
+			// Policy decides based on what was delivered the last time, not on what changed since the last evaluation
+			summary, err = processNotificationWithPolicy(ctx, c, clusterNamespace, clusterName, clusterType, chc, n,
+				previousSummaries[n.Name], conditions, state, now, logger)
 		} else {
-			notificationSummaries = append(notificationSummaries,
-				libsveltosv1beta1.NotificationSummary{
-					Name:   n.Name,
-					Status: libsveltosv1beta1.NotificationStatusDelivered,
-				})
+			summary, err = processNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n,
+				notificationStatus, resendAll, conditions, logger)
 		}
+		if err != nil {
+			sendNotificationError = err
+		}
+		notificationSummaries = append(notificationSummaries, summary)
 	}
 
 	return notificationSummaries, conditions, sendNotificationError
+}
+
+// processNotification delivers the notification if it changed (or was never delivered)
+func processNotification(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
+	n *libsveltosv1beta1.Notification, notificationStatus map[string]libsveltosv1beta1.NotificationStatus,
+	resendAll bool, conditions []libsveltosv1beta1.Condition, logger logr.Logger,
+) (libsveltosv1beta1.NotificationSummary, error) {
+
+	delivered := libsveltosv1beta1.NotificationSummary{Name: n.Name, Status: libsveltosv1beta1.NotificationStatusDelivered}
+
+	if !doSendNotification(n, notificationStatus, resendAll) {
+		return delivered, nil
+	}
+
+	if err := sendNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger); err != nil {
+		logger.V(logs.LogInfo).Error(err, fmt.Sprintf("failed to deliver notification %s:%s", n.Type, n.Name))
+		failureMessage := err.Error()
+		return libsveltosv1beta1.NotificationSummary{
+			Name:           n.Name,
+			Status:         libsveltosv1beta1.NotificationStatusFailedToDeliver,
+			FailureMessage: &failureMessage,
+		}, err
+	}
+
+	return delivered, nil
+}
+
+// processNotificationWithPolicy delivers the notification if its policy says so.
+// The returned summary carries what is needed to take the next decision.
+func processNotificationWithPolicy(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	clusterType libsveltosv1beta1.ClusterType, chc *libsveltosv1beta1.ClusterHealthCheck,
+	n *libsveltosv1beta1.Notification, previous *libsveltosv1beta1.NotificationSummary,
+	conditions []libsveltosv1beta1.Condition, state clusterState, now time.Time, logger logr.Logger,
+) (libsveltosv1beta1.NotificationSummary, error) {
+
+	summary := libsveltosv1beta1.NotificationSummary{Name: n.Name, Status: libsveltosv1beta1.NotificationStatusDelivered}
+	if previous != nil {
+		// Keep what was delivered the last time
+		summary = *previous.DeepCopy()
+		summary.Name = n.Name
+	}
+
+	send, wait := evaluateNotificationPolicy(n.Policy, previous, state, now)
+	if !send {
+		logger.V(logs.LogDebug).Info(fmt.Sprintf("notification %s:%s not delivered. Policy: next evaluation in %v",
+			n.Type, n.Name, wait))
+		return summary, nil
+	}
+
+	if err := sendNotification(ctx, c, clusterNamespace, clusterName, clusterType, chc, n, conditions, logger); err != nil {
+		logger.V(logs.LogInfo).Error(err, fmt.Sprintf("failed to deliver notification %s:%s", n.Type, n.Name))
+		failureMessage := err.Error()
+		summary.Status = libsveltosv1beta1.NotificationStatusFailedToDeliver
+		summary.FailureMessage = &failureMessage
+		return summary, err
+	}
+
+	sentTime := metav1.Time{Time: now}
+	failing := state.failing
+	summary.Status = libsveltosv1beta1.NotificationStatusDelivered
+	summary.FailureMessage = nil
+	summary.LastSentTime = &sentTime
+	summary.LastSentFailing = &failing
+	summary.LastSentMessageHash = state.messageHash
+
+	return summary, nil
 }
 
 // isClusterStillMatching returns true if cluster is still matching by looking at ClusterHealthCheck

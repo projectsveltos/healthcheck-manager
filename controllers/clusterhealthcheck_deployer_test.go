@@ -147,7 +147,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		}
 
 		clusterConditions, err := controllers.EvaluateAndNotifyProvisionedClusters(
-			&controllers.ClusterHealthCheckReconciler{}, context.TODO(), chc, logger)
+			&controllers.ClusterHealthCheckReconciler{Client: testEnv.Client}, context.TODO(), chc, logger)
 		Expect(err).To(BeNil())
 		Expect(clusterConditions).To(HaveLen(1))
 		Expect(clusterConditions[0].Conditions).ToNot(BeEmpty())
@@ -200,8 +200,8 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 							Name: randomString(),
 							Type: libsveltosv1beta1.NotificationTypeSlack,
 							NotificationRef: &corev1.ObjectReference{
-								Kind:       "Secret",
-								APIVersion: "v1",
+								Kind:       secretKind,
+								APIVersion: coreAPIVersion,
 								Namespace:  clusterNamespace,
 								Name:       randomString(),
 							},
@@ -224,7 +224,7 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			}
 
 			clusterConditions, err := controllers.EvaluateAndNotifyProvisionedClusters(
-				&controllers.ClusterHealthCheckReconciler{}, context.TODO(), chc, logger)
+				&controllers.ClusterHealthCheckReconciler{Client: testEnv.Client}, context.TODO(), chc, logger)
 			Expect(err).ToNot(BeNil())
 			Expect(clusterConditions).To(HaveLen(1))
 
@@ -241,6 +241,109 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 			Expect(clusterConditions[0].NotificationSummaries[0].Status).
 				To(Equal(libsveltosv1beta1.NotificationStatusFailedToDeliver))
 			Expect(clusterConditions[0].NotificationSummaries[0].FailureMessage).ToNot(BeNil())
+		})
+
+	It("evaluateAndNotifyProvisionedClusters evaluates only the clusters the instance is a shard match for",
+		func() {
+			// When sharding is used, more instances watch the same ClusterHealthCheck. Only the one
+			// owning the shard of a cluster evaluates its liveness checks and delivers notifications.
+			// Otherwise each would take decisions from its own, possibly stale, copy of what was
+			// already delivered.
+			const shardKey = "shard1"
+
+			clusterNamespace := randomString()
+			clusterName := randomString()
+
+			healthCheckReportClusterType := libsveltosv1beta1.ClusterTypeCapi
+			healthCheckName := randomString()
+			healthCheckReport := getHealthCheckReport(healthCheckName, clusterNamespace, clusterName)
+			healthCheckReport.Namespace = clusterNamespace
+			healthCheckReport.Labels = libsveltosv1beta1.GetHealthCheckReportLabels(
+				healthCheckName, clusterName, &healthCheckReportClusterType)
+
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterNamespace}}
+			Expect(testEnv.Create(context.TODO(), ns)).To(Succeed())
+			Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+
+			cluster := &clusterv1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   clusterNamespace,
+					Name:        clusterName,
+					Annotations: map[string]string{libsveltosv1beta1.ShardAnnotation: shardKey},
+				},
+			}
+			Expect(testEnv.Create(context.TODO(), cluster)).To(Succeed())
+			Expect(waitForObject(context.TODO(), testEnv.Client, cluster)).To(Succeed())
+
+			Expect(testEnv.Create(context.TODO(), healthCheckReport)).To(Succeed())
+			Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
+
+			chc := &libsveltosv1beta1.ClusterHealthCheck{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: randomString(),
+				},
+				Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+					LivenessChecks: []libsveltosv1beta1.LivenessCheck{
+						{
+							Name: randomString(),
+							Type: libsveltosv1beta1.LivenessTypeHealthCheck,
+							LivenessSourceRef: &corev1.ObjectReference{
+								Name:       healthCheckName,
+								Kind:       libsveltosv1beta1.HealthCheckKind,
+								APIVersion: libsveltosv1beta1.GroupVersion.String(),
+							},
+						},
+					},
+					// NotificationRef points at a Secret that does not exist: whoever tries to deliver
+					// the notification gets an error and a FailedToDeliver summary.
+					Notifications: []libsveltosv1beta1.Notification{
+						{
+							Name: randomString(),
+							Type: libsveltosv1beta1.NotificationTypeSlack,
+							NotificationRef: &corev1.ObjectReference{
+								Kind:       secretKind,
+								APIVersion: coreAPIVersion,
+								Namespace:  clusterNamespace,
+								Name:       randomString(),
+							},
+						},
+					},
+				},
+				Status: libsveltosv1beta1.ClusterHealthCheckStatus{
+					ClusterConditions: []libsveltosv1beta1.ClusterCondition{
+						{
+							ClusterInfo: libsveltosv1beta1.ClusterInfo{
+								Cluster: corev1.ObjectReference{
+									Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String(),
+									Namespace: clusterNamespace, Name: clusterName,
+								},
+								Status: libsveltosv1beta1.SveltosStatusProvisioned,
+							},
+						},
+					},
+				},
+			}
+
+			By("An instance that is not a shard match for the cluster does not evaluate it, nor notify")
+			notOwner := &controllers.ClusterHealthCheckReconciler{Client: testEnv.Client, ShardKey: ""}
+			clusterConditions, err := controllers.EvaluateAndNotifyProvisionedClusters(
+				notOwner, context.TODO(), chc, logger)
+			Expect(err).To(BeNil())
+			Expect(clusterConditions).To(HaveLen(1))
+			Expect(clusterConditions[0].Conditions).To(BeEmpty())
+			Expect(clusterConditions[0].NotificationSummaries).To(BeEmpty())
+			Expect(clusterConditions[0].ClusterInfo.Status).To(Equal(libsveltosv1beta1.SveltosStatusProvisioned))
+
+			By("The instance owning the shard of the cluster evaluates it and notifies")
+			owner := &controllers.ClusterHealthCheckReconciler{Client: testEnv.Client, ShardKey: shardKey}
+			clusterConditions, err = controllers.EvaluateAndNotifyProvisionedClusters(
+				owner, context.TODO(), chc, logger)
+			Expect(err).ToNot(BeNil())
+			Expect(clusterConditions).To(HaveLen(1))
+			Expect(clusterConditions[0].Conditions).ToNot(BeEmpty())
+			Expect(clusterConditions[0].NotificationSummaries).To(HaveLen(1))
+			Expect(clusterConditions[0].NotificationSummaries[0].Status).
+				To(Equal(libsveltosv1beta1.NotificationStatusFailedToDeliver))
 		})
 
 	It("processClusterHealthCheck queues job", func() {

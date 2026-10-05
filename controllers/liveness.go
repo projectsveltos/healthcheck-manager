@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -93,6 +95,12 @@ func evaluateLivenessCheckHealthCheck(ctx context.Context, c client.Client, clus
 		logger.V(logs.LogInfo).Info("did not find healthCheckReport")
 		return false, "", err
 	}
+
+	// The list order is not guaranteed: sort so the same set of failures always
+	// produces the same message
+	sort.Slice(healthCheckReportList.Items, func(i, j int) bool {
+		return healthCheckReportList.Items[i].Name < healthCheckReportList.Items[j].Name
+	})
 
 	for i := range healthCheckReportList.Items {
 		hcr := &healthCheckReportList.Items[i]
@@ -227,23 +235,27 @@ func areAddonsDeployed(clusterSummary *configv1beta1.ClusterSummary) bool {
 }
 
 // isStatusHealthy returns whether state is Healthy.
+// The message lists the resources that are not healthy, always in the same order for the same set of resources.
 func isStatusHealthy(hcr *libsveltosv1beta1.HealthCheckReport) (string, bool) {
-	var message string
 	isAllHealthy := true
 
+	entries := make([]string, 0, len(hcr.Spec.ResourceStatuses))
 	for i := range hcr.Spec.ResourceStatuses {
 		rs := hcr.Spec.ResourceStatuses[i]
 		if rs.HealthStatus != libsveltosv1beta1.HealthStatusHealthy {
 			isAllHealthy = false
-			message += fmt.Sprintf("%s: %s/%s status is %s  \n",
+			entry := fmt.Sprintf("%s: %s/%s status is %s  \n",
 				rs.ObjectRef.Kind, rs.ObjectRef.Namespace, rs.ObjectRef.Name, rs.HealthStatus)
 			if rs.Message != "" {
-				message += fmt.Sprintf("Message: %s  \n", rs.Message)
+				entry += fmt.Sprintf("Message: %s  \n", rs.Message)
 			}
+			entries = append(entries, entry)
 		}
 	}
 
-	return message, isAllHealthy
+	sort.Strings(entries)
+
+	return strings.Join(entries, ""), isAllHealthy
 }
 
 // fetchHealthCheckReports returns healthCheckReports for given HealthCheck in a given cluster
@@ -273,4 +285,20 @@ func getConditionStatus(passing bool) corev1.ConditionStatus {
 	}
 
 	return corev1.ConditionFalse
+}
+
+// getPreviousCondition returns the condition recorded in the ClusterHealthCheck status, in the last
+// evaluation, for the liveness check in the given cluster. Nil if there is none.
+func getPreviousCondition(chc *libsveltosv1beta1.ClusterHealthCheck, clusterNamespace, clusterName string,
+	clusterType libsveltosv1beta1.ClusterType, livenessCheck *libsveltosv1beta1.LivenessCheck,
+) *libsveltosv1beta1.Condition {
+
+	for i := range chc.Status.ClusterConditions {
+		cc := &chc.Status.ClusterConditions[i]
+		if isClusterConditionForCluster(cc, clusterNamespace, clusterName, clusterType) {
+			return getLivenessCheckStatus(cc, livenessCheck)
+		}
+	}
+
+	return nil
 }

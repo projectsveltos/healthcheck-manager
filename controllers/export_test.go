@@ -16,6 +16,8 @@ limitations under the License.
 
 package controllers
 
+import "time"
+
 var (
 	RequeueClusterHealthCheckForCluster           = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForCluster
 	RequeueClusterHealthCheckForHealthCheckReport = (*ClusterHealthCheckReconciler).requeueClusterHealthCheckForHealthCheckReport
@@ -110,4 +112,32 @@ func GetSlackToken(info *slackInfo) string {
 var (
 	NewClusterHealthCheckHistogram = newClusterHealthCheckHistogram
 	ProgramDuration                = programDuration
+)
+
+type ClusterState = clusterState
+
+func NewClusterState(failing bool, messageHash string, failingSince time.Time) ClusterState {
+	return clusterState{failing: failing, messageHash: messageHash, failingSince: failingSince}
+}
+
+func (s ClusterState) Failing() bool {
+	return s.failing
+}
+
+func (s ClusterState) MessageHash() string {
+	return s.messageHash
+}
+
+func (s ClusterState) FailingSince() time.Time {
+	return s.failingSince
+}
+
+var (
+	EvaluateNotificationPolicy = evaluateNotificationPolicy
+	GetClusterState            = getClusterState
+	HasNotificationPolicy      = hasNotificationPolicy
+	NotificationRequeueAfter   = notificationRequeueAfter
+	SendNotifications          = sendNotifications
+	GetPreviousCondition       = getPreviousCondition
+	IsStatusHealthy            = isStatusHealthy
 )

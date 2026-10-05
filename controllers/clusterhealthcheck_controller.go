@@ -275,6 +275,14 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 	}
 
 	logger.V(logs.LogDebug).Info("Reconcile success")
+
+	// A notification held back by its policy (MinInterval, FailingFor) is not triggered by any event:
+	// reconcile again when the policy allows it to be delivered
+	if requeueAfter := notificationRequeueAfter(clusterHealthCheckScope.ClusterHealthCheck, time.Now()); requeueAfter > 0 {
+		logger.V(logs.LogDebug).Info(fmt.Sprintf("notification held back by its policy. Reconcile again in %v", requeueAfter))
+		return reconcile.Result{RequeueAfter: requeueAfter}, nil
+	}
+
 	return reconcile.Result{}, nil
 }
 

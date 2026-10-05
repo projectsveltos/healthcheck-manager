@@ -413,6 +413,25 @@ func buildNotificationStatusMap(clusterNamespace, clusterName string,
 	return notificationStatus
 }
 
+// buildNotificationSummaryMap returns, by notification name, the summaries recorded in the ClusterHealthCheck
+// status for the given cluster
+func buildNotificationSummaryMap(clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck) map[string]*libsveltosv1beta1.NotificationSummary {
+
+	summaries := make(map[string]*libsveltosv1beta1.NotificationSummary)
+
+	for i := range chc.Status.ClusterConditions {
+		cc := &chc.Status.ClusterConditions[i]
+		if isClusterConditionForCluster(cc, clusterNamespace, clusterName, clusterType) {
+			for j := range cc.NotificationSummaries {
+				summaries[cc.NotificationSummaries[j].Name] = &cc.NotificationSummaries[j]
+			}
+		}
+	}
+
+	return summaries
+}
+
 // doSendNotification returns true if notification needs to be delivered, which happens when either of the following are true:
 // - resendAll is true
 // - there is no entry in notificationStatus (which means this notification was never delivered)
