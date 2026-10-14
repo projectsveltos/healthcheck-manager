@@ -130,6 +130,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 				if clusterInfo.Hash == nil {
 					l.V(logs.LogDebug).Info("hash is not set. Skip this.")
 				} else {
+					recordClusterInfoFailure(ctx, r.Client, chc, clusterInfo)
 					chc.Status.ClusterConditions[i].ClusterInfo = *clusterInfo
 					if clusterInfo.Status != libsveltosv1beta1.SveltosStatusProvisioned &&
 						clusterInfo.Status != libsveltosv1beta1.SveltosStatusFailedNonRetriable {
@@ -272,6 +273,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 
 		// Always update the slice with the returned state if it exists
 		if newInfo != nil {
+			recordClusterInfoFailure(ctx, r.Client, chc, newInfo)
 			chc.Status.ClusterConditions[i].ClusterInfo = *newInfo
 		}
 
@@ -325,7 +327,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		clusterInfo.FailureMessage = &failureMessage
 		return clusterInfo, err
 	} else if !proceed {
-		failureMessage := "cannot proceed deploying. Either cluster is paused or not ready."
+		failureMessage := msgClusterPausedOrNotReady
 		clusterInfo.FailureMessage = &failureMessage
 		return clusterInfo, nil
 	}
@@ -336,7 +338,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		return clusterInfo, err
 	}
 	if !isHealthy {
-		failureMessage := "agent in managed cluster is not healthy."
+		failureMessage := msgAgentNotHealthy
 		logger.V(logs.LogInfo).Info(failureMessage)
 		clusterInfo.FailureMessage = &failureMessage
 		clusterInfo.Status = libsveltosv1beta1.SveltosStatusFailedNonRetriable
@@ -351,7 +353,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 	// Otherwise, if we redeploy feature while same feature is still being cleaned up, if two workers process those request in
 	// parallel some resources might end up missing.
 	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, f.id, clusterproxy.GetClusterType(cluster), true) {
-		msg := "cleanup is in progress"
+		msg := msgCleanupInProgress
 		clusterInfo.FailureMessage = &msg
 		logger.V(logs.LogDebug).Info(msg)
 		return clusterInfo, fmt.Errorf("cleanup of %s in cluster still in progress. Wait before redeploying", f.id)
@@ -614,7 +616,7 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 	if r.Deployer.IsInProgress(cluster.Namespace, cluster.Name, chc.Name, f.id,
 		clusterproxy.GetClusterType(cluster), false) {
 
-		message := "provisioning is in progress"
+		message := msgProvisioningInProgress
 		logger.V(logs.LogDebug).Info(message)
 		clusterInfo.FailureMessage = &message
 		return clusterInfo, fmt.Errorf("deploying %s still in progress. Wait before cleanup", f.id)
@@ -1153,6 +1155,9 @@ func sendNotifications(ctx context.Context, c client.Client, clusterNamespace, c
 		if err != nil {
 			sendNotificationError = err
 		}
+		// previousSummaries is what the ClusterHealthCheck recorded before this evaluation
+		recordNotificationFailure(ctx, c, chc, clusterNamespace, clusterName, clusterType, n,
+			previousSummaries[n.Name], &summary)
 		notificationSummaries = append(notificationSummaries, summary)
 	}
 

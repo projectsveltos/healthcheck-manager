@@ -62,7 +62,8 @@ var (
 
 	DoSendNotification         = doSendNotification
 	BuildNotificationStatusMap = buildNotificationStatusMap
-	TruncateForEvent           = truncateForEvent
+	RecordClusterInfoFailure   = recordClusterInfoFailure
+	RecordNotificationFailure  = recordNotificationFailure
 
 	IsClusterConditionForCluster         = isClusterConditionForCluster
 	EvaluateClusterHealthCheckForCluster = evaluateClusterHealthCheckForCluster
