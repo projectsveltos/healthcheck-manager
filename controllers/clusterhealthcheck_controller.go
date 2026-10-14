@@ -258,6 +258,9 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 		return reconcile.Result{}, err
 	}
 
+	matchingCluster = addClusterRefs(matchingCluster, clusterHealthCheckScope.ClusterHealthCheck.Spec.ClusterRefs,
+		clusterHealthCheckScope.Logger)
+
 	clusterHealthCheckScope.SetMatchingClusterRefs(matchingCluster)
 
 	err = r.updateClusterConditions(ctx, clusterHealthCheckScope)

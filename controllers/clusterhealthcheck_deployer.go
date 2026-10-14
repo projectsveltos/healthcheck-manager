@@ -733,6 +733,12 @@ func (r *ClusterHealthCheckReconciler) canProceed(ctx context.Context, chcScope 
 
 	ready, err := clusterproxy.IsClusterReadyToBeConfigured(ctx, r.Client, cluster, chcScope.Logger)
 	if err != nil {
+		// A cluster referenced by ClusterRefs might not exist (yet). Cluster creation
+		// will trigger a new reconciliation.
+		if apierrors.IsNotFound(err) {
+			logger.V(logs.LogDebug).Info("Cluster not found")
+			return false, nil
+		}
 		return false, err
 	}
 
@@ -787,13 +793,34 @@ func (r *ClusterHealthCheckReconciler) isAgentHealthy(ctx context.Context,
 	return true, nil
 }
 
+// getSortedSpec returns a copy of spec with ClusterRefs sorted, so that the order in which
+// clusters are listed does not change the hash.
+func getSortedSpec(spec *libsveltosv1beta1.ClusterHealthCheckSpec) *libsveltosv1beta1.ClusterHealthCheckSpec {
+	specCopy := spec.DeepCopy()
+
+	sort.Slice(specCopy.ClusterRefs, func(i, j int) bool {
+		a, b := &specCopy.ClusterRefs[i], &specCopy.ClusterRefs[j]
+		if a.Namespace != b.Namespace {
+			return a.Namespace < b.Namespace
+		}
+		if a.Name != b.Name {
+			return a.Name < b.Name
+		}
+		return a.Kind < b.Kind
+	})
+
+	return specCopy
+}
+
 // clusterHealthCheckHash returns the clusterHealthCheck hash
 func clusterHealthCheckHash(ctx context.Context, c client.Client,
 	chc *libsveltosv1beta1.ClusterHealthCheck, cluster *corev1.ObjectReference) ([]byte, error) {
 
 	h := sha256.New()
 	var config string
-	config += render.AsCode(chc.Spec)
+	// Render the spec by value (not by pointer): the hash must stay the same for existing
+	// ClusterHealthChecks, otherwise upgrading would redeploy everywhere.
+	config += render.AsCode(*getSortedSpec(&chc.Spec))
 
 	includeClusterSummaries := false
 	for i := range chc.Spec.LivenessChecks {

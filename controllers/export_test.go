@@ -52,6 +52,9 @@ var (
 	GetKeyFromObject      = getKeyFromObject
 	GetHandlersForFeature = getHandlersForFeature
 
+	AddClusterRefs         = addClusterRefs
+	ClusterHealthCheckHash = clusterHealthCheckHash
+
 	GetConditionStatus           = getConditionStatus
 	GetConditionType             = getConditionType
 	AreAddonsDeployed            = areAddonsDeployed
