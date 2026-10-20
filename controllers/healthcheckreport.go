@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -82,7 +83,13 @@ func addHealthCheckToConfigMap(ctx context.Context, c client.Client, clusterName
 			}
 			logger.V(logs.LogDebug).Info(fmt.Sprintf("creating entry %s in ConfigMap %s/%s",
 				eventSourceEntryKey, configMapNamespace, configMapName))
-			return c.Create(ctx, currentConfigMap)
+			err = c.Create(ctx, currentConfigMap)
+			if apierrors.IsAlreadyExists(err) {
+				// The ConfigMap is shared by all the ClusterHealthChecks matching the cluster. Someone else created it
+				// after the Get above (or the Get was served by a stale cache): only add our entry to it.
+				return patchHealthCheckEntry(ctx, c, configMapNamespace, configMapName, eventSourceEntryKey, es.Name)
+			}
+			return err
 		}
 		return err
 	}
@@ -94,6 +101,25 @@ func addHealthCheckToConfigMap(ctx context.Context, c client.Client, clusterName
 	logger.V(logs.LogDebug).Info(fmt.Sprintf("creating entry %s in ConfigMap %s/%s",
 		eventSourceEntryKey, configMapNamespace, configMapName))
 	return c.Update(ctx, currentConfigMap)
+}
+
+// patchHealthCheckEntry sets a single entry in the data of an existing ConfigMap, leaving the other entries untouched.
+// It does not read the ConfigMap first.
+func patchHealthCheckEntry(ctx context.Context, c client.Client, configMapNamespace, configMapName,
+	entryKey, entryValue string) error {
+
+	patchData, err := json.Marshal(map[string]map[string]string{"data": {entryKey: entryValue}})
+	if err != nil {
+		return err
+	}
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: configMapNamespace,
+			Name:      configMapName,
+		},
+	}
+	return c.Patch(ctx, configMap, client.RawPatch(types.MergePatchType, patchData))
 }
 
 // When sveltos-agent is running in the management cluster, HealthChecks are not copied to the managed cluster.

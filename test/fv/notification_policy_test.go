@@ -46,6 +46,10 @@ const (
 
 	defaultNamespace = "default"
 
+	// Reason of the events delivered by a KubernetesEvent notification. The events ClusterHealthCheck records
+	// when it fails to deploy or notify have other reasons.
+	notificationEventReason = "ClusterHealthCheck"
+
 	// Time during which something that must not happen is observed
 	quietPeriod = 30 * time.Second
 )
@@ -243,7 +247,7 @@ func (t *notificationPolicyTest) waitForRecordedDelivery(failing bool) {
 	}, timeout, pollingInterval).Should(BeTrue())
 }
 
-// notes returns the message of all the events generated for the ClusterHealthCheck
+// notes returns the message of all the notification events generated for the ClusterHealthCheck
 func (t *notificationPolicyTest) notes() []string {
 	eventList := &eventsv1.EventList{}
 	if err := k8sClient.List(context.TODO(), eventList); err != nil {
@@ -252,7 +256,7 @@ func (t *notificationPolicyTest) notes() []string {
 
 	notes := make([]string, 0)
 	for i := range eventList.Items {
-		if eventList.Items[i].Regarding.Name == t.clusterHealth.Name {
+		if eventList.Items[i].Regarding.Name == t.clusterHealth.Name && eventList.Items[i].Reason == notificationEventReason {
 			notes = append(notes, eventList.Items[i].Note)
 		}
 	}

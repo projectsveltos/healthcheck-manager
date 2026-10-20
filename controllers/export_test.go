@@ -81,6 +81,7 @@ var (
 	RemoveHealthCheckReportsFromCluster            = removeHealthCheckReportsFromCluster
 	CollectAndProcessHealthCheckReportsFromCluster = collectAndProcessHealthCheckReportsFromCluster
 	CollectAndProcessAllHealthCheckReports         = collectAndProcessAllHealthCheckReports
+	AddHealthCheckToConfigMap                      = addHealthCheckToConfigMap
 	BuildClustersWithHealthCheck                   = buildClustersWithHealthCheck
 	IsAgentHeartbeatCurrent                        = isAgentHeartbeatCurrent
 )
