@@ -18,6 +18,8 @@ package controllers_test
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +35,7 @@ import (
 	"k8s.io/klog/v2/textlogger"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	"github.com/projectsveltos/healthcheck-manager/pkg/scope"
@@ -635,6 +638,159 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		}, timeout, pollingInterval).Should(BeTrue())
 	})
 
+	It("removeStaleHealthChecks returns an error and keeps the healthCheck when its HealthCheckReports cannot be removed", func() {
+		healthCheck := &libsveltosv1beta1.HealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: randomString(),
+			},
+			Spec: libsveltosv1beta1.HealthCheckSpec{
+				ResourceSelectors: []libsveltosv1beta1.ResourceSelector{
+					{
+						Kind:    randomString(),
+						Group:   randomString(),
+						Version: randomString(),
+					},
+				},
+				EvaluateHealth: randomString(),
+			},
+		}
+
+		Expect(testEnv.Create(context.TODO(), healthCheck)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheck)).To(Succeed())
+
+		clusterNamespace := randomString()
+		clusterName := randomString()
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
+
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterNamespace,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), ns)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+
+		cluster := &clusterv1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: clusterNamespace,
+				Name:      clusterName,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), cluster)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, cluster)).To(Succeed())
+
+		healthCheckReport := &libsveltosv1beta1.HealthCheckReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      randomString(),
+				Namespace: clusterNamespace,
+				Labels: map[string]string{
+					libsveltosv1beta1.HealthCheckNameLabel:              healthCheck.Name,
+					libsveltosv1beta1.HealthCheckReportClusterNameLabel: clusterName,
+					libsveltosv1beta1.HealthCheckReportClusterTypeLabel: strings.ToLower(string(clusterType)),
+				},
+			},
+			Spec: libsveltosv1beta1.HealthCheckReportSpec{
+				HealthCheckName:  healthCheck.Name,
+				ClusterNamespace: clusterNamespace,
+				ClusterName:      clusterName,
+				ClusterType:      clusterType,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), healthCheckReport)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
+
+		chc := &libsveltosv1beta1.ClusterHealthCheck{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: randomString(),
+			},
+			Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+				LivenessChecks: []libsveltosv1beta1.LivenessCheck{
+					{
+						Name: randomString(),
+						Type: libsveltosv1beta1.LivenessTypeHealthCheck,
+						LivenessSourceRef: &corev1.ObjectReference{
+							APIVersion: libsveltosv1beta1.GroupVersion.Group,
+							Kind:       libsveltosv1beta1.HealthCheckKind,
+							Name:       randomString(), // make it reference different healthCheck
+						},
+					},
+				},
+				Notifications: []libsveltosv1beta1.Notification{
+					{
+						Name: randomString(),
+						Type: libsveltosv1beta1.NotificationTypeKubernetesEvent,
+					},
+				},
+			},
+		}
+
+		Expect(testEnv.Create(context.TODO(), chc)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, chc)).To(Succeed())
+
+		Expect(addTypeInformationToObject(scheme, chc)).To(Succeed())
+
+		k8s_utils.AddOwnerReference(healthCheck, chc)
+		Expect(testEnv.Update(context.TODO(), healthCheck)).To(Succeed())
+
+		createSecretWithKubeconfig(clusterNamespace, clusterName)
+
+		// Deleting a HealthCheckReport fails with an error which is not NotFound
+		deleteErr := errors.New("failed to delete HealthCheckReport")
+		failingClient := &healthCheckReportDeleteFailingClient{Client: testEnv.Client, err: deleteErr}
+
+		// The HealthCheck must not be considered removed: the error is returned so the removal is retried
+		err := controllers.RemoveStaleHealthChecks(context.TODO(), failingClient, clusterNamespace, clusterName,
+			clusterType, chc, logger)
+		Expect(err).To(MatchError(deleteErr))
+
+		currentHealthCheck := &libsveltosv1beta1.HealthCheck{}
+		Expect(testEnv.Get(context.TODO(), types.NamespacedName{Name: healthCheck.Name}, currentHealthCheck)).To(Succeed())
+		Expect(currentHealthCheck.DeletionTimestamp.IsZero()).To(BeTrue())
+	})
+
+	It("removeStaleHealthCheckReports ignores a HealthCheckReport which is already removed", func() {
+		clusterNamespace := randomString()
+		clusterName := randomString()
+		healthCheckName := randomString()
+		clusterType := libsveltosv1beta1.ClusterTypeCapi
+
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterNamespace,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), ns)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+
+		healthCheckReport := &libsveltosv1beta1.HealthCheckReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      randomString(),
+				Namespace: clusterNamespace,
+				Labels: map[string]string{
+					libsveltosv1beta1.HealthCheckNameLabel:              healthCheckName,
+					libsveltosv1beta1.HealthCheckReportClusterNameLabel: clusterName,
+					libsveltosv1beta1.HealthCheckReportClusterTypeLabel: strings.ToLower(string(clusterType)),
+				},
+			},
+			Spec: libsveltosv1beta1.HealthCheckReportSpec{
+				HealthCheckName:  healthCheckName,
+				ClusterNamespace: clusterNamespace,
+				ClusterName:      clusterName,
+				ClusterType:      clusterType,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), healthCheckReport)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
+
+		// The HealthCheckReport is listed, but it is gone by the time it is deleted
+		notFoundErr := apierrors.NewNotFound(schema.GroupResource{
+			Group: libsveltosv1beta1.GroupVersion.Group, Resource: "healthcheckreports"}, healthCheckReport.Name)
+		raceClient := &healthCheckReportDeleteFailingClient{Client: testEnv.Client, err: notFoundErr}
+
+		Expect(controllers.RemoveStaleHealthCheckReports(context.TODO(), raceClient, clusterNamespace, clusterName,
+			healthCheckName, clusterType, logger)).To(Succeed())
+	})
+
 	It("getReferencedHealthChecks returns HealthChecks referenced by a ClusterHealthCheck", func() {
 		healthCheckName1 := randomString()
 		healthCheckName2 := randomString()
@@ -686,3 +842,18 @@ var _ = Describe("ClusterHealthCheck deployer", func() {
 		Expect(referenced.Len()).To(BeZero())
 	})
 })
+
+// healthCheckReportDeleteFailingClient fails any attempt to delete a HealthCheckReport with err
+type healthCheckReportDeleteFailingClient struct {
+	client.Client
+	err error
+}
+
+func (c *healthCheckReportDeleteFailingClient) Delete(ctx context.Context, obj client.Object,
+	opts ...client.DeleteOption) error {
+
+	if _, ok := obj.(*libsveltosv1beta1.HealthCheckReport); ok {
+		return c.err
+	}
+	return c.Client.Delete(ctx, obj, opts...)
+}
