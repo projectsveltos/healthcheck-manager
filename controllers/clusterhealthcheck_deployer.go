@@ -1293,7 +1293,8 @@ func removeStaleHealthCheckReports(ctx context.Context, c client.Client,
 
 	for i := range healthCheckReportList.Items {
 		err = c.Delete(ctx, &healthCheckReportList.Items[i])
-		if err != nil {
+		// Someone else might have removed it since it was listed
+		if err != nil && !apierrors.IsNotFound(err) {
 			logger.V(logs.LogInfo).Error(err, "failed to delete HealthCheckReport")
 			return err
 		}
@@ -1405,7 +1406,7 @@ func proceedRemovingStaleHealthChecks(ctx context.Context, c client.Client,
 		// HealthCheckReports pulled from this managed cluster because of this HealthCheck
 		err = removeStaleHealthCheckReports(ctx, c, clusterNamespace, clusterName, hc.Name, clusterType, logger)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		err = remoteClient.Delete(ctx, hc)

@@ -72,6 +72,7 @@ var (
 	EvaluateClusterHealthCheckForCluster = evaluateClusterHealthCheckForCluster
 	DeployHealthChecks                   = deployHealthChecks
 	RemoveStaleHealthChecks              = removeStaleHealthChecks
+	RemoveStaleHealthCheckReports        = removeStaleHealthCheckReports
 	GetReferencedHealthChecks            = getReferencedHealthChecks
 )
 
