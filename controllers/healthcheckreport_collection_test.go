@@ -161,16 +161,35 @@ var _ = Describe("HealthCheck Deployer", func() {
 
 		Expect(waitForObject(context.TODO(), testEnv.Client, healthCheckReport)).To(Succeed())
 
-		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
-			testEnv.Client, getClusterRef(cluster), version, logger)).To(Succeed())
-
+		clusterRef := getClusterRef(cluster)
+		clusters := []corev1.ObjectReference{*clusterRef}
 		clusterType := libsveltosv1beta1.ClusterTypeCapi
+
+		By("No ClusterHealthCheck needs the report: it is not copied to the management cluster")
+		nothingWanted := controllers.BuildWantedReports(&libsveltosv1beta1.ClusterHealthCheckList{}, clusters)
+		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
+			testEnv.Client, clusterRef, nothingWanted, version, logger)).To(Succeed())
+
+		healthCheckReportName := libsveltosv1beta1.GetHealthCheckReportName(healthCheckName, cluster.Name, &clusterType)
+		Consistently(func() bool {
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: cluster.Namespace, Name: healthCheckReportName},
+				&libsveltosv1beta1.HealthCheckReport{})
+			return err != nil && apierrors.IsNotFound(err)
+		}, "3s", pollingInterval).Should(BeTrue())
+
+		By("A ClusterHealthCheck matching the cluster references the HealthCheck: the report is copied")
+		chc := getClusterHealthCheckForHealthCheck(healthCheckName, clusters...)
+		wanted := controllers.BuildWantedReports(
+			&libsveltosv1beta1.ClusterHealthCheckList{Items: []libsveltosv1beta1.ClusterHealthCheck{*chc}}, clusters)
+		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
+			testEnv.Client, clusterRef, wanted, version, logger)).To(Succeed())
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 
 		// Update HealthCheckReports and validate again
 		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
-			testEnv.Client, getClusterRef(cluster), version, logger)).To(Succeed())
+			testEnv.Client, clusterRef, wanted, version, logger)).To(Succeed())
 
 		validateHealthCheckReports(healthCheckName, cluster, &clusterType)
 	})
@@ -185,8 +204,9 @@ var _ = Describe("HealthCheck Deployer", func() {
 
 		c := fake.NewClientBuilder().WithScheme(scheme).Build()
 
+		wanted := controllers.BuildWantedReports(&libsveltosv1beta1.ClusterHealthCheckList{}, nil)
 		Expect(controllers.CollectAndProcessHealthCheckReportsFromCluster(context.TODO(),
-			c, clusterRef, version, logger)).To(Succeed())
+			c, clusterRef, wanted, version, logger)).To(Succeed())
 	})
 
 	It("isAgentHeartbeatCurrent returns false when agent heartbeat has timed out", func() {
@@ -311,6 +331,51 @@ var _ = Describe("HealthCheckReport Collection", func() {
 		Expect(result[cluster2]).To(BeTrue())
 		Expect(result[cluster3]).To(BeTrue())
 		Expect(result).NotTo(HaveKey(cluster4))
+	})
+
+	It("buildWantedReports only keeps the HealthChecks of ClusterHealthChecks matching shard-local clusters", func() {
+		shardCluster := corev1.ObjectReference{Namespace: randomString(), Name: randomString(),
+			Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String()}
+		otherShardCluster := corev1.ObjectReference{Namespace: randomString(), Name: randomString(),
+			Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String()}
+		healthCheckName := randomString()
+
+		active := getClusterHealthCheckForHealthCheck(healthCheckName, shardCluster, otherShardCluster)
+
+		deleting := getClusterHealthCheckForHealthCheck(randomString(), shardCluster)
+		now := metav1.Now()
+		deleting.DeletionTimestamp = &now
+		deleting.Finalizers = []string{randomString()}
+
+		addonsOnly := getClusterHealthCheckForHealthCheck(randomString(), shardCluster)
+		addonsOnly.Spec.LivenessChecks[0].Type = libsveltosv1beta1.LivenessTypeAddons
+		addonsOnly.Spec.LivenessChecks[0].LivenessSourceRef = nil
+
+		clusterHealthChecks := &libsveltosv1beta1.ClusterHealthCheckList{
+			Items: []libsveltosv1beta1.ClusterHealthCheck{*active, *deleting, *addonsOnly},
+		}
+		wanted := controllers.BuildWantedReports(clusterHealthChecks, []corev1.ObjectReference{shardCluster})
+
+		Expect(wanted).To(HaveLen(1))
+		Expect(controllers.IsReportWanted(wanted, &shardCluster, getHealthCheckReportForName(healthCheckName))).To(BeTrue())
+		Expect(controllers.IsReportWanted(wanted, &otherShardCluster, getHealthCheckReportForName(healthCheckName))).To(BeFalse())
+		Expect(controllers.IsReportWanted(wanted, &shardCluster, getHealthCheckReportForName(randomString()))).To(BeFalse())
+	})
+
+	It("isWanted leaves reports not coming from a managed cluster to updateHealthCheckReport", func() {
+		cluster := corev1.ObjectReference{Namespace: randomString(), Name: randomString(),
+			Kind: ClusterKind, APIVersion: clusterv1.GroupVersion.String()}
+		wanted := controllers.BuildWantedReports(&libsveltosv1beta1.ClusterHealthCheckList{}, nil)
+
+		By("Report already in the management cluster (ClusterName set)")
+		report := getHealthCheckReportForName(randomString())
+		report.Spec.ClusterName = cluster.Name
+		Expect(controllers.IsReportWanted(wanted, &cluster, report)).To(BeTrue())
+
+		By("Report without the HealthCheck label")
+		report = getHealthCheckReportForName(randomString())
+		report.Labels = nil
+		Expect(controllers.IsReportWanted(wanted, &cluster, report)).To(BeTrue())
 	})
 
 	It("collectAndProcessAllHealthCheckReports distinguishes CAPI and Sveltos clusters with same namespace and name", func() {
@@ -446,4 +511,39 @@ func validateHealthCheckReports(healthCheckName string, cluster *clusterv1.Clust
 		v, ok := currentHealthCheckReport.Labels[libsveltosv1beta1.HealthCheckNameLabel]
 		return ok && v == healthCheckName
 	}, timeout, pollingInterval).Should(BeTrue())
+}
+
+// getClusterHealthCheckForHealthCheck returns a ClusterHealthCheck matching the clusters, with a single
+// HealthCheck liveness check referencing healthCheckName
+func getClusterHealthCheckForHealthCheck(healthCheckName string,
+	clusters ...corev1.ObjectReference) *libsveltosv1beta1.ClusterHealthCheck {
+
+	chc := &libsveltosv1beta1.ClusterHealthCheck{
+		ObjectMeta: metav1.ObjectMeta{Name: randomString()},
+		Spec: libsveltosv1beta1.ClusterHealthCheckSpec{
+			LivenessChecks: []libsveltosv1beta1.LivenessCheck{
+				{
+					Name: randomString(),
+					Type: libsveltosv1beta1.LivenessTypeHealthCheck,
+					LivenessSourceRef: &corev1.ObjectReference{
+						APIVersion: libsveltosv1beta1.GroupVersion.String(),
+						Kind:       libsveltosv1beta1.HealthCheckKind,
+						Name:       healthCheckName,
+					},
+				},
+			},
+		},
+	}
+	chc.Status.MatchingClusterRefs = clusters
+	return chc
+}
+
+// getHealthCheckReportForName returns a HealthCheckReport as collected from a managed cluster
+func getHealthCheckReportForName(healthCheckName string) *libsveltosv1beta1.HealthCheckReport {
+	return &libsveltosv1beta1.HealthCheckReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   healthCheckName,
+			Labels: map[string]string{libsveltosv1beta1.HealthCheckNameLabel: healthCheckName},
+		},
+	}
 }

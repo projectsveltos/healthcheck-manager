@@ -632,6 +632,9 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		}
 
 		if *status == libsveltosv1beta1.SveltosStatusRemoved {
+			// The result is consumed by GetResult. Unless the status is set to Removed, the cluster entry is
+			// never dropped and the removal is queued again at the next reconciliation.
+			clusterInfo.Status = libsveltosv1beta1.SveltosStatusRemoved
 			return clusterInfo, nil
 		}
 
@@ -1004,7 +1007,7 @@ func processClusterHealthCheckForCluster(ctx context.Context, c client.Client,
 		return err
 	}
 
-	err = removeStaleHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType, chc, logger)
+	err = removeStaleHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType, chc, false, logger)
 	if err != nil {
 		logger.V(logs.LogDebug).Info("failed to remove stale HealthChecks")
 		return err
@@ -1070,30 +1073,53 @@ func undeployClusterHealthCheckResourcesFromCluster(ctx context.Context, c clien
 			logger.V(logs.LogInfo).Error(err, "failed to undeploy clusterHealthCheck in pull mode")
 			return err
 		}
+
+		err = removeLegacyConfigurationBundles(ctx, c, clusterNamespace, clusterName, chc, logger)
+		if err != nil {
+			logger.V(logs.LogInfo).Error(err, "failed to remove legacy configurationBundles")
+			return err
+		}
 	}
 
 	logger.V(logs.LogDebug).Info("Undeploy clusterHealthCheck. Removing HealthChecks")
-	err = removeStaleHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType, chc, logger)
+	// The ClusterHealthCheck might still reference the HealthChecks, but the cluster is not a match anymore
+	err = removeStaleHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType, chc, true, logger)
 	if err != nil {
 		logger.V(logs.LogInfo).Error(err, "failed to remove health checks")
 		return err
 	}
 
 	logger.V(logs.LogDebug).Info("Undeploy clusterHealthCheck. Removing HealthCheckReports")
+	err = removeReportsOfReferencedHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType, chc, logger)
+	if err != nil {
+		logger.V(logs.LogInfo).Error(err, "failed to remove stale HealthCheckReports")
+		return err
+	}
+
+	logger.V(logs.LogDebug).Info("Undeployed clusterHealthCheck")
+	return nil
+}
+
+// removeReportsOfReferencedHealthChecks removes all HealthCheckReports pulled from this managed cluster because
+// of the HealthChecks referenced by the ClusterHealthCheck liveness checks.
+func removeReportsOfReferencedHealthChecks(ctx context.Context, c client.Client,
+	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
+
 	for i := range chc.Spec.LivenessChecks {
-		if chc.Spec.LivenessChecks[i].Type != libsveltosv1beta1.LivenessTypeHealthCheck {
+		lc := &chc.Spec.LivenessChecks[i]
+		if lc.Type != libsveltosv1beta1.LivenessTypeHealthCheck || lc.LivenessSourceRef == nil {
 			continue
 		}
-		// Remove all HealthCheckReports pulled from this managed cluster because of this HealthCheck
-		err = removeStaleHealthCheckReports(ctx, c, clusterNamespace, clusterName, chc.Spec.LivenessChecks[i].Name,
+
+		// A HealthCheckReport is labeled with the name of the HealthCheck, not with the name of the liveness check
+		err := removeStaleHealthCheckReports(ctx, c, clusterNamespace, clusterName, lc.LivenessSourceRef.Name,
 			clusterType, logger)
 		if err != nil {
-			logger.V(logs.LogInfo).Error(err, "failed to remove stale HealthCheckReports")
 			return err
 		}
 	}
 
-	logger.V(logs.LogDebug).Info("Undeployed clusterHealthCheck")
 	return nil
 }
 
@@ -1304,14 +1330,15 @@ func removeStaleHealthCheckReports(ctx context.Context, c client.Client,
 }
 
 // removeStaleHealthChecks removes stale HealthChecks.
-// - If ClusterHealthCheck is deleted, ClusterHealthCheck will be removed as OwnerReference from any
-// HealthCheck instance;
-// - If ClusterHealthCheck is still existing, ClusterHealthCheck will be removed as OwnerReference from any
-// HealthCheck instance it used to referenced and it is not referencing anymore.
+// - If removeAll is true, ClusterHealthCheck will be removed as OwnerReference from any HealthCheck instance,
+// even the ones it is still referencing. removeAll must be true when the ClusterHealthCheck is deleted or when
+// the cluster is not a match anymore: nothing must be deployed in the cluster anymore;
+// - If removeAll is false, the cluster is still a match and ClusterHealthCheck will be removed as OwnerReference
+// from any HealthCheck instance it used to referenced and it is not referencing anymore.
 // An HealthCheck with zero OwnerReference will be deleted from managed cluster.
 func removeStaleHealthChecks(ctx context.Context, c client.Client,
 	clusterNamespace, clusterName string, clusterType libsveltosv1beta1.ClusterType,
-	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
+	chc *libsveltosv1beta1.ClusterHealthCheck, removeAll bool, logger logr.Logger) error {
 
 	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, c, clusterNamespace, clusterName,
 		clusterType, logger)
@@ -1325,19 +1352,15 @@ func removeStaleHealthChecks(ctx context.Context, c client.Client,
 		return nil
 	}
 
-	// Create a map (for faster indexing) of the HealthChecks currently referenced
-	currentReferenced := getReferencedHealthChecks(chc, logger)
+	// Create a map (for faster indexing) of the HealthChecks to keep: when removing all, none.
+	currentReferenced := &libsveltosset.Set{}
+	if !removeAll {
+		currentReferenced = getReferencedHealthChecks(chc, logger)
+	}
 
 	if getAgentInMgmtCluster() {
-		leaveEntries := &libsveltosset.Set{}
-		if chc.DeletionTimestamp.IsZero() {
-			// If removeAll is false and ClusterHealthCheck still exists, remove all entries
-			// but the one pointing to current referenced HealthCheck
-			leaveEntries = currentReferenced
-		}
-
 		return removeHealthCheckFromConfigMap(ctx, c, clusterNamespace, clusterName, clusterType, chc,
-			leaveEntries, logger)
+			currentReferenced, logger)
 	}
 
 	return proceedRemovingStaleHealthChecks(ctx, c, clusterNamespace, clusterName, clusterType,
@@ -1433,7 +1456,12 @@ func undeployClusterHealthCheckInPullMode(ctx context.Context, c client.Client,
 	agentStatus, err := pullmode.GetRemoveStatus(ctx, c, clusterNamespace, clusterName,
 		libsveltosv1beta1.ClusterHealthCheckKind, chc.Name, libsveltosv1beta1.FeatureClusterHealthCheck, logger)
 	if err != nil {
-		retError = err
+		// GetRemoveStatus returns NotFound when there is no ConfigurationGroup, and ActionNotSetToRemove when the
+		// ConfigurationGroup is still the one used to deploy (the agent has not confirmed the deployment yet).
+		// In both cases removal has not been requested yet. That is not a failure, the request is made below.
+		if !apierrors.IsNotFound(err) && !pullmode.IsActionNotSetToRemove(err) {
+			retError = err
+		}
 	} else if agentStatus != nil {
 		if agentStatus.DeploymentStatus != nil && *agentStatus.DeploymentStatus == libsveltosv1beta1.FeatureStatusRemoved {
 			logger.V(logs.LogDebug).Info("agent removed content")
@@ -1446,7 +1474,7 @@ func undeployClusterHealthCheckInPullMode(ctx context.Context, c client.Client,
 		} else if agentStatus.FailureMessage != nil {
 			retError = errors.New(*agentStatus.FailureMessage)
 		} else {
-			return errors.New("agent is removing classifier instance")
+			return errors.New(msgAgentRemoving)
 		}
 	}
 
@@ -1463,7 +1491,7 @@ func undeployClusterHealthCheckInPullMode(ctx context.Context, c client.Client,
 		return retError
 	}
 
-	return fmt.Errorf("agent cleanup request is queued")
+	return errors.New(msgAgentCleanupQueued)
 }
 
 // deployHealthChecks deploys (creates or updates) all HealthChecks referenced by this ClusterHealthCheck
@@ -1508,6 +1536,8 @@ func deployHealthChecks(ctx context.Context, c client.Client,
 		if err != nil {
 			return err
 		}
+
+		return removeLegacyConfigurationBundles(ctx, c, clusterNamespace, clusterName, chc, logger)
 	}
 
 	return nil
@@ -1618,11 +1648,25 @@ func createOrUpdateHealthCheck(ctx context.Context, remoteClient client.Client,
 	u := &unstructured.Unstructured{}
 	u.SetUnstructuredContent(unstructuredObj)
 
+	// Each key becomes its own ConfigurationBundle. The key must be unique per HealthCheck: a ClusterHealthCheck
+	// can reference several HealthChecks and a shared key would make each one overwrite the previous one.
 	resources := map[string][]unstructured.Unstructured{}
-	resources["healthcheck-instance"] = []unstructured.Unstructured{*u}
+	resources["healthcheck-instance-"+healthCheck.Name] = []unstructured.Unstructured{*u}
+	// The requestor kind must be the one used to commit, discard and remove: ConfigurationBundles are looked up
+	// by it, so bundles staged with another kind are never found, and never deleted.
 	return pullmode.StageResourcesForDeployment(ctx, getManagementClusterClient(), clusterNamespace, clusterName,
-		libsveltosv1beta1.HealthCheckReportKind, chc.Name, libsveltosv1beta1.FeatureClusterHealthCheck, resources,
+		libsveltosv1beta1.ClusterHealthCheckKind, chc.Name, libsveltosv1beta1.FeatureClusterHealthCheck, resources,
 		false, logger)
+}
+
+// removeLegacyConfigurationBundles removes the ConfigurationBundles staged for this ClusterHealthCheck by
+// versions which used HealthCheckReportKind as requestor kind. No ConfigurationGroup references them, and
+// nothing looking them up by ClusterHealthCheckKind finds them, so they would stay forever.
+func removeLegacyConfigurationBundles(ctx context.Context, c client.Client, clusterNamespace, clusterName string,
+	chc *libsveltosv1beta1.ClusterHealthCheck, logger logr.Logger) error {
+
+	return pullmode.TerminateDeploymentTracking(ctx, c, clusterNamespace, clusterName,
+		libsveltosv1beta1.HealthCheckReportKind, chc.Name, libsveltosv1beta1.FeatureClusterHealthCheck, logger)
 }
 
 func getHealthCheckToDeploy(healthCheck *libsveltosv1beta1.HealthCheck) *libsveltosv1beta1.HealthCheck {
