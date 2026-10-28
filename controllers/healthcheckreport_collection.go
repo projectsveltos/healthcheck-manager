@@ -193,20 +193,98 @@ func buildClustersWithHealthCheck(clusterHealthChecks *libsveltosv1beta1.Cluster
 	return clusters
 }
 
+// reportKey identifies the HealthCheckReport of a HealthCheck collected from a cluster.
+type reportKey struct {
+	cluster         clusterKey
+	healthCheckName string
+}
+
+// wantedReports is the set of HealthCheckReports worth keeping in the management cluster: the ones of a
+// HealthCheck referenced by a ClusterHealthCheck which matches the cluster.
+type wantedReports map[reportKey]struct{}
+
+// isWanted returns false only for a report coming from a managed cluster that no ClusterHealthCheck
+// matching the cluster needs. Anything else is left to updateHealthCheckReport to handle.
+func (w wantedReports) isWanted(cluster *corev1.ObjectReference, hcr *libsveltosv1beta1.HealthCheckReport) bool {
+	if hcr.Spec.ClusterName != "" {
+		return true
+	}
+	healthCheckName, ok := hcr.Labels[libsveltosv1beta1.HealthCheckNameLabel]
+	if !ok {
+		return true
+	}
+	_, found := w[reportKey{cluster: newClusterKey(cluster), healthCheckName: healthCheckName}]
+	return found
+}
+
+// newClusterKey returns the same key as buildShardClustersMap, without allocating a string for the cluster type:
+// it is called for every cluster matched by every ClusterHealthCheck, on each collection cycle
+func newClusterKey(cluster *corev1.ObjectReference) clusterKey {
+	clusterType := "capi"
+	if clusterproxy.GetClusterType(cluster) == libsveltosv1beta1.ClusterTypeSveltos {
+		clusterType = "sveltos"
+	}
+	return clusterKey{ns: cluster.Namespace, name: cluster.Name, clusterType: clusterType}
+}
+
+// getReferencedHealthCheckNames returns the names of the HealthChecks referenced by the ClusterHealthCheck
+// liveness checks
+func getReferencedHealthCheckNames(chc *libsveltosv1beta1.ClusterHealthCheck) []string {
+	names := make([]string, 0, len(chc.Spec.LivenessChecks))
+	for i := range chc.Spec.LivenessChecks {
+		lc := &chc.Spec.LivenessChecks[i]
+		if lc.Type == libsveltosv1beta1.LivenessTypeHealthCheck && lc.LivenessSourceRef != nil {
+			names = append(names, lc.LivenessSourceRef.Name)
+		}
+	}
+	return names
+}
+
+// buildWantedReports returns the HealthCheckReports to keep for the given (shard-local) clusters. A
+// ClusterHealthCheck being deleted does not count: its HealthChecks are being removed from the clusters, and a
+// report collected in the meantime would never be removed, since the managed cluster report is deleted
+// without the collector noticing.
+func buildWantedReports(clusterHealthChecks *libsveltosv1beta1.ClusterHealthCheckList,
+	clusters []corev1.ObjectReference) wantedReports {
+
+	shardClusters := buildShardClustersMap(clusters)
+	wanted := make(wantedReports)
+	for i := range clusterHealthChecks.Items {
+		chc := &clusterHealthChecks.Items[i]
+		if !chc.DeletionTimestamp.IsZero() {
+			continue
+		}
+		healthCheckNames := getReferencedHealthCheckNames(chc)
+		if len(healthCheckNames) == 0 {
+			continue
+		}
+		for j := range chc.Status.MatchingClusterRefs {
+			cluster := newClusterKey(&chc.Status.MatchingClusterRefs[j])
+			if _, ok := shardClusters[cluster]; !ok {
+				continue
+			}
+			for _, healthCheckName := range healthCheckNames {
+				wanted[reportKey{cluster: cluster, healthCheckName: healthCheckName}] = struct{}{}
+			}
+		}
+	}
+	return wanted
+}
+
 // collectHealthCheckReportFromCluster delegates per-cluster collection to
 // collectAndProcessHealthCheckReportsFromCluster with a cluster-tagged logger.
 func collectHealthCheckReportFromCluster(ctx context.Context, c client.Client,
-	cluster *corev1.ObjectReference, version string, logger logr.Logger) error {
+	cluster *corev1.ObjectReference, wanted wantedReports, version string, logger logr.Logger) error {
 
 	l := logger.WithValues("cluster", fmt.Sprintf("%s %s/%s", cluster.Kind, cluster.Namespace, cluster.Name))
-	return collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, version, l)
+	return collectAndProcessHealthCheckReportsFromCluster(ctx, c, cluster, wanted, version, l)
 }
 
 // processHealthCheckReportClusters collects and processes HealthCheckReports for the given clusters.
 // It runs sequentially when there are fewer than clustersPerWorker clusters, and spawns
 // up to maxCollectionWorkers goroutines otherwise.
 func processHealthCheckReportClusters(ctx context.Context, c client.Client,
-	clusters []corev1.ObjectReference, version string, logger logr.Logger) error {
+	clusters []corev1.ObjectReference, wanted wantedReports, version string, logger logr.Logger) error {
 
 	logErr := func(cluster *corev1.ObjectReference, err error) {
 		logger.WithValues("cluster", fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name)).
@@ -228,7 +306,7 @@ func processHealthCheckReportClusters(ctx context.Context, c client.Client,
 			default:
 			}
 			cluster := &clusters[i]
-			if err := collectHealthCheckReportFromCluster(ctx, c, cluster, version, logger); err != nil {
+			if err := collectHealthCheckReportFromCluster(ctx, c, cluster, wanted, version, logger); err != nil {
 				logErr(cluster, err)
 				retErr = err
 			}
@@ -259,7 +337,7 @@ func processHealthCheckReportClusters(ctx context.Context, c client.Client,
 				default:
 				}
 				ref := clusterRef
-				if err := collectHealthCheckReportFromCluster(ctx, c, &ref, version, logger); err != nil {
+				if err := collectHealthCheckReportFromCluster(ctx, c, &ref, wanted, version, logger); err != nil {
 					logErr(&ref, err)
 					mu.Lock()
 					retErr = err
@@ -436,7 +514,8 @@ func collectHealthCheckReports(c client.Client, shardKey, capiOnboardAnnotation,
 				logger.V(logs.LogInfo).Error(err, "failed to collect HealthCheckReports")
 			}
 		} else {
-			if err := processHealthCheckReportClusters(ctx, c, clustersToCollect, version, logger); err != nil {
+			if err := processHealthCheckReportClusters(ctx, c, clustersToCollect, buildWantedReports(clusterHealthChecks, clustersToCollect),
+				version, logger); err != nil {
 				logger.V(logs.LogInfo).Error(err, "failed to collect HealthCheckReports")
 			}
 		}
@@ -464,7 +543,7 @@ func isAgentHeartbeatCurrent(ctx context.Context, c client.Client, cluster *core
 }
 
 func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c client.Client,
-	cluster *corev1.ObjectReference, version string, logger logr.Logger) error {
+	cluster *corev1.ObjectReference, wanted wantedReports, version string, logger logr.Logger) error {
 
 	clusterRef := &corev1.ObjectReference{
 		Namespace:  cluster.Namespace,
@@ -559,7 +638,7 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 			continue
 		}
 
-		processOneHealthCheckReport(ctx, c, clusterClient, cluster, hcr, logger)
+		processOneHealthCheckReport(ctx, c, clusterClient, cluster, hcr, wanted, logger)
 	}
 
 	return nil
@@ -569,7 +648,8 @@ func collectAndProcessHealthCheckReportsFromCluster(ctx context.Context, c clien
 // Processed in the managed cluster. Split out of collectAndProcessHealthCheckReportsFromCluster
 // to keep that function's cyclomatic complexity down.
 func processOneHealthCheckReport(ctx context.Context, c, clusterClient client.Client,
-	cluster *corev1.ObjectReference, hcr *libsveltosv1beta1.HealthCheckReport, logger logr.Logger) {
+	cluster *corev1.ObjectReference, hcr *libsveltosv1beta1.HealthCheckReport, wanted wantedReports,
+	logger logr.Logger) {
 
 	l := logger.WithValues("healthCheckReport", hcr.Name)
 	var mgmtHealthCheckReport *libsveltosv1beta1.HealthCheckReport
@@ -581,6 +661,8 @@ func processOneHealthCheckReport(ctx context.Context, c, clusterClient client.Cl
 		if err != nil {
 			logger.V(logs.LogInfo).Error(err, "failed to delete HealthCheckReport in management cluster")
 		}
+	} else if !wanted.isWanted(cluster, hcr) {
+		logger.V(logs.LogDebug).Info("no ClusterHealthCheck needs this report, not copying to management cluster")
 	} else {
 		logger.V(logs.LogDebug).Info("updating in management cluster")
 		mgmtHealthCheckReport, err = updateHealthCheckReport(ctx, c, cluster, hcr, l)

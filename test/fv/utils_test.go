@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -366,12 +367,17 @@ func isClusterConditionForCluster(cc *libsveltosv1beta1.ClusterCondition, cluste
 		cc.ClusterInfo.Cluster.Name == clusterName
 }
 
+// deleteClusterHealthCheck deletes the ClusterHealthCheck and verifies it is gone, together with everything it
+// created in the management cluster: no ConfigurationGroup, no ConfigurationBundle and no HealthCheckReport
+// for the HealthChecks it referenced is left.
 func deleteClusterHealthCheck(clusterHealthCheckName string) {
 	currentClusterHealthCheck := &libsveltosv1beta1.ClusterHealthCheck{}
 	err := k8sClient.Get(context.TODO(),
 		types.NamespacedName{Name: clusterHealthCheckName},
 		currentClusterHealthCheck)
 	Expect(err).To(BeNil())
+
+	healthCheckNames := getReferencedHealthCheckNames(currentClusterHealthCheck)
 
 	Expect(k8sClient.Delete(context.TODO(), currentClusterHealthCheck)).To(Succeed())
 
@@ -383,6 +389,22 @@ func deleteClusterHealthCheck(clusterHealthCheckName string) {
 			currentClusterHealthCheck)
 		return apierrors.IsNotFound(err)
 	}, timeout, pollingInterval).Should(BeTrue())
+
+	verifyNoConfigurationResourcesInManagementCluster(clusterHealthCheckName)
+	verifyHealthCheckReportsRemovedFromManagementCluster(healthCheckNames...)
+}
+
+// getReferencedHealthCheckNames returns the name of the HealthChecks referenced by the liveness checks.
+// Note the name of a liveness check is not the name of the HealthCheck it references.
+func getReferencedHealthCheckNames(clusterHealthCheck *libsveltosv1beta1.ClusterHealthCheck) []string {
+	names := []string{}
+	for i := range clusterHealthCheck.Spec.LivenessChecks {
+		lc := &clusterHealthCheck.Spec.LivenessChecks[i]
+		if lc.Type == libsveltosv1beta1.LivenessTypeHealthCheck && lc.LivenessSourceRef != nil {
+			names = append(names, lc.LivenessSourceRef.Name)
+		}
+	}
+	return names
 }
 
 // deleteClusterProfile deletes ClusterProfile and verifies all ClusterSummaries created by this ClusterProfile
@@ -438,4 +460,99 @@ func getKindWorkloadClusterKubeconfig() (client.Client, error) {
 		return nil, err
 	}
 	return client.New(restConfig, client.Options{Scheme: scheme})
+}
+
+const (
+	// pullModeRequestorNameAnnotation is set by libsveltos, on the ConfigurationGroups and ConfigurationBundles
+	// created in the management cluster to deploy to, or remove from, a cluster in pull mode, to the name of the
+	// ClusterHealthCheck they are created for
+	pullModeRequestorNameAnnotation = "pullmode.projectsveltos.io/requestorname"
+)
+
+func getKindWorkloadClusterType() libsveltosv1beta1.ClusterType {
+	if kindWorkloadCluster.GetKind() == libsveltosv1beta1.SveltosClusterKind {
+		return libsveltosv1beta1.ClusterTypeSveltos
+	}
+	return libsveltosv1beta1.ClusterTypeCapi
+}
+
+// listHealthCheckReports returns the HealthCheckReports collected in the management cluster for the HealthCheck
+func listHealthCheckReports(healthCheckName string) ([]libsveltosv1beta1.HealthCheckReport, error) {
+	clusterType := getKindWorkloadClusterType()
+	labels := libsveltosv1beta1.GetHealthCheckReportLabels(healthCheckName, kindWorkloadCluster.GetName(), &clusterType)
+	listOptions := []client.ListOption{
+		client.InNamespace(kindWorkloadCluster.GetNamespace()),
+		client.MatchingLabels(labels),
+	}
+	healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
+	if err := k8sClient.List(context.TODO(), healthCheckReportList, listOptions...); err != nil {
+		return nil, err
+	}
+	return healthCheckReportList.Items, nil
+}
+
+// verifyHealthCheckReportInManagementCluster verifies the HealthCheckReport for the HealthCheck has been collected
+func verifyHealthCheckReportInManagementCluster(healthCheckName string) {
+	Byf("Verifying healthCheckReport for HealthCheck %s exists in the management cluster", healthCheckName)
+	Eventually(func() bool {
+		reports, err := listHealthCheckReports(healthCheckName)
+		return err == nil && len(reports) == 1
+	}, timeout, pollingInterval).Should(BeTrue())
+}
+
+// verifyHealthCheckReportsRemovedFromManagementCluster verifies no HealthCheckReport is left in the management
+// cluster for any of the HealthChecks
+func verifyHealthCheckReportsRemovedFromManagementCluster(healthCheckNames ...string) {
+	for i := range healthCheckNames {
+		healthCheckName := healthCheckNames[i]
+		Byf("Verifying healthCheckReport for HealthCheck %s is removed from the management cluster", healthCheckName)
+		Eventually(func() bool {
+			reports, err := listHealthCheckReports(healthCheckName)
+			return err == nil && len(reports) == 0
+		}, timeout, pollingInterval).Should(BeTrue())
+	}
+}
+
+// listConfigurationResources returns the name of the ConfigurationGroups and ConfigurationBundles which exist
+// in the management cluster for the ClusterHealthCheck. In pull mode those are what the agent in the managed
+// cluster is asked to deploy, or remove.
+func listConfigurationResources(clusterHealthCheckName string) ([]string, error) {
+	names := []string{}
+	namespace := client.InNamespace(kindWorkloadCluster.GetNamespace())
+
+	groups := &libsveltosv1beta1.ConfigurationGroupList{}
+	if err := k8sClient.List(context.TODO(), groups, namespace); err != nil && !meta.IsNoMatchError(err) {
+		return nil, err
+	}
+	for i := range groups.Items {
+		if groups.Items[i].Annotations[pullModeRequestorNameAnnotation] == clusterHealthCheckName {
+			names = append(names, fmt.Sprintf("ConfigurationGroup %s", groups.Items[i].Name))
+		}
+	}
+
+	bundles := &libsveltosv1beta1.ConfigurationBundleList{}
+	if err := k8sClient.List(context.TODO(), bundles, namespace); err != nil && !meta.IsNoMatchError(err) {
+		return nil, err
+	}
+	for i := range bundles.Items {
+		if bundles.Items[i].Annotations[pullModeRequestorNameAnnotation] == clusterHealthCheckName {
+			names = append(names, fmt.Sprintf("ConfigurationBundle %s", bundles.Items[i].Name))
+		}
+	}
+
+	return names, nil
+}
+
+// verifyNoConfigurationResourcesInManagementCluster verifies no ConfigurationGroup and no ConfigurationBundle is
+// left in the management cluster for the ClusterHealthCheck. Once the agent reported what it deployed, or removed,
+// nothing needs to be kept there. Nothing is ever created in push mode.
+func verifyNoConfigurationResourcesInManagementCluster(clusterHealthCheckName string) {
+	Byf("Verifying no ConfigurationGroup and ConfigurationBundle is left for ClusterHealthCheck %s", clusterHealthCheckName)
+	Eventually(func() []string {
+		names, err := listConfigurationResources(clusterHealthCheckName)
+		if err != nil {
+			return []string{err.Error()}
+		}
+		return names
+	}, timeout, pollingInterval).Should(BeEmpty())
 }

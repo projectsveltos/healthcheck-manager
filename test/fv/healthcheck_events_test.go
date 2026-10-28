@@ -141,6 +141,9 @@ var _ = Describe("Liveness: healthCheck Notifications: events", func() {
 		Byf("Verifying ClusterHealthCheck %s is set to Provisioned", clusterHealthCheck.Name)
 		verifyClusterHealthCheckStatus(clusterHealthCheck.Name, kindWorkloadCluster.GetNamespace(), kindWorkloadCluster.GetName())
 
+		// The agent deployed the HealthCheck: nothing needs to be kept in the management cluster
+		verifyNoConfigurationResourcesInManagementCluster(clusterHealthCheck.Name)
+
 		Byf("Deleting ClusterHealthCheck")
 		deleteClusterHealthCheck(clusterHealthCheck.Name)
 

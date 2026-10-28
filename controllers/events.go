@@ -31,13 +31,15 @@ import (
 )
 
 // The failure messages of a cluster which are not a failure to deploy the ClusterHealthCheck: the cluster is
-// paused, not ready or down, its agent is not healthy, or a previous deployment or cleanup is still in
-// progress. They are not recorded as events.
+// paused, not ready or down, its agent is not healthy, a previous deployment or cleanup is still in progress, or
+// the agent of a cluster in pull mode has not removed the resources yet. They are not recorded as events.
 const (
 	msgClusterPausedOrNotReady = "cannot proceed deploying. Either cluster is paused or not ready."
 	msgAgentNotHealthy         = "agent in managed cluster is not healthy."
 	msgCleanupInProgress       = "cleanup is in progress"
 	msgProvisioningInProgress  = "provisioning is in progress"
+	msgAgentCleanupQueued      = "agent cleanup request is queued"
+	msgAgentRemoving           = "agent is removing ClusterHealthCheck resources"
 )
 
 // failureKey identifies the cluster a ClusterHealthCheck is deployed to.
@@ -171,7 +173,9 @@ func isNotAFailure(message string) bool {
 	return message == msgClusterPausedOrNotReady ||
 		message == msgAgentNotHealthy ||
 		message == msgCleanupInProgress ||
-		message == msgProvisioningInProgress
+		message == msgProvisioningInProgress ||
+		message == msgAgentCleanupQueued ||
+		message == msgAgentRemoving
 }
 
 // recordNotificationFailure records a Warning NotificationFailed event on the ClusterHealthCheck when a

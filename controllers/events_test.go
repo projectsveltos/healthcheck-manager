@@ -139,6 +139,8 @@ var _ = Describe("ClusterHealthCheck events", func() {
 				"agent in managed cluster is not healthy.",
 				"cleanup is in progress",
 				"provisioning is in progress",
+				"agent cleanup request is queued",
+				"agent is removing ClusterHealthCheck resources",
 			} {
 				record(cluster, libsveltosv1beta1.SveltosStatusProvisioning, message(m))
 			}

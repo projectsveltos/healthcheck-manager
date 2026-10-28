@@ -130,6 +130,18 @@ var _ = BeforeSuite(func() {
 	Expect(testEnv.Create(context.TODO(), dcCRD)).To(Succeed())
 	Expect(waitForObject(context.TODO(), testEnv, dcCRD)).To(Succeed())
 
+	var configurationBundleCRD *unstructured.Unstructured
+	configurationBundleCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetConfigurationBundleCRDYAML())
+	Expect(err).To(BeNil())
+	Expect(testEnv.Create(context.TODO(), configurationBundleCRD)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv, configurationBundleCRD)).To(Succeed())
+
+	var configurationGroupCRD *unstructured.Unstructured
+	configurationGroupCRD, err = k8s_utils.GetUnstructured(libsveltoscrd.GetConfigurationGroupCRDYAML())
+	Expect(err).To(BeNil())
+	Expect(testEnv.Create(context.TODO(), configurationGroupCRD)).To(Succeed())
+	Expect(waitForObject(context.TODO(), testEnv, configurationGroupCRD)).To(Succeed())
+
 	sveltosNamespace = randomString()
 	controllers.SetSveltosNamespace(sveltosNamespace)
 	ns := &corev1.Namespace{

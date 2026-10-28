@@ -29,6 +29,7 @@ var (
 	GetClusterMapForEntry   = (*ClusterHealthCheckReconciler).getClusterMapForEntry
 
 	ProcessClusterHealthCheck            = (*ClusterHealthCheckReconciler).processClusterHealthCheck
+	RemoveClusterHealthCheck             = (*ClusterHealthCheckReconciler).removeClusterHealthCheck
 	UpdateClusterConditions              = (*ClusterHealthCheckReconciler).updateClusterConditions
 	EvaluateAndNotifyProvisionedClusters = (*ClusterHealthCheckReconciler).evaluateAndNotifyProvisionedClusters
 
@@ -68,12 +69,14 @@ var (
 	RecordClusterInfoFailure   = recordClusterInfoFailure
 	RecordNotificationFailure  = recordNotificationFailure
 
-	IsClusterConditionForCluster         = isClusterConditionForCluster
-	EvaluateClusterHealthCheckForCluster = evaluateClusterHealthCheckForCluster
-	DeployHealthChecks                   = deployHealthChecks
-	RemoveStaleHealthChecks              = removeStaleHealthChecks
-	RemoveStaleHealthCheckReports        = removeStaleHealthCheckReports
-	GetReferencedHealthChecks            = getReferencedHealthChecks
+	IsClusterConditionForCluster          = isClusterConditionForCluster
+	EvaluateClusterHealthCheckForCluster  = evaluateClusterHealthCheckForCluster
+	DeployHealthChecks                    = deployHealthChecks
+	RemoveStaleHealthChecks               = removeStaleHealthChecks
+	RemoveStaleHealthCheckReports         = removeStaleHealthCheckReports
+	RemoveReportsOfReferencedHealthChecks = removeReportsOfReferencedHealthChecks
+	UndeployClusterHealthCheckInPullMode  = undeployClusterHealthCheckInPullMode
+	GetReferencedHealthChecks             = getReferencedHealthChecks
 )
 
 var (
@@ -83,6 +86,8 @@ var (
 	CollectAndProcessAllHealthCheckReports         = collectAndProcessAllHealthCheckReports
 	AddHealthCheckToConfigMap                      = addHealthCheckToConfigMap
 	BuildClustersWithHealthCheck                   = buildClustersWithHealthCheck
+	BuildWantedReports                             = buildWantedReports
+	IsReportWanted                                 = wantedReports.isWanted
 	IsAgentHeartbeatCurrent                        = isAgentHeartbeatCurrent
 )
 
