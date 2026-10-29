@@ -227,6 +227,67 @@ var _ = Describe("ReloaderReport Collection", func() {
 		}, timeout, pollingInterval).Should(BeTrue())
 	})
 
+	It("collectAndProcessAllReloaderReports skips a cluster in pull mode without an agent version ConfigMap", func() {
+		// The agent of a cluster in pull mode runs in the managed cluster: no agent version ConfigMap
+		// is created in the management cluster for it, so that check must not be done. In pull mode
+		// sveltos-applier triggers the rolling upgrade, so there is nothing to process here.
+		sveltosCluster := &libsveltosv1beta1.SveltosCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: randomString(),
+				Name:      randomString(),
+			},
+			Spec: libsveltosv1beta1.SveltosClusterSpec{
+				PullMode: true,
+			},
+		}
+
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: sveltosCluster.Namespace}}
+		Expect(testEnv.Create(context.TODO(), ns)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, ns)).To(Succeed())
+
+		Expect(testEnv.Create(context.TODO(), sveltosCluster)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, sveltosCluster)).To(Succeed())
+
+		sveltosCluster.Status.Ready = true
+		Expect(testEnv.Status().Update(context.TODO(), sveltosCluster)).To(Succeed())
+
+		clusterType := libsveltosv1beta1.ClusterTypeSveltos
+		reloaderReport := &libsveltosv1beta1.ReloaderReport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      randomString(),
+				Namespace: sveltosCluster.Namespace,
+				Labels:    libsveltosv1beta1.GetReloaderReportLabels(sveltosCluster.Name, &clusterType),
+			},
+			Spec: libsveltosv1beta1.ReloaderReportSpec{
+				ClusterNamespace: sveltosCluster.Namespace,
+				ClusterType:      clusterType,
+			},
+		}
+		Expect(testEnv.Create(context.TODO(), reloaderReport)).To(Succeed())
+		Expect(waitForObject(context.TODO(), testEnv.Client, reloaderReport)).To(Succeed())
+
+		sveltosClusterRef := corev1.ObjectReference{
+			Namespace:  sveltosCluster.Namespace,
+			Name:       sveltosCluster.Name,
+			Kind:       libsveltosv1beta1.SveltosClusterKind,
+			APIVersion: libsveltosv1beta1.GroupVersion.String(),
+		}
+
+		logger := textlogger.NewLogger(textlogger.NewConfig())
+		Expect(controllers.CollectAndProcessAllReloaderReports(context.TODO(), testEnv.Client,
+			[]corev1.ObjectReference{sveltosClusterRef}, version, logger)).To(Succeed())
+
+		// The ReloaderReport is not touched: updateReloaderReport would have set Spec.ClusterName.
+		Consistently(func() bool {
+			current := &libsveltosv1beta1.ReloaderReport{}
+			err := testEnv.Get(context.TODO(),
+				types.NamespacedName{Namespace: reloaderReport.Namespace, Name: reloaderReport.Name}, current)
+			return err == nil && current.Spec.ClusterName == ""
+		}, timeout, pollingInterval).Should(BeTrue())
+
+		Expect(testEnv.Delete(context.TODO(), reloaderReport)).To(Succeed())
+	})
+
 	It("collectAndProcessReloaderReportsFromCluster collects ReloaderReports from cluster", func() {
 		cluster := prepareCluster()
 
