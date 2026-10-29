@@ -389,7 +389,8 @@ func collectAndProcessAllHealthCheckReports(ctx context.Context, c client.Client
 }
 
 // processHealthCheckReportsForClusterInAgentlessMode handles all HealthCheckReports for a single
-// cluster in agentless mode. It checks readiness, version compatibility, and processes each report.
+// cluster in agentless mode. It checks readiness, version compatibility (not for a cluster in pull mode, whose
+// agent is in the managed cluster), and processes each report.
 func processHealthCheckReportsForClusterInAgentlessMode(ctx context.Context, c client.Client,
 	ref *corev1.ObjectReference, hcrs []*libsveltosv1beta1.HealthCheckReport,
 	version string, logger logr.Logger) error {
@@ -413,7 +414,19 @@ func processHealthCheckReportsForClusterInAgentlessMode(ctx context.Context, c c
 		return nil
 	}
 
-	if !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, getSveltosNamespace(), version,
+	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, c, ref.Namespace, ref.Name,
+		clusterproxy.GetClusterType(ref), logger)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.V(logs.LogDebug).Info("cluster no longer exists, skipping")
+			return nil
+		}
+		return err
+	}
+
+	// For a cluster in pull mode sveltos-agent runs in the managed cluster, even in agentless mode. There is no
+	// agent version ConfigMap in the management cluster to check.
+	if !isPullMode && !sveltos_upgrade.IsSveltosAgentVersionCompatible(ctx, c, getSveltosNamespace(), version,
 		ref.Namespace, ref.Name, clusterproxy.GetClusterType(ref), true, logger) {
 
 		logger.V(logs.LogDebug).Info(compatibilityErrorMsg)
