@@ -126,6 +126,8 @@ func collectAndProcessAllReloaderReports(ctx context.Context, c client.Client,
 
 // processReloaderReportsForClusterInAgentlessMode handles all ReloaderReports for a single
 // cluster in agentless mode. It checks readiness, version compatibility, and processes each report.
+// A cluster in pull mode is skipped: its agent is in the managed cluster and sveltos-applier triggers the
+// rolling upgrade directly.
 func processReloaderReportsForClusterInAgentlessMode(ctx context.Context, c client.Client,
 	ref *corev1.ObjectReference, rrs []*libsveltosv1beta1.ReloaderReport,
 	version string, logger logr.Logger) error {
@@ -141,6 +143,21 @@ func processReloaderReportsForClusterInAgentlessMode(ctx context.Context, c clie
 		return err
 	}
 	if skip {
+		return nil
+	}
+
+	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, c, ref.Namespace, ref.Name,
+		clusterproxy.GetClusterType(ref), logger)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.V(logs.LogDebug).Info("cluster no longer exists, skipping")
+			return nil
+		}
+		return err
+	}
+	if isPullMode {
+		// Nothing to do in pull mode. There is also no agent version ConfigMap in the management
+		// cluster to check, as the agent runs in the managed cluster.
 		return nil
 	}
 
