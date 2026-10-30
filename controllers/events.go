@@ -42,6 +42,15 @@ const (
 	msgAgentRemoving           = "agent is removing ClusterHealthCheck resources"
 )
 
+// The errors returned while a request to deploy or to clean up has been made and has not completed yet. They are
+// not failures: the ClusterHealthCheck is requeued until the request completes.
+const (
+	msgDeployQueued      = "request to deploy queued"
+	msgCleanupQueued     = "cleanup request is queued"
+	msgStillProvisioning = "clusterHealthCheck is still being provisioned"
+	msgStillQueued       = "request to process ClusterHealthCheck is still queued in one ore more clusters"
+)
+
 // failureKey identifies the cluster a ClusterHealthCheck is deployed to.
 type failureKey struct {
 	clusterHealthCheck string
@@ -176,6 +185,25 @@ func isNotAFailure(message string) bool {
 		message == msgProvisioningInProgress ||
 		message == msgAgentCleanupQueued ||
 		message == msgAgentRemoving
+}
+
+// isWaiting returns true when err only says a request to deploy or to clean up has not completed yet.
+func isWaiting(err error) bool {
+	message := err.Error()
+	return isNotAFailure(message) ||
+		message == msgDeployQueued ||
+		message == msgCleanupQueued ||
+		message == msgStillProvisioning ||
+		message == msgStillQueued
+}
+
+// keepFailure returns the error to report once err has been seen after seen: the last error wins, except
+// that an error which only says a request is still waiting never replaces a failure.
+func keepFailure(seen, err error) error {
+	if seen != nil && isWaiting(err) {
+		return seen
+	}
+	return err
 }
 
 // recordNotificationFailure records a Warning NotificationFailed event on the ClusterHealthCheck when a

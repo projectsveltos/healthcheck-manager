@@ -226,7 +226,7 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 	err := r.undeployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger)
 	if err != nil {
-		logger.V(logs.LogInfo).Error(err, "failed to undeploy")
+		logRequeueReason(logger, err, "failed to undeploy")
 		return reconcile.Result{RequeueAfter: deleteRequeueAfter}
 	}
 
@@ -236,6 +236,17 @@ func (r *ClusterHealthCheckReconciler) reconcileDelete(
 
 	logger.V(logs.LogDebug).Info("Reconcile delete success")
 	return reconcile.Result{}
+}
+
+// logRequeueReason logs why the ClusterHealthCheck is requeued. A request which has not completed yet is expected
+// and is not logged as an error: with many ClusterHealthChecks that floods the log.
+func logRequeueReason(logger logr.Logger, err error, msg string) {
+	if isWaiting(err) {
+		logger.V(logs.LogDebug).Info(msg, "reason", err.Error())
+		return
+	}
+
+	logger.V(logs.LogInfo).Error(err, msg)
 }
 
 func (r *ClusterHealthCheckReconciler) reconcileNormal(
@@ -273,7 +284,7 @@ func (r *ClusterHealthCheckReconciler) reconcileNormal(
 
 	f := getHandlersForFeature(libsveltosv1beta1.FeatureClusterHealthCheck)
 	if err := r.deployClusterHealthCheck(ctx, clusterHealthCheckScope, f, logger); err != nil {
-		logger.V(logs.LogInfo).Error(err, "failed to deploy")
+		logRequeueReason(logger, err, "failed to deploy")
 		return reconcile.Result{RequeueAfter: normalRequeueAfter}, nil
 	}
 

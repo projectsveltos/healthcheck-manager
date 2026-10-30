@@ -34,6 +34,9 @@ var (
 	EvaluateAndNotifyProvisionedClusters = (*ClusterHealthCheckReconciler).evaluateAndNotifyProvisionedClusters
 
 	ProcessCluster = processCluster
+
+	IsWaiting   = isWaiting
+	KeepFailure = keepFailure
 )
 
 var (
