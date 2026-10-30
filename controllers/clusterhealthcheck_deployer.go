@@ -124,7 +124,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 		} else {
 			clusterInfo, err = r.processClusterHealthCheck(ctx, chcScope, &c.ClusterInfo.Cluster, f, l)
 			if err != nil {
-				errorSeen = err
+				errorSeen = keepFailure(errorSeen, err)
 			}
 			if clusterInfo != nil {
 				if clusterInfo.Hash == nil {
@@ -157,7 +157,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	var err error
 	chc.Status.ClusterConditions, err = r.evaluateAndNotifyProvisionedClusters(ctx, chc, logger)
 	if err != nil {
-		errorSeen = err
+		errorSeen = keepFailure(errorSeen, err)
 	}
 
 	logger.V(logs.LogDebug).Info("set conditions")
@@ -168,7 +168,7 @@ func (r *ClusterHealthCheckReconciler) deployClusterHealthCheck(ctx context.Cont
 	}
 
 	if !allProcessed {
-		return fmt.Errorf("request to process ClusterHealthCheck is still queued in one ore more clusters")
+		return errors.New(msgStillQueued)
 	}
 
 	return nil
@@ -278,7 +278,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 		}
 
 		if tmpErr != nil {
-			err = tmpErr
+			err = keepFailure(err, tmpErr)
 			continue
 		}
 	}
@@ -356,7 +356,7 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 		msg := msgCleanupInProgress
 		clusterInfo.FailureMessage = &msg
 		logger.V(logs.LogDebug).Info(msg)
-		return clusterInfo, fmt.Errorf("cleanup of %s in cluster still in progress. Wait before redeploying", f.id)
+		return clusterInfo, errors.New(msgCleanupInProgress)
 	}
 
 	isPullMode, err := clusterproxy.IsClusterInPullMode(ctx, r.Client, cluster.Namespace,
@@ -437,7 +437,7 @@ func (r *ClusterHealthCheckReconciler) proceedProcessingClusterHealthCheck(ctx c
 			return clusterInfo, nil
 		}
 		if *deployerStatus == libsveltosv1beta1.SveltosStatusProvisioning {
-			return clusterInfo, fmt.Errorf("clusterHealthCheck is still being provisioned")
+			return clusterInfo, errors.New(msgStillProvisioning)
 		}
 	} else if isConfigSame && currentStatus != nil && *currentStatus == libsveltosv1beta1.SveltosStatusProvisioned {
 		logger.V(logs.LogDebug).Info("already deployed")
@@ -553,7 +553,7 @@ func (r *ClusterHealthCheckReconciler) proceedDeployingCHCnPullMode(ctx context.
 		return nil, err
 	}
 
-	return clusterInfo, fmt.Errorf("request to deploy queued")
+	return clusterInfo, errors.New(msgDeployQueued)
 }
 
 // If SveltosCluster is in pull mode, verify whether agent has pulled and successuffly deployed it.
@@ -658,7 +658,7 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		return clusterInfo, err
 	}
 
-	return clusterInfo, fmt.Errorf("cleanup request is queued")
+	return clusterInfo, errors.New(msgCleanupQueued)
 }
 
 func (r *ClusterHealthCheckReconciler) convertResultStatus(result deployer.Result) *libsveltosv1beta1.SveltosFeatureStatus {
