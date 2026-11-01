@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
+	"github.com/projectsveltos/libsveltos/lib/clusterproxy"
 	"github.com/projectsveltos/libsveltos/lib/crd"
 	"github.com/projectsveltos/libsveltos/lib/deployer"
 	logs "github.com/projectsveltos/libsveltos/lib/logsettings"
@@ -73,6 +74,8 @@ var (
 	reloaderReportCollectionTime int
 	restConfigQPS                float32
 	restConfigBurst              int
+	managedClusterQPS            float32
+	managedClusterBurst          int
 	webhookPort                  int
 	syncPeriod                   time.Duration
 	healthAddr                   string
@@ -123,6 +126,7 @@ func main() {
 	restConfig := ctrl.GetConfigOrDie()
 	restConfig.QPS = restConfigQPS
 	restConfig.Burst = restConfigBurst
+	clusterproxy.SetRestConfigLimits(managedClusterQPS, managedClusterBurst)
 
 	mgr, err := ctrl.NewManager(restConfig, ctrlOptions)
 	if err != nil {
@@ -223,15 +227,25 @@ func initFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&healthAddr, "health-addr", ":9440",
 		"The address the health endpoint binds to.")
 
-	const defautlRestConfigQPS = 20
+	const defautlRestConfigQPS = 40
 	fs.Float32Var(&restConfigQPS, "kube-api-qps", defautlRestConfigQPS,
-		fmt.Sprintf("Maximum queries per second from the controller client to the Kubernetes API server. Defaults to %d",
-			defautlRestConfigQPS))
+		fmt.Sprintf("Maximum queries per second from the controller client to the management cluster Kubernetes API server. "+
+			"Defaults to %d", defautlRestConfigQPS))
 
-	const defaultRestConfigBurst = 30
+	const defaultRestConfigBurst = 120
 	fs.IntVar(&restConfigBurst, "kube-api-burst", defaultRestConfigBurst,
-		fmt.Sprintf("Maximum number of queries that should be allowed in one burst from the controller client to the Kubernetes API server. Default %d",
-			defaultRestConfigBurst))
+		fmt.Sprintf("Maximum number of queries that should be allowed in one burst from the controller client to the "+
+			"management cluster Kubernetes API server. Default %d", defaultRestConfigBurst))
+
+	const defaultManagedClusterRestConfigQPS = 20
+	fs.Float32Var(&managedClusterQPS, "managed-cluster-kube-api-qps", defaultManagedClusterRestConfigQPS,
+		fmt.Sprintf("Maximum queries per second from the controller client to the Kubernetes API server of each managed cluster. "+
+			"Defaults to %d", defaultManagedClusterRestConfigQPS))
+
+	const defaultManagedClusterRestConfigBurst = 60
+	fs.IntVar(&managedClusterBurst, "managed-cluster-kube-api-burst", defaultManagedClusterRestConfigBurst,
+		fmt.Sprintf("Maximum number of queries that should be allowed in one burst from the controller client to the "+
+			"Kubernetes API server of each managed cluster. Default %d", defaultManagedClusterRestConfigBurst))
 
 	const defaultWebhookPort = 9443
 	fs.IntVar(&webhookPort, "webhook-port", defaultWebhookPort,
