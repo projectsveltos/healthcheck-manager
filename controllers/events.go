@@ -49,6 +49,8 @@ const (
 	msgCleanupQueued     = "cleanup request is queued"
 	msgStillProvisioning = "clusterHealthCheck is still being provisioned"
 	msgStillQueued       = "request to process ClusterHealthCheck is still queued in one ore more clusters"
+	msgStillBeingRemoved = "feature is still being removed"
+	msgRemovePending     = "remove pending"
 )
 
 // failureKey identifies the cluster a ClusterHealthCheck is deployed to.
@@ -194,6 +196,8 @@ func isWaiting(err error) bool {
 		message == msgDeployQueued ||
 		message == msgCleanupQueued ||
 		message == msgStillProvisioning ||
+		message == msgStillBeingRemoved ||
+		message == msgRemovePending ||
 		message == msgStillQueued
 }
 
