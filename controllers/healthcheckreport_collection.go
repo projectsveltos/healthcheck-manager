@@ -142,7 +142,8 @@ func removeHealthCheckReports(ctx context.Context, c client.Client, healthCheckN
 	for i := range healthCheckReportList.Items {
 		cr := &healthCheckReportList.Items[i]
 		err = c.Delete(ctx, cr)
-		if err != nil {
+		// The HealthCheckReport may already be gone: removed by another reconciliation
+		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -171,7 +172,8 @@ func removeHealthCheckReportsFromCluster(ctx context.Context, c client.Client, c
 	for i := range healthCheckReportList.Items {
 		cr := &healthCheckReportList.Items[i]
 		err = c.Delete(ctx, cr)
-		if err != nil {
+		// The HealthCheckReport may already be gone: removed by another reconciliation
+		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}

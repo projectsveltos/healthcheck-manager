@@ -33,6 +33,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/projectsveltos/healthcheck-manager/controllers"
 	libsveltosv1beta1 "github.com/projectsveltos/libsveltos/api/v1beta1"
@@ -93,6 +94,29 @@ var _ = Describe("HealthCheck Deployer", func() {
 
 		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
 			WithObjects(initObjects...).Build()
+
+		Expect(controllers.RemoveHealthCheckReports(context.TODO(), c, healthCheck.Name, logger)).To(Succeed())
+
+		healthCheckReportList := &libsveltosv1beta1.HealthCheckReportList{}
+		Expect(c.List(context.TODO(), healthCheckReportList)).To(Succeed())
+		Expect(len(healthCheckReportList.Items)).To(BeZero())
+	})
+
+	It("removeHealthCheckReports ignores a HealthCheckReport which is already gone", func() {
+		healthCheckReport := getHealthCheckReport(healthCheck.Name, randomString(), randomString())
+		initObjects := []client.Object{healthCheckReport}
+
+		// The HealthCheckReport is listed and removed by someone else before this reconciliation deletes it
+		c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(initObjects...).
+			WithObjects(initObjects...).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Delete: func(ctx context.Context, cl client.WithWatch, obj client.Object,
+					opts ...client.DeleteOption) error {
+
+					Expect(cl.Delete(ctx, obj, opts...)).To(Succeed())
+					return cl.Delete(ctx, obj, opts...)
+				},
+			}).Build()
 
 		Expect(controllers.RemoveHealthCheckReports(context.TODO(), c, healthCheck.Name, logger)).To(Succeed())
 

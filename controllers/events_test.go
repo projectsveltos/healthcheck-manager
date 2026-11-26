@@ -226,6 +226,8 @@ var _ = Describe("errors only saying a request is still waiting", func() {
 		"cleanup request is queued",
 		"clusterHealthCheck is still being provisioned",
 		"request to process ClusterHealthCheck is still queued in one ore more clusters",
+		"feature is still being removed",
+		"remove pending",
 		cleanupInProgress,
 		agentCleanupQueued,
 		agentRemovingResource,

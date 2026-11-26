@@ -264,7 +264,7 @@ func (r *ClusterHealthCheckReconciler) undeployClusterHealthCheck(ctx context.Co
 
 		if !shardMatch && chc.Status.ClusterConditions[i].ClusterInfo.Status != libsveltosv1beta1.SveltosStatusRemoved {
 			// If shard is not a match, wait for other controller to remove
-			err = fmt.Errorf("remove pending")
+			err = keepFailure(err, errors.New(msgRemovePending))
 			continue
 		}
 
@@ -339,7 +339,9 @@ func (r *ClusterHealthCheckReconciler) processClusterHealthCheck(ctx context.Con
 	}
 	if !isHealthy {
 		failureMessage := msgAgentNotHealthy
-		logger.V(logs.LogInfo).Info(failureMessage)
+		// Not logged at info level: it is repeated at every reconciliation for as long as the agent is not
+		// healthy. The failure message is recorded in the ClusterHealthCheck status.
+		logger.V(logs.LogDebug).Info(failureMessage)
 		clusterInfo.FailureMessage = &failureMessage
 		clusterInfo.Status = libsveltosv1beta1.SveltosStatusFailedNonRetriable
 		return clusterInfo, nil
@@ -619,7 +621,7 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 		message := msgProvisioningInProgress
 		logger.V(logs.LogDebug).Info(message)
 		clusterInfo.FailureMessage = &message
-		return clusterInfo, fmt.Errorf("deploying %s still in progress. Wait before cleanup", f.id)
+		return clusterInfo, errors.New(msgProvisioningInProgress)
 	}
 
 	result := r.Deployer.GetResult(ctx, cluster.Namespace, cluster.Name, chc.Name, f.id,
@@ -628,7 +630,7 @@ func (r *ClusterHealthCheckReconciler) removeClusterHealthCheck(ctx context.Cont
 
 	if status != nil {
 		if *status == libsveltosv1beta1.SveltosStatusRemoving {
-			return clusterInfo, fmt.Errorf("feature is still being removed")
+			return clusterInfo, errors.New(msgStillBeingRemoved)
 		}
 
 		if *status == libsveltosv1beta1.SveltosStatusRemoved {
